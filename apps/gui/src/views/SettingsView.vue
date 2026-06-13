@@ -9,6 +9,7 @@ import { ArrowBackOutline, SettingsOutline, TrashOutline, FolderOpenOutline } fr
 import { useAria2 } from '@/composables/useAria2'
 import { useAria2Manager } from '@/composables/useAria2Manager'
 import { useOpenCode } from '@/composables/useOpenCode'
+import { useAIProvider } from '@/composables/useAIProvider'
 import { theme, language, t } from '@/composables/useSettings'
 
 const router = useRouter()
@@ -16,6 +17,7 @@ const message = useMessage()
 const aria2 = useAria2()
 const manager = useAria2Manager()
 const openCode = useOpenCode()
+const aiProvider = useAIProvider()
 
 const activeTab = ref('ai-model')
 
@@ -51,6 +53,51 @@ watch([llmEndpoint, llmApiKey, llmModel], () => {
     }
   })
 }, { immediate: true })
+
+// ---- BYOK AI Provider options ----
+/** Provider options for the AI provider dropdown. */
+const providerOptions = computed(() =>
+  aiProvider.availableProviders.value.map((p) => ({
+    label: p.name,
+    value: p.id,
+  })),
+)
+
+/** Whether the current provider requires an API key. */
+const requiresApiKey = computed(() => aiProvider.currentProvider.value.requiresKey)
+
+/** Whether the current provider uses a custom base URL (Ollama). */
+const needsBaseUrl = computed(() => aiProvider.config.value.provider === 'ollama')
+
+/**
+ * Sync the BYOK provider configuration to the legacy LLM endpoint format
+ * so the existing useOpenCode integration continues to function.
+ */
+watch(
+  () => aiProvider.config.value,
+  (cfg) => {
+    if (cfg.provider === 'opencode') {
+      llmEndpoint.value = ''
+      return
+    }
+    if (cfg.provider === 'anthropic') {
+      llmEndpoint.value = 'https://api.anthropic.com/v1/chat/completions'
+      llmApiKey.value = cfg.apiKey ?? ''
+      llmModel.value = cfg.model
+    } else if (cfg.provider === 'openai') {
+      llmEndpoint.value = 'https://api.openai.com/v1/chat/completions'
+      llmApiKey.value = cfg.apiKey ?? ''
+      llmModel.value = cfg.model
+    } else if (cfg.provider === 'ollama') {
+      llmEndpoint.value = cfg.baseUrl
+        ? `${cfg.baseUrl.replace(/\/$/, '')}/v1/chat/completions`
+        : 'http://127.0.0.1:11434/v1/chat/completions'
+      llmApiKey.value = ''
+      llmModel.value = cfg.model
+    }
+  },
+  { deep: true, immediate: true },
+)
 
 // ---- Download settings ----
 const downloadDir = useLocalStorage<string>('motrix-ai:download-dir', '~/Downloads/Motrix AI')
@@ -225,23 +272,86 @@ async function applyAria2Settings() {
             <h3>{{ t('settings.aiModel') }}</h3>
 
             <NAlert type="info" :bordered="false" style="margin-bottom: 16px">
-              不配置 LLM 也能用——内置启发式解析器自动提取标题、画质、年份。
-              配置 OpenAI 兼容 API 后，AI 解析更精准（支持模糊描述、口语化表达）。
+              Choose an AI provider for natural-language download parsing.
+              OpenCode is free with zero configuration; bring your own key for
+              Anthropic Claude or OpenAI GPT, or run Ollama locally.
             </NAlert>
 
+            <!-- BYOK Provider Selection -->
             <div class="setting-group">
-              <label>当前模式</label>
-              <NInput :value="currentModel" readonly />
-              <p class="setting-hint">留空 Endpoint = 零配置启发式模式；填入 = AI 模式</p>
+              <label>Provider</label>
+              <NSelect
+                :value="aiProvider.config.value.provider"
+                :options="providerOptions"
+                @update:value="aiProvider.setProvider"
+              />
+              <p class="setting-hint">Select your preferred AI backend.</p>
             </div>
 
             <div class="setting-group">
-              <label>API Endpoint (OpenAI 兼容)</label>
+              <label>Model</label>
+              <NSelect
+                :value="aiProvider.config.value.model"
+                :options="aiProvider.modelOptions.value"
+                @update:value="aiProvider.setModel"
+              />
+            </div>
+
+            <div v-if="requiresApiKey" class="setting-group">
+              <label>API Key</label>
+              <NInput
+                :value="aiProvider.config.value.apiKey"
+                type="password"
+                show-password-on="click"
+                placeholder="sk-..."
+                @update:value="aiProvider.setApiKey"
+              />
+              <p class="setting-hint">
+                Your key is stored locally and never sent anywhere except the provider's API.
+              </p>
+            </div>
+
+            <div v-if="needsBaseUrl" class="setting-group">
+              <label>Base URL</label>
+              <NInput
+                :value="aiProvider.config.value.baseUrl"
+                placeholder="http://127.0.0.1:11434"
+                @update:value="aiProvider.setBaseUrl"
+              />
+              <p class="setting-hint">Ollama server address. Default: http://127.0.0.1:11434</p>
+            </div>
+
+            <div class="setting-group">
+              <label>Connection Status</label>
+              <div class="status-indicator">
+                <span
+                  class="status-dot"
+                  :class="openCode.connected.value ? 'connected' : 'disconnected'"
+                ></span>
+                <span>{{ openCode.connected.value ? 'Ready' : 'Disconnected' }}</span>
+              </div>
+            </div>
+
+            <NDivider />
+
+            <!-- Advanced: manual OpenAI-compatible endpoint -->
+            <h4 style="margin-bottom: 16px">Advanced — Custom Endpoint</h4>
+
+            <div class="setting-group">
+              <label>Current Mode</label>
+              <NInput :value="currentModel" readonly />
+              <p class="setting-hint">Leave empty Endpoint = heuristic mode; fill in = AI mode</p>
+            </div>
+
+            <div class="setting-group">
+              <label>API Endpoint (OpenAI Compatible)</label>
               <NInput
                 v-model:value="llmEndpoint"
                 placeholder="https://api.openai.com/v1/chat/completions"
               />
-              <p class="setting-hint">支持 OpenAI / DeepSeek / Ollama / 任何 OpenAI 兼容 API</p>
+              <p class="setting-hint">
+                Supports OpenAI / DeepSeek / Ollama / any OpenAI-compatible API
+              </p>
             </div>
 
             <div class="setting-group">
@@ -252,7 +362,7 @@ async function applyAria2Settings() {
                 show-password-on="click"
                 placeholder="sk-..."
               />
-              <p class="setting-hint">本地 Ollama 无需填 Key</p>
+              <p class="setting-hint">Local Ollama does not require a key.</p>
             </div>
 
             <div class="setting-group">
@@ -261,14 +371,6 @@ async function applyAria2Settings() {
                 v-model:value="llmModel"
                 placeholder="gpt-4o-mini / deepseek-chat / qwen2.5:7b"
               />
-            </div>
-
-            <div class="setting-group">
-              <label>连接状态</label>
-              <div class="status-indicator">
-                <span class="status-dot" :class="openCode.connected.value ? 'connected' : 'disconnected'"></span>
-                <span>{{ openCode.connected.value ? '已就绪' : '未连接' }}</span>
-              </div>
             </div>
           </div>
         </NTabPane>
