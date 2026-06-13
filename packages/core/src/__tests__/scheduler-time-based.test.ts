@@ -6,6 +6,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { TimeScheduler } from '../scheduler/time-based.js'
 import type { ScheduleRule } from '../types.js'
+import type { Aria2Client } from '../aria2/client.js'
 
 function mockAria2() {
   return {
@@ -21,12 +22,12 @@ const rules: ScheduleRule[] = [
 describe('TimeScheduler', () => {
   it('constructs without error', () => {
     const aria2 = mockAria2()
-    expect(() => new TimeScheduler(aria2 as any, rules)).not.toThrow()
+    expect(() => new TimeScheduler(aria2 as unknown as Aria2Client, rules)).not.toThrow()
   })
 
   it('start triggers an immediate tick', () => {
     const aria2 = mockAria2()
-    const scheduler = new TimeScheduler(aria2 as any, rules)
+    const scheduler = new TimeScheduler(aria2 as unknown as Aria2Client, rules)
     scheduler.start()
     // tick is called immediately — setGlobalSpeedLimit may or may not be called
     // depending on current time, but start should not throw
@@ -35,7 +36,7 @@ describe('TimeScheduler', () => {
 
   it('stop clears the timer', () => {
     const aria2 = mockAria2()
-    const scheduler = new TimeScheduler(aria2 as any, rules)
+    const scheduler = new TimeScheduler(aria2 as unknown as Aria2Client, rules)
     scheduler.start()
     scheduler.stop()
     // Calling stop again should be a no-op
@@ -44,7 +45,7 @@ describe('TimeScheduler', () => {
 
   it('start is idempotent (double-start does not create two timers)', () => {
     const aria2 = mockAria2()
-    const scheduler = new TimeScheduler(aria2 as any, rules)
+    const scheduler = new TimeScheduler(aria2 as unknown as Aria2Client, rules)
     scheduler.start()
     scheduler.start()
     scheduler.stop()
@@ -52,7 +53,7 @@ describe('TimeScheduler', () => {
 
   it('handles empty rules array gracefully', () => {
     const aria2 = mockAria2()
-    const scheduler = new TimeScheduler(aria2 as any, [])
+    const scheduler = new TimeScheduler(aria2 as unknown as Aria2Client, [])
     scheduler.start()
     scheduler.stop()
     // setGlobalSpeedLimit should not be called with no rules

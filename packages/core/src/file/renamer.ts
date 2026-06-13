@@ -21,7 +21,7 @@ export class FileRenamer {
     const ext = this.extractExt(ctx.original_filename);
     const dir = this.getDir(ctx.resource_type);
 
-    const titleClean = ctx.title.replace(/[\/\\:*?"<>|]/g, "").trim();
+    const titleClean = ctx.title.replace(/[/\\:*?"<>|]/g, "").trim();
     const folderName = ctx.year ? `${titleClean} (${ctx.year})` : titleClean;
     const fileName = ctx.quality && ctx.quality !== "other"
       ? `${titleClean}.${ctx.quality}.${ext}`

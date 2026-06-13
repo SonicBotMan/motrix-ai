@@ -3,14 +3,13 @@ import { ref, computed, onMounted } from "vue"
 import { useRouter } from "vue-router"
 import { invoke } from "@tauri-apps/api/core"
 import {
-  NButton, NIcon, NTag, NProgress, NCheckbox, NSpin, useMessage,
+  NButton, NIcon, NTag, useMessage,
 } from "naive-ui"
 import {
   SettingsOutline, DownloadOutline, PauseOutline,
   PlayOutline, RefreshOutline, FolderOpenOutline,
-  LinkOutline, CloudUploadOutline, ListOutline,
-  SearchOutline, MusicalNotesOutline, DocumentTextOutline,
-  ArchiveOutline, VideocamOutline, ClipboardOutline,
+  MusicalNotesOutline, DocumentTextOutline,
+  ArchiveOutline, VideocamOutline,
 } from "@vicons/ionicons5"
 import TaskDetailModal from "@/components/TaskDetailModal.vue"
 import SearchResultsModal from "@/components/SearchResultsModal.vue"
@@ -32,7 +31,7 @@ const tasksStore = useTasksStore()
 const chatStore = useChatStore()
 const configStore = useConfigStore()
 
-const { connected: openCodeConnected, parsing, parseIntent } = useOpenCode()
+const { connected: openCodeConnected, parseIntent } = useOpenCode()
 const { searchResults, searching, searchResources } = useSearch()
 const {
   subtitleResults, searching: subtitleSearching,
@@ -67,7 +66,7 @@ const activeFilter = computed<string>({
 
 const showSearchResults = ref(false)
 const searchQuery = ref("")
-const currentIntent = ref<any>(null)
+const currentIntent = ref<Record<string, unknown> | null>(null)
 
 // ---- Input state ----
 
@@ -280,9 +279,10 @@ const handleUrlSubmit = async () => {
       message.warning(t("msg.aria2NotConnected"))
     }
     urlInput.value = ""
-  } catch (e: any) {
+  } catch (e: unknown) {
     console.error("Failed to add URL:", e)
-    message.error(`${t("msg.addFailed")}: ${e?.message || t("msg.unknownError")}`)
+    const msg = e instanceof Error ? e.message : String(e)
+    message.error(`${t("msg.addFailed")}: ${msg || t("msg.unknownError")}`)
   }
 }
 

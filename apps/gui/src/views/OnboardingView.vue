@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { NButton, NInput, NSelect, NIcon } from 'naive-ui'
+import { NButton, NInput, NSelect } from 'naive-ui'
 import { DownloadOutline, FlashOutline, ShieldCheckmarkOutline, FolderOutline } from '@vicons/ionicons5'
 
 const router = useRouter()

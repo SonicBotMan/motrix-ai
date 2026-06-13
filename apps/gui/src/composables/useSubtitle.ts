@@ -184,7 +184,7 @@ async function searchOpenSubtitles(
       const attributes = item['attributes'] as Record<string, unknown> | undefined
       if (!attributes) continue
 
-      const featureDetails = (attributes['feature_details'] as Record<string, unknown>) || {}
+      const _featureDetails = (attributes['feature_details'] as Record<string, unknown>) || {}
       const files = attributes['files'] as Array<Record<string, unknown>> | undefined
       if (!files || files.length === 0) continue
 

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { NModal, NButton, NIcon, NProgress } from 'naive-ui'
+import { NModal, NButton, NIcon } from 'naive-ui'
 import {
   PauseOutline, PlayOutline, RefreshOutline,
   FolderOpenOutline, TrashOutline, CloseOutline,

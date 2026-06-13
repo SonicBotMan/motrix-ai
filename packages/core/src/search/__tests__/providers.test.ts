@@ -1,6 +1,6 @@
 // search/__tests__/providers.test.ts — Tests for search providers
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect } from "vitest";
 import { parseBtdigHtml, parseSizeToBytes } from "../btdig.js";
 import { parseMikanRss, parseAnimeTitle } from "../mikan.js";
 

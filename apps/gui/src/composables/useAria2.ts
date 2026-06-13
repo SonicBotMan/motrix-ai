@@ -49,6 +49,12 @@ export interface Aria2GlobalStat {
   numStoppedTotal: string
 }
 
+/** Diagnostic info returned by the Tauri `check_aria2_binary` command */
+interface Aria2BinaryDiagnostic {
+  exists: boolean
+  binary_path: string
+}
+
 export type ConnectionListener = (event: ConnectionEventType, detail?: string) => void
 
 export interface Aria2Options {
@@ -90,7 +96,7 @@ export function useAria2(opts: Aria2Options = {}) {
   let pollTimer: ReturnType<typeof setInterval> | null = null
   let reconnectAttempt = 0
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null
-  let childProcess: Awaited<ReturnType<typeof spawnAria2>> | null = null
+  let _childProcess: Awaited<ReturnType<typeof spawnAria2>> | null = null
   let disposed = false
 
   // ---- Event listeners ----
@@ -158,7 +164,7 @@ export function useAria2(opts: Aria2Options = {}) {
   const startAria2 = async () => {
     if (aria2Running.value) return
     try {
-      childProcess = await spawnAria2()
+      _childProcess = await spawnAria2()
       emitConnection('connected', 'aria2 process started')
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
@@ -179,7 +185,7 @@ export function useAria2(opts: Aria2Options = {}) {
     } catch (_) { /* process may already be gone */ }
 
     aria2Running.value = false
-    childProcess = null
+    _childProcess = null
     disconnect()
     emitConnection('disconnected', 'aria2 process stopped')
   }
@@ -226,7 +232,7 @@ export function useAria2(opts: Aria2Options = {}) {
     pollTimer = setInterval(async () => {
       try {
         await Promise.all([fetchAllTasks(), fetchGlobalStat()])
-      } catch (e) {
+      } catch (_e) {
         connected.value = false
         emitConnection('disconnected', 'Lost connection to aria2')
         stopPolling()
@@ -482,7 +488,7 @@ export function useAria2(opts: Aria2Options = {}) {
       const { invoke } = await import('@tauri-apps/api/core')
 
       // Diagnostic: check binary exists
-      const diag = await invoke<any>('check_aria2_binary')
+      const diag = await invoke<Aria2BinaryDiagnostic>('check_aria2_binary')
       console.log('aria2c binary diagnostic:', diag)
 
       if (!diag.exists) {

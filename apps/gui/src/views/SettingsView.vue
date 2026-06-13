@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, type Ref } from 'vue'
+import { ref, computed, watch, type Ref } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   NButton, NIcon, NTabs, NTabPane, NInput, NSwitch, NSelect, NSlider,
-  NInputNumber, NDivider, NAlert, NSpace, useMessage,
+  NInputNumber, NDivider, NAlert, useMessage,
 } from 'naive-ui'
 import { ArrowBackOutline, SettingsOutline, TrashOutline, FolderOpenOutline } from '@vicons/ionicons5'
 import { useAria2 } from '@/composables/useAria2'

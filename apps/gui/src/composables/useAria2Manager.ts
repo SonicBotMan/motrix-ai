@@ -340,7 +340,7 @@ export function useAria2Manager() {
       if (!Array.isArray(items)) throw new Error('Expected an array')
       return importDownloads(items as ExportedDownload[])
     } catch (e) {
-      throw new Error(`Invalid import data: ${e instanceof Error ? e.message : String(e)}`)
+      throw new Error(`Invalid import data: ${e instanceof Error ? e.message : String(e)}`, { cause: e })
     }
   }
 

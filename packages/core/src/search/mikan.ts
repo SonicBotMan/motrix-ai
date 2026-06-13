@@ -138,7 +138,7 @@ export function parseAnimeTitle(title: string): {
   }
 
   // Extract anime title: strip brackets and known patterns
-  let animeTitle = title
+  const animeTitle = title
     .replace(/\[[^\]]*\]/g, "") // Remove [subgroup] [quality] etc.
     .replace(/\b(1080[pi]|720[pi]|4K|2160p)\b/gi, "")
     .replace(/\b(EP?\s*\d+|第\d+[话集]|S\d+E\d+)\b/gi, "")
@@ -146,7 +146,7 @@ export function parseAnimeTitle(title: string): {
     .replace(/\b(x264|x265|HEVC|AVC|H\.?264|H\.?265|AAC|FLAC|AC3)\b/gi, "")
     .replace(/\.(mkv|mp4|avi|ts)$/i, "")
     .replace(/\s*[-–—]\s*$/, "")
-    .replace(/[_\.]+/g, " ")
+    .replace(/[._]+/g, " ")
     .trim();
 
   if (animeTitle) {

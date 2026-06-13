@@ -2,7 +2,7 @@
 // 对应 PRD §6.1 NL→结构化意图
 // 已验证：OpenCode SDK JSON Schema 结构化输出
 
-import type { DownloadIntent } from "../types.js";
+import type { DownloadIntent, Quality, ResourceType } from "../types.js";
 
 interface IntentParserOptions {
   baseUrl?: string; // OpenCode server URL，默认 http://127.0.0.1:4096
@@ -23,7 +23,7 @@ const INTENT_SCHEMA = {
 } as const;
 
 export class IntentParser {
-  private client: any = null;
+  private client: { session: { create: () => Promise<{ data: { id: string } | null }>; prompt: (params: Record<string, unknown>) => Promise<{ data: unknown }> } } | null = null;
   private sessionId: string | null = null;
   private baseUrl: string;
 
@@ -129,7 +129,18 @@ export class IntentParser {
         },
       });
 
-      const structured = (result.data as any)?.info?.structured;
+      interface StructuredResult {
+        title: string;
+        year?: number;
+        quality?: Quality;
+        need_subtitle?: boolean;
+        search_keywords: string[];
+        resource_type?: ResourceType;
+      }
+
+      const data = result.data as Record<string, unknown> | undefined;
+      const info = data?.["info"] as Record<string, unknown> | undefined;
+      const structured = info?.["structured"] as StructuredResult | undefined;
       if (!structured?.title || !structured?.search_keywords) {
         // OpenCode 返回无效结果，使用启发式解析
         return this.parseHeuristic(input);

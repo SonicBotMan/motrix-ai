@@ -3,7 +3,7 @@ import { ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { NButton, NIcon, NCheckbox, NEmpty, NSpin } from 'naive-ui'
 import {
-  ArrowBackOutline, DownloadOutline, PauseOutline,
+  ArrowBackOutline, PauseOutline,
   PlayOutline, RefreshOutline, FolderOpenOutline,
   MusicalNotesOutline, DocumentTextOutline, ArchiveOutline,
   VideocamOutline, TrashOutline, ArrowUpOutline, ArrowDownOutline,
@@ -12,11 +12,10 @@ import {
 import { useAria2Manager, type DownloadItem } from '@/composables/useAria2Manager'
 import { useAria2, type TaskStatus } from '@/composables/useAria2'
 import TaskDetailModal from '@/components/TaskDetailModal.vue'
-import { t } from '@/composables/useSettings'
 
 const router = useRouter()
 const manager = useAria2Manager()
-const aria2 = useAria2()
+const _aria2 = useAria2()
 
 // ---- Selection & Filter state ----
 const selectedGids = ref<Set<string>>(new Set())
