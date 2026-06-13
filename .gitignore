@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+.turbo/
+packages/core/dist/
+
+# Tauri build artifacts
+apps/gui/src-tauri/target/
+*.dmg
+*.app
+*.exe
+*.deb
+*.rpm
+*.AppImage
+
+# Tauri generated schemas (auto-regenerated)
+apps/gui/src-tauri/gen/
+
+# Environment
+.env
+.env.local
+.env.*
+
+# Database
+*.db
+*.db-shm
+*.db-wal
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
