@@ -159,7 +159,7 @@ export const useTasksStore = defineStore('tasks', () => {
         console.error("Bundled aria2c NOT FOUND at:", diag.binary_path)
       } else {
         await invoke<string>("start_aria2", { rpcPort: 6800 })
-        console.log("Bundled aria2c started")
+        console.warn("Bundled aria2c started")
       }
     } catch (e) {
       console.warn("Bundled aria2c failed:", e)
@@ -167,7 +167,7 @@ export const useTasksStore = defineStore('tasks', () => {
       try {
         await aria2.startAria2()
       } catch (_) {
-        console.log("System aria2c not available either")
+        console.warn("System aria2c not available either")
       }
     }
 

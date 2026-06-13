@@ -499,7 +499,7 @@ describe("TaskDatabase", () => {
 describe("QueueManager integration", () => {
   it("add() creates a download via aria2 and returns a Task", async () => {
     const aria2 = createMockAria2();
-    const queue = new QueueManager(aria2);
+    const _queue = new QueueManager(aria2);
 
     const task = await queue.add("magnet:?xt=urn:btih:abc", "Inception 2010");
 
@@ -511,7 +511,7 @@ describe("QueueManager integration", () => {
 
   it("add() passes directory option to aria2", async () => {
     const aria2 = createMockAria2();
-    const queue = new QueueManager(aria2);
+    const _queue = new QueueManager(aria2);
 
     await queue.add("https://example.com/file.zip", "query", { dir: "/custom/path" });
 
@@ -525,7 +525,7 @@ describe("QueueManager integration", () => {
     const aria2 = createMockAria2({
       mapToTask: vi.fn().mockReturnValue(customTask),
     });
-    const queue = new QueueManager(aria2);
+    const _queue = new QueueManager(aria2);
 
     const task = await queue.add("magnet:?test", "my NL query");
     expect(aria2.mapToTask).toHaveBeenCalledWith(
@@ -537,7 +537,7 @@ describe("QueueManager integration", () => {
 
   it("pause() delegates to aria2.pause", async () => {
     const aria2 = createMockAria2();
-    const queue = new QueueManager(aria2);
+    const _queue = new QueueManager(aria2);
 
     await queue.pause("gid-123");
     expect(aria2.pause).toHaveBeenCalledWith("gid-123");
@@ -545,7 +545,7 @@ describe("QueueManager integration", () => {
 
   it("resume() delegates to aria2.unpause", async () => {
     const aria2 = createMockAria2();
-    const queue = new QueueManager(aria2);
+    const _queue = new QueueManager(aria2);
 
     await queue.resume("gid-123");
     expect(aria2.unpause).toHaveBeenCalledWith("gid-123");
@@ -553,7 +553,7 @@ describe("QueueManager integration", () => {
 
   it("remove() delegates to aria2.remove", async () => {
     const aria2 = createMockAria2();
-    const queue = new QueueManager(aria2);
+    const _queue = new QueueManager(aria2);
 
     await queue.remove("gid-123");
     expect(aria2.remove).toHaveBeenCalledWith("gid-123");
@@ -561,7 +561,7 @@ describe("QueueManager integration", () => {
 
   it("getStatus() returns a mapped Task", async () => {
     const aria2 = createMockAria2();
-    const queue = new QueueManager(aria2);
+    const _queue = new QueueManager(aria2);
 
     const task = await queue.getStatus("gid-456");
     expect(aria2.tellStatus).toHaveBeenCalledWith("gid-456");
@@ -615,7 +615,7 @@ describe("QueueManager integration", () => {
         aria2_gid: status.gid,
       })),
     });
-    const queue = new QueueManager(aria2);
+    const _queue = new QueueManager(aria2);
 
     const tasks = await queue.listAll();
     expect(tasks).toHaveLength(3);
@@ -624,7 +624,7 @@ describe("QueueManager integration", () => {
 
   it("listAll() returns empty array when aria2 has no tasks", async () => {
     const aria2 = createMockAria2();
-    const queue = new QueueManager(aria2);
+    const _queue = new QueueManager(aria2);
 
     const tasks = await queue.listAll();
     expect(tasks).toEqual([]);
@@ -632,7 +632,7 @@ describe("QueueManager integration", () => {
 
   it("getStats() returns global statistics", async () => {
     const aria2 = createMockAria2();
-    const queue = new QueueManager(aria2);
+    const _queue = new QueueManager(aria2);
 
     const stats = await queue.getStats();
     expect(aria2.getGlobalStat).toHaveBeenCalled();
@@ -644,7 +644,7 @@ describe("QueueManager integration", () => {
     const aria2 = createMockAria2({
       addUri: vi.fn().mockRejectedValue(new Error("aria2 not running")),
     });
-    const queue = new QueueManager(aria2);
+    const _queue = new QueueManager(aria2);
 
     await expect(queue.add("magnet:?test")).rejects.toThrow("aria2 not running");
   });
@@ -660,7 +660,7 @@ describe("Queue → Database persistence pipeline", () => {
     db.init();
 
     const aria2 = createMockAria2();
-    const queue = new QueueManager(aria2);
+    const _queue = new QueueManager(aria2);
     const dbTask = makeTask({ id: "gid-mock-001" });
 
     // Simulate: QueueManager.add → Task → TaskDatabase.insert
