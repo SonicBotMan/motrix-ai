@@ -3,6 +3,7 @@ use serde::Serialize;
 /// Application-level error type for structured error handling across modules.
 /// Derives `Serialize` so it can be returned from Tauri commands.
 #[derive(Debug, Serialize, thiserror::Error)]
+#[allow(dead_code)]
 pub enum AppError {
     #[error("Aria2 error: {0}")]
     Aria2(String),

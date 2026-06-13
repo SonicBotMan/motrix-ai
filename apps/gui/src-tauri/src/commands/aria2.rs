@@ -211,7 +211,7 @@ pub async fn check_aria2_binary(app: tauri::AppHandle) -> Result<serde_json::Val
     };
     let executable = metadata
         .as_ref()
-        .map(|m| m.permissions().readonly() == false)
+        .map(|m| !m.permissions().readonly())
         .unwrap_or(false);
     let size = metadata.as_ref().map(|m| m.len()).unwrap_or(0);
 
