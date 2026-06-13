@@ -1,11 +1,8 @@
 mod commands;
 mod error;
+mod tray;
 
-use tauri::{
-    menu::{Menu, MenuItem},
-    tray::TrayIconBuilder,
-    Manager, WindowEvent,
-};
+use tauri::WindowEvent;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -25,51 +22,7 @@ pub fn run() {
             }
 
             // ---- System Tray ----
-            let show = MenuItem::with_id(app, "show", "显示 Motrix AI", true, None::<&str>)?;
-            let hide = MenuItem::with_id(app, "hide", "隐藏到托盘", true, None::<&str>)?;
-            let quit = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
-            let menu = Menu::with_items(app, &[&show, &hide, &quit])?;
-
-            TrayIconBuilder::new()
-                .icon(app.default_window_icon().unwrap().clone())
-                .tooltip("Motrix AI")
-                .menu(&menu)
-                .on_menu_event(|app, event| match event.id.as_ref() {
-                    "show" => {
-                        if let Some(window) = app.get_webview_window("main") {
-                            let _ = window.show();
-                            let _ = window.set_focus();
-                        }
-                    }
-                    "hide" => {
-                        if let Some(window) = app.get_webview_window("main") {
-                            let _ = window.hide();
-                        }
-                    }
-                    "quit" => {
-                        app.exit(0);
-                    }
-                    _ => {}
-                })
-                .on_tray_icon_event(|tray, event| {
-                    if let tauri::tray::TrayIconEvent::Click {
-                        button: tauri::tray::MouseButton::Left,
-                        button_state: tauri::tray::MouseButtonState::Up,
-                        ..
-                    } = event
-                    {
-                        let app = tray.app_handle();
-                        if let Some(window) = app.get_webview_window("main") {
-                            if window.is_visible().unwrap_or(false) {
-                                let _ = window.hide();
-                            } else {
-                                let _ = window.show();
-                                let _ = window.set_focus();
-                            }
-                        }
-                    }
-                })
-                .build(app)?;
+            tray::create_tray(&app.handle())?;
 
             // Auto-start bundled aria2c
             let handle = app.handle().clone();
@@ -105,6 +58,8 @@ pub fn run() {
             commands::intent::parse_nl_intent,
             commands::fs::organize_file,
             commands::fs::show_in_folder,
+            commands::request_notification_permission,
+            commands::send_notification,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

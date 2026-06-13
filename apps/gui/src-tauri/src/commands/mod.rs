@@ -42,6 +42,33 @@ pub struct DownloadIntent {
     pub raw_input: String,
 }
 
+/// Request notification permission from the OS.
+/// On desktop platforms permission is granted by default.
+#[tauri::command]
+pub async fn request_notification_permission() -> String {
+    "granted".to_string()
+}
+
+/// Send a desktop notification via tauri-plugin-notification.
+#[tauri::command]
+pub async fn send_notification(
+    app: tauri::AppHandle,
+    title: String,
+    body: Option<String>,
+) -> Result<(), String> {
+    use tauri_plugin_notification::NotificationExt;
+
+    let mut builder = app.notification().builder().title(&title);
+    if let Some(body_text) = body {
+        builder = builder.body(&body_text);
+    }
+    builder
+        .show()
+        .map_err(|e| format!("Failed to send notification: {}", e))?;
+
+    Ok(())
+}
+
 /// Build a shared HTTP client with timeout and User-Agent
 pub(crate) fn build_http_client() -> Result<reqwest::Client, String> {
     reqwest::Client::builder()

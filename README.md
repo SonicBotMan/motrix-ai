@@ -33,6 +33,47 @@ AI:  Found → Queued → Downloaded → Subtitled → Organized ✅
 - 🔌 **MCP server** — expose downloads to external AI agents via Model Context Protocol
 - 🌐 **Cross-platform** — macOS, Windows, and Linux from a single codebase
 
+## 📦 Installation
+
+### macOS
+
+```bash
+# Homebrew (recommended)
+brew tap SonicBotMan/motrix-ai
+brew install --cask motrix-ai
+
+# Or download .dmg from Releases
+```
+
+### Windows
+
+```bash
+# Scoop (recommended)
+scoop bucket add extras
+scoop install motrix-ai
+
+# Or download .exe from Releases
+```
+
+### Linux
+
+```bash
+# Debian/Ubuntu
+sudo dpkg -i motrix-ai_*.deb
+
+# Fedora/RHEL
+sudo rpm -i motrix-ai-*.rpm
+
+# Universal
+chmod +x motrix-ai_*.AppImage
+./motrix-ai_*.AppImage
+```
+
+> 💡 Pre-built binaries are published on the
+> [Releases](https://github.com/SonicBotMan/motrix-ai/releases) page.
+
+---
+
 ## 🚀 Quick Start
 
 ### Prerequisites
