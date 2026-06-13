@@ -9,10 +9,16 @@
 [![CI](https://github.com/SonicBotMan/motrix-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/SonicBotMan/motrix-ai/actions)
 [![Release](https://github.com/SonicBotMan/motrix-ai/actions/workflows/release.yml/badge.svg)](https://github.com/SonicBotMan/motrix-ai/releases)
 
+<div align="center">
+  <img src="docs/images/motrix-ai-mascot.jpg" alt="Motrix AI Mascot" width="400">
+  <p><strong>「高速下载 极简体验」</strong></p>
+</div>
+
+
 Motrix AI flips the download manager paradigm: instead of manually copying links and
 managing queues, you **tell the AI what you want in natural language**, and it handles
 resource discovery, download scheduling, subtitle matching, and file organization
-automatically.
+
 
 ```
 You: "Download Interstellar 4K with subtitles"
