@@ -2,8 +2,6 @@
 // 对应 PRD §6.1 Search Providers 并发查询
 
 import type { SearchResult, DownloadIntent } from "../types.js";
-import { BtdigSearchProvider } from "./btdig.js";
-import { MikanSearchProvider } from "./mikan.js";
 
 export { BtdigSearchProvider } from "./btdig.js";
 export { MikanSearchProvider } from "./mikan.js";

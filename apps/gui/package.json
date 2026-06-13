@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "lint": "eslint src/ --ext .ts,.vue",
     "dev": "vite",
     "build": "vue-tsc && vite build",
     "preview": "vite preview",

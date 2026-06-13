@@ -20,13 +20,6 @@ async function rateLimitedFetch(url: string, init?: RequestInit): Promise<Respon
 }
 
 /**
- * Decode subtitle file content from base64 (shooter API returns base64-encoded content)
- */
-function decodeBase64(b64: string): string {
-  return Buffer.from(b64, "base64").toString("utf-8");
-}
-
-/**
  * Parse shooter.cn API JSON response
  * Response format: [{ Desc: "", Files: [{ f: "filename", d: ["delay", "base64content"] }] }]
  */

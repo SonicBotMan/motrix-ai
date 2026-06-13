@@ -1,7 +1,7 @@
 // queue/manager.ts — 任务队列管理
 // 对应 PRD §6.2 任务队列与调度
 
-import type { Task, TaskStatus } from "../types.js";
+import type { Task } from "../types.js";
 import { Aria2Client } from "../aria2/client.js";
 
 export class QueueManager {

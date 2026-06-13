@@ -2,8 +2,6 @@
 // 对应 PRD §6.4 字幕发现与匹配
 
 import type { SubtitleEntry } from "../types.js";
-import { ShooterSource } from "./shooter.js";
-import { SubhdSource } from "./subhd.js";
 
 export { ShooterSource } from "./shooter.js";
 export { SubhdSource } from "./subhd.js";

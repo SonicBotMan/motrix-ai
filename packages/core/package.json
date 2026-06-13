@@ -9,6 +9,7 @@
     ".": { "import": "./dist/index.js", "types": "./dist/index.d.ts" }
   },
   "scripts": {
+    "lint": "eslint src/ --ext .ts",
     "build": "tsup src/index.ts --format esm --dts --outDir dist --external @opencode-ai/sdk",
     "dev": "tsup src/index.ts --format esm --dts --outDir dist --watch --external @opencode-ai/sdk",
     "test": "vitest run",
