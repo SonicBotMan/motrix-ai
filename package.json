@@ -40,6 +40,6 @@
     "lint-staged": "^17.0.7",
     "prettier": "^3.8.4",
     "turbo": "^2.9.18",
-    "vitest": "^2.1.9"
+    "vitest": "^3.2.6"
   }
 }
