@@ -89,19 +89,20 @@ importers:
         version: 5.9.3
 
   packages/core:
-    devDependencies:
+    dependencies:
       '@opencode-ai/sdk':
-        specifier: latest
+        specifier: ^1.17.4
         version: 1.17.4
+      better-sqlite3:
+        specifier: ^11.0.0
+        version: 11.10.0
+    devDependencies:
       '@types/better-sqlite3':
         specifier: ^7.6.0
         version: 7.6.13
       '@types/node':
         specifier: ^22.0.0
         version: 22.19.21
-      better-sqlite3:
-        specifier: ^11.0.0
-        version: 11.10.0
       tsup:
         specifier: ^8.0.0
         version: 8.5.1(postcss@8.5.15)(tsx@4.22.4)(typescript@5.9.3)

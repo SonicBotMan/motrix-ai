@@ -79,7 +79,7 @@ export function registerConfigCommand(program: Command): void {
       if (existing === undefined) {
         console.error(`❌ 未知的配置项: ${key}`)
         console.error("   使用 'motrix-ai config' 查看所有可用配置项。")
-        return
+        process.exit(1)
       }
 
       const updated = setNestedValue(config, key, value)

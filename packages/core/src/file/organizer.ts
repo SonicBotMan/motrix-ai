@@ -74,6 +74,7 @@ export class FileOrganizer {
     switch (resourceType) {
       case "movie":
       case "tv":
+      case "anime":
         dir = dl.movie_dir;
         break;
       case "software":

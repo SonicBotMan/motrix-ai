@@ -12,7 +12,7 @@ interface Task {
   id: number
   name: string
   source: string
-  status: 'downloading' | 'completed' | 'paused' | 'failed' | 'waiting'
+  status: 'downloading' | 'completed' | 'paused' | 'failed' | 'pending'
   progress: number
   speed: string
   size: string
@@ -51,7 +51,7 @@ const getStatusColor = (status: string) => {
     case 'downloading': return '#3B82F6'
     case 'completed': return '#10B981'
     case 'paused': return '#F59E0B'
-    case 'waiting': return '#94A3B8'
+    case 'pending': return '#94A3B8'
     case 'failed': return '#EF4444'
     default: return '#3B82F6'
   }
@@ -141,7 +141,7 @@ const formatTime = (date: Date) => {
               <span v-if="task.status === 'downloading'">↓ {{ task.speed }} · ETA {{ task.eta }}</span>
               <span v-else-if="task.status === 'completed'">Download complete</span>
               <span v-else-if="task.status === 'paused'">Paused</span>
-              <span v-else-if="task.status === 'waiting'">Waiting</span>
+              <span v-else-if="task.status === 'pending'">Pending</span>
               <span v-else-if="task.status === 'failed'">Download failed</span>
             </div>
           </div>

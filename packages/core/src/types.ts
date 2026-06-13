@@ -2,7 +2,7 @@
 // 对应 PRD §6.2 任务队列模型
 
 export type TaskStatus = "pending" | "downloading" | "paused" | "completed" | "failed";
-export type ResourceType = "movie" | "tv" | "software" | "music" | "other";
+export type ResourceType = "movie" | "tv" | "software" | "music" | "anime" | "other";
 export type Quality = "4K" | "1080p" | "720p" | "other";
 
 /** NL 解析后的结构化意图（对应 PRD §6.1） */

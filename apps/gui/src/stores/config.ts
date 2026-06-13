@@ -12,7 +12,7 @@ import { defineStore } from 'pinia'
 // ---------------------------------------------------------------------------
 
 export type AIProvider = 'opencode' | 'anthropic' | 'openai' | 'ollama'
-export type ResourceType = 'movie' | 'tv' | 'software' | 'music' | 'other'
+export type ResourceType = 'movie' | 'tv' | 'software' | 'music' | 'anime' | 'other'
 export type Quality = '4K' | '1080p' | '720p' | 'other'
 
 /** Time-based scheduling rule for download throttling */

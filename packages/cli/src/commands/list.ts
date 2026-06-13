@@ -31,11 +31,20 @@ function formatSize(bytes: number): string {
  * @param program - The commander program instance
  */
 export function registerListCommand(program: Command): void {
+  const VALID_STATUSES: TaskStatus[] = ["downloading", "paused", "completed", "failed", "pending"]
+
   program
     .command("list")
     .option("--status <status>", "按状态过滤: downloading/paused/completed/failed/pending")
     .description("查看当前下载队列")
     .action(async (options: { status?: TaskStatus }) => {
+      // 验证 --status 值
+      if (options.status && !VALID_STATUSES.includes(options.status)) {
+        console.error(`❌ 无效的状态值: ${options.status}`)
+        console.error(`   有效值: ${VALID_STATUSES.join("/")}`)
+        process.exit(1)
+      }
+
       const config = loadConfig()
       console.log("\n📥 当前任务列表:\n")
 

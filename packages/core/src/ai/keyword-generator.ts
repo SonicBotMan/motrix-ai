@@ -59,6 +59,9 @@ export class KeywordGenerator {
       case "tv":
         this.addTvKeywords(keywords, cleanTitle, year, quality);
         break;
+      case "anime":
+        this.addAnimeKeywords(keywords, cleanTitle, year, quality);
+        break;
       case "software":
         this.addSoftwareKeywords(keywords, cleanTitle);
         break;
@@ -140,6 +143,35 @@ export class KeywordGenerator {
     keywords.add(`${title} complete`);
     keywords.add(`${title} season`);
     keywords.add(`${title} S01`);
+
+    if (year) {
+      keywords.add(`${title} ${year}`);
+    }
+
+    if (quality && quality !== "other") {
+      keywords.add(`${title} ${quality}`);
+    }
+
+    for (const mod of ENGLISH_MODIFIERS) {
+      keywords.add(`${title} ${mod}`);
+    }
+  }
+
+  /**
+   * Anime keyword variants.
+   * Adds anime-specific search modifiers, fansub indicators, and bilingual terms.
+   */
+  private addAnimeKeywords(
+    keywords: Set<string>,
+    title: string,
+    year?: number,
+    quality?: Quality,
+  ): void {
+    keywords.add(`${title} anime`);
+    keywords.add(`${title} 动漫`);
+    keywords.add(`${title} 番剧`);
+    keywords.add(`${title} BD`);
+    keywords.add(`${title} season`);
 
     if (year) {
       keywords.add(`${title} ${year}`);

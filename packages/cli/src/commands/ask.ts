@@ -29,6 +29,7 @@ export function registerAskCommand(program: Command): void {
     .command("ask")
     .argument("<query>", "自然语言描述你想要下载的内容")
     .description("用自然语言描述下载需求，AI 自动搜索并入队")
+    .addHelpText("after", '\nExample:\n  $ motrix-ai ask "下流浪地球 2 4K 字幕版"')
     .action(async (query: string) => {
       const config = loadConfig()
       console.log(`\n🤖 正在分析: "${query}"\n`)

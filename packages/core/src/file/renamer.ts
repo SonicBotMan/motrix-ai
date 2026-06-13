@@ -40,10 +40,15 @@ export class FileRenamer {
   private getDir(resourceType: ResourceType): string {
     switch (resourceType) {
       case "movie":
-      case "tv":       return "Movies";
-      case "software": return "Software";
-      case "music":    return "Music";
-      default:         return "Other";
+      case "tv":
+      case "anime":
+        return "Movies";
+      case "software":
+        return "Software";
+      case "music":
+        return "Music";
+      default:
+        return "Other";
     }
   }
 

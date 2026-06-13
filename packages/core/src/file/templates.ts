@@ -12,6 +12,7 @@ export const DEFAULT_TEMPLATES: Record<ResourceType, string> = {
   tv: "{title}/Season {season}/{title} S{season}E{episode}.{ext}",
   software: "{title}/{filename}",
   music: "{title}/{filename}",
+  anime: "{title}/{title}.{quality}.{ext}",
   other: "{filename}",
 };
 

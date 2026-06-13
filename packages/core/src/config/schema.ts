@@ -15,7 +15,7 @@ import { DEFAULT_CONFIG } from "./loader.js";
 // ---------------------------------------------------------------------------
 
 const VALID_PROVIDERS = ["opencode", "anthropic", "openai", "ollama"] as const;
-const VALID_RESOURCE_TYPES = ["movie", "tv", "software", "music", "other"] as const;
+const VALID_RESOURCE_TYPES = ["movie", "tv", "software", "music", "anime", "other"] as const;
 
 // ---------------------------------------------------------------------------
 // 基础类型检查 & 断言

@@ -14,6 +14,7 @@ const SIZE_RANGES: Record<ResourceType, [number, number]> = {
   tv: [1 * GB, 80 * GB],
   software: [10 * MB, 10 * GB],
   music: [10 * MB, 2 * GB],
+  anime: [200 * MB, 60 * GB],
   other: [0, Infinity],
 };
 

@@ -1,199 +1,216 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
-import { useRouter } from 'vue-router'
-import { invoke } from '@tauri-apps/api/core'
+import { ref, computed, onMounted } from "vue"
+import { useRouter } from "vue-router"
+import { invoke } from "@tauri-apps/api/core"
 import {
-  NButton, NIcon, NTag, NProgress, NCheckbox, NSpin, useMessage
-} from 'naive-ui'
+  NButton, NIcon, NTag, NProgress, NCheckbox, NSpin, useMessage,
+} from "naive-ui"
 import {
   SettingsOutline, DownloadOutline, PauseOutline,
   PlayOutline, RefreshOutline, FolderOpenOutline,
   LinkOutline, CloudUploadOutline, ListOutline,
   SearchOutline, MusicalNotesOutline, DocumentTextOutline,
-  ArchiveOutline, VideocamOutline, ClipboardOutline
-} from '@vicons/ionicons5'
-import TaskDetailModal from '@/components/TaskDetailModal.vue'
-import SearchResultsModal from '@/components/SearchResultsModal.vue'
-import { useAria2 } from '@/composables/useAria2'
-import { useOpenCode } from '@/composables/useOpenCode'
-import { useSearch } from '@/composables/useSearch'
-import type { SearchResult } from '@/composables/useSearch'
-import { useSubtitle } from '@/composables/useSubtitle'
-import { isDark, language, t } from '@/composables/useSettings'
+  ArchiveOutline, VideocamOutline, ClipboardOutline,
+} from "@vicons/ionicons5"
+import TaskDetailModal from "@/components/TaskDetailModal.vue"
+import SearchResultsModal from "@/components/SearchResultsModal.vue"
+import { useTasksStore, type Task } from "@/stores/tasks"
+import { useChatStore } from "@/composables/useChatStore"
+import { useConfigStore } from "@/stores/config"
+import { useOpenCode } from "@/composables/useOpenCode"
+import { useSearch } from "@/composables/useSearch"
+import type { SearchResult } from "@/composables/useSearch"
+import { useSubtitle } from "@/composables/useSubtitle"
+import type { SubtitleResult } from "@/composables/useSubtitle"
+import { t } from "@/composables/useSettings"
+
+// ---- Stores & composables ----
 
 const router = useRouter()
 const message = useMessage()
-const { connected: aria2Connected, globalStat, tasks: aria2Tasks, addUri, pause, unpause, remove, onTaskComplete } = useAria2()
+const tasksStore = useTasksStore()
+const chatStore = useChatStore()
+const configStore = useConfigStore()
+
 const { connected: openCodeConnected, parsing, parseIntent } = useOpenCode()
 const { searchResults, searching, searchResources } = useSearch()
-const { subtitleResults, searching: subtitleSearching, searchSubtitles, getBestSubtitle, autoSearch } = useSubtitle()
+const {
+  subtitleResults, searching: subtitleSearching,
+  searchSubtitles, getBestSubtitle, autoSearch,
+} = useSubtitle()
 
-// Search state
+// ---- Store-derived reactive state ----
+
+/** All tasks (used for the header count badge). */
+const tasks = computed<Task[]>(() => tasksStore.tasks)
+/** Tasks filtered by the active filter (used in the table body). */
+const filteredTasks = computed<Task[]>(() => tasksStore.filteredTasks)
+/** Number of tasks currently downloading. */
+const activeCount = computed(() => tasksStore.activeCount)
+/** Whether aria2 RPC is connected. */
+const aria2Connected = computed(() => tasksStore.aria2Connected)
+/** Global aria2 statistics (download speed, etc.). */
+const globalStat = computed(() => tasksStore.globalStat)
+/** Whether subtitles are enabled in the config. */
+const subtitlesEnabled = computed(() => configStore.config.subtitles.enabled)
+
+/**
+ * Two-way binding for the task filter that delegates to the store.
+ * The template reads and writes this computed transparently.
+ */
+const activeFilter = computed<string>({
+  get: () => tasksStore.activeFilter,
+  set: (v: string) => tasksStore.setFilter(v),
+})
+
+// ---- Search / intent state ----
+
 const showSearchResults = ref(false)
-const searchQuery = ref('')
-const currentIntent = ref<any>(null) // Store parsed intent for subtitle search
+const searchQuery = ref("")
+const currentIntent = ref<any>(null)
+
+// ---- Input state ----
+
+const urlInput = ref("")
+const chatInput = ref("")
+const urlInputRef = ref<HTMLInputElement | null>(null)
+
+// ---- Modal state ----
+
+const showModal = ref(false)
+const selectedTask = ref<Task | null>(null)
+
+// ---- Demo tasks (seeded into the store on mount) ----
+
+/**
+ * Demo tasks shown when aria2 has no active downloads.
+ * Seeded into the store's `localTasks` so the UI stays populated.
+ */
+const demoTasks: Task[] = [
+  { id: 1, name: "ubuntu-24.04-desktop-amd64.iso", source: "releases.ubuntu.com", status: "downloading", progress: 84, speed: "24.6 MB/s", size: "4.8 GB / 5.7 GB", eta: "38s", type: "document" },
+  { id: 2, name: "The.Weeknd.-.Dawn.FM.2025.mp3", source: "qobuz.com", status: "downloading", progress: 62, speed: "8.2 MB/s", size: "142 MB / 228 MB", eta: "10s", type: "audio" },
+  { id: 3, name: "ubuntu-24.04-desktop-amd64.iso", source: "magnet:?xt=urn:btih:...", status: "downloading", progress: 35, speed: "9.8 MB/s", size: "2.0 GB / 5.7 GB", eta: "6m 24s", type: "torrent" },
+  { id: 4, name: "Arch_Linux_2025.03.01-x86_64.iso", source: "archlinux.org", status: "completed", progress: 100, speed: "—", size: "876 MB / 876 MB", eta: "—", type: "document" },
+  { id: 5, name: "VSCode_macOS_arm64_1.96.zip", source: "code.visualstudio.com", status: "paused", progress: 73, speed: "—", size: "178 MB / 245 MB", eta: "—", type: "archive" },
+  { id: 6, name: "Big_Buck_Bunny_2160p.mkv", source: "archive.org", status: "failed", progress: 12, speed: "—", size: "214 MB / 1.8 GB", eta: "—", type: "video" },
+]
+
+onMounted(async () => {
+  // The store's useAria2 lifecycle hooks don't fire inside a Pinia setup
+  // store, so we must call init() explicitly from a real component.
+  await tasksStore.init()
+  // Seed demo tasks when aria2 is unavailable so the UI stays populated.
+  if (!tasksStore.aria2Connected && tasksStore.localTasks.length === 0) {
+    tasksStore.localTasks.push(...demoTasks)
+  }
+})
 
 // ---- Download completion handler: notification + auto-organize ----
-onTaskComplete(async (task) => {
-  const filename = task.files?.[0]?.path?.split('/').pop() || task.bittorrent?.info?.name || task.gid
+
+tasksStore.onTaskComplete(async (task) => {
+  const filename = task.files?.[0]?.path?.split("/").pop()
+    || task.bittorrent?.info?.name
+    || task.gid
   const filePath = task.files?.[0]?.path
 
   // 1. System notification
   try {
-    const { isPermissionGranted, requestPermission, sendNotification } = await import('@tauri-apps/plugin-notification')
+    const { isPermissionGranted, requestPermission, sendNotification } = await import("@tauri-apps/plugin-notification")
     let granted = await isPermissionGranted()
     if (!granted) {
       const perm = await requestPermission()
-      granted = perm === 'granted'
+      granted = perm === "granted"
     }
     if (granted) {
       sendNotification({
-        title: '✅ 下载完成',
+        title: t("msg.downloadComplete"),
         body: filename,
       })
     }
   } catch (e) {
-    console.warn('Notification failed:', e)
+    console.warn("Notification failed:", e)
   }
 
   // 2. Auto-organize file (categorize + rename + move)
   if (filePath) {
     try {
-      const newPath = await invoke<string>('organize_file', {
+      const newPath = await invoke<string>("organize_file", {
         filePath,
         title: currentIntent.value?.title || undefined,
         year: currentIntent.value?.year || undefined,
         quality: currentIntent.value?.quality || undefined,
         resourceType: currentIntent.value?.resource_type || undefined,
       })
-      message.success(`已整理: ${newPath.split('/').pop()}`)
-      console.log('File organized to:', newPath)
+      message.success(`${t("msg.organized")}: ${newPath.split("/").pop()}`)
+      console.log("File organized to:", newPath)
     } catch (e) {
-      console.warn('Auto-organize failed:', e)
+      console.warn("Auto-organize failed:", e)
       // Not critical — file stays in download dir
     }
   }
 
   // 3. Auto-search subtitles if intent requires it
   if (currentIntent.value?.need_subtitle && filePath) {
-    // Will be handled by subtitle composable
+    // Handled by subtitle composable flow
   }
 })
 
-interface Task {
-  id: number
-  gid?: string
-  name: string
-  source: string
-  status: 'downloading' | 'completed' | 'paused' | 'failed' | 'waiting'
-  progress: number
-  speed: string
-  size: string
-  eta: string
-  type: 'video' | 'audio' | 'document' | 'archive' | 'torrent'
-  filePath?: string
-}
+// ---- UI helpers ----
 
-// Mock tasks for demo (when aria2 is empty)
-const mockTasks = ref<Task[]>([
-  { id: 1, name: 'ubuntu-24.04-desktop-amd64.iso', source: 'releases.ubuntu.com', status: 'downloading', progress: 84, speed: '24.6 MB/s', size: '4.8 GB / 5.7 GB', eta: '38s', type: 'document' },
-  { id: 2, name: 'The.Weeknd.-.Dawn.FM.2025.mp3', source: 'qobuz.com', status: 'downloading', progress: 62, speed: '8.2 MB/s', size: '142 MB / 228 MB', eta: '10s', type: 'audio' },
-  { id: 3, name: 'ubuntu-24.04-desktop-amd64.iso', source: 'magnet:?xt=urn:btih:...', status: 'downloading', progress: 35, speed: '9.8 MB/s', size: '2.0 GB / 5.7 GB', eta: '6m 24s', type: 'torrent' },
-  { id: 4, name: 'Arch_Linux_2025.03.01-x86_64.iso', source: 'archlinux.org', status: 'completed', progress: 100, speed: '—', size: '876 MB / 876 MB', eta: '—', type: 'document' },
-  { id: 5, name: 'VSCode_macOS_arm64_1.96.zip', source: 'code.visualstudio.com', status: 'paused', progress: 73, speed: '—', size: '178 MB / 245 MB', eta: '—', type: 'archive' },
-  { id: 6, name: 'Big_Buck_Bunny_2160p.mkv', source: 'archive.org', status: 'failed', progress: 12, speed: '—', size: '214 MB / 1.8 GB', eta: '—', type: 'video' },
-])
-
-// Convert aria2 status to our Task format
-const mapAria2Status = (status: string) => {
-  switch (status) {
-    case 'active': return 'downloading'
-    case 'complete': return 'completed'
-    case 'paused': return 'paused'
-    case 'error': return 'failed'
-    case 'waiting': return 'waiting'
-    default: return 'waiting'
-  }
-}
-
-const getTypeFromFilename = (filename: string): Task['type'] => {
-  const ext = filename.split('.').pop()?.toLowerCase() || ''
-  if (['mkv', 'mp4', 'avi', 'mov', 'wmv'].includes(ext)) return 'video'
-  if (['mp3', 'flac', 'wav', 'aac', 'ogg'].includes(ext)) return 'audio'
-  if (['zip', 'rar', '7z', 'tar', 'gz'].includes(ext)) return 'archive'
-  if (['torrent'].includes(ext)) return 'torrent'
-  return 'document'
-}
-
-// Merge aria2 tasks with mock tasks
-const tasks = computed<Task[]>(() => {
-  if (aria2Tasks.value.length > 0) {
-    return aria2Tasks.value.map((t, idx) => {
-      const total = Number(t.totalLength) || 0
-      const completed = Number(t.completedLength) || 0
-      const progress = total > 0 ? Math.round((completed / total) * 100) : 0
-      const speed = Number(t.downloadSpeed) || 0
-      const filename = t.files?.[0]?.path?.split('/').pop() || t.bittorrent?.info?.name || `Task ${t.gid}`
-      
-      return {
-        id: idx + 1,
-        gid: t.gid,
-        name: filename,
-        source: t.files?.[0]?.uris?.[0]?.uri || 'magnet:?xt=urn:btih:...',
-        status: mapAria2Status(t.status) as Task['status'],
-        progress,
-        speed: speed > 0 ? `${(speed / 1024 / 1024).toFixed(1)} MB/s` : '—',
-        size: `${(completed / 1024 / 1024).toFixed(0)} MB / ${(total / 1024 / 1024).toFixed(0)} MB`,
-        eta: speed > 0 && total > completed ? `${Math.round((total - completed) / speed)}s` : '—',
-        type: getTypeFromFilename(filename),
-        filePath: t.files?.[0]?.path,
-      }
-    })
-  }
-  return mockTasks.value
-})
-
-const activeFilter = ref('all')
-const urlInput = ref('')
-const chatInput = ref('')
-const urlInputRef = ref<HTMLInputElement | null>(null)
-
-// Modal state
-const showModal = ref(false)
-const selectedTask = ref<Task | null>(null)
-
-const filteredTasks = computed(() => {
-  if (activeFilter.value === 'all') return tasks.value
-  return tasks.value.filter(t => t.status === activeFilter.value)
-})
-
-const activeCount = computed(() => tasks.value.filter(t => t.status === 'downloading').length)
-
+/** Map a task type to its icon component. */
 const getTypeIcon = (type: string) => {
   switch (type) {
-    case 'video': return VideocamOutline
-    case 'audio': return MusicalNotesOutline
-    case 'document': return DocumentTextOutline
-    case 'archive': return ArchiveOutline
-    case 'torrent': return DownloadOutline
+    case "video": return VideocamOutline
+    case "audio": return MusicalNotesOutline
+    case "document": return DocumentTextOutline
+    case "archive": return ArchiveOutline
+    case "torrent": return DownloadOutline
     default: return DocumentTextOutline
   }
 }
 
+/** Return the status string for CSS class binding. */
 const getStatusClass = (status: string) => {
   return status
 }
 
+/** Return a hex progress-bar color for the given status. */
 const getProgressColor = (status: string) => {
   switch (status) {
-    case 'downloading': return '#3B82F6'
-    case 'completed': return '#10B981'
-    case 'paused': return '#F59E0B'
-    case 'failed': return '#EF4444'
-    default: return '#3B82F6'
+    case "downloading": return "#3B82F6"
+    case "completed": return "#10B981"
+    case "paused": return "#F59E0B"
+    case "failed": return "#EF4444"
+    default: return "#3B82F6"
   }
 }
 
+// ---- Task actions (delegate to store) ----
+
+/** Pause a downloading task via the store. */
+const pauseTask = (taskId: number) => {
+  void tasksStore.pauseTask(taskId)
+}
+
+/** Resume a paused task via the store. */
+const resumeTask = (taskId: number) => {
+  void tasksStore.resumeTask(taskId)
+}
+
+/** Retry a failed task via the store (handles both aria2 and local). */
+const retryTask = (taskId: number) => {
+  void tasksStore.retryTask(taskId)
+}
+
+/** Cancel and remove a task via the store, then close the detail modal. */
+const cancelTask = async (taskId: number) => {
+  await tasksStore.removeTask(taskId)
+  closeModal()
+}
+
+// ---- Modal ----
+
+/** Open the detail modal for a task by id. */
 const openDetail = (taskId: number) => {
   const task = tasks.value.find(t => t.id === taskId)
   if (task) {
@@ -202,87 +219,41 @@ const openDetail = (taskId: number) => {
   }
 }
 
+/** Close the detail modal. */
 const closeModal = () => {
   showModal.value = false
   selectedTask.value = null
 }
 
-const pauseTask = async (taskId: number) => {
-  const task = tasks.value.find(t => t.id === taskId)
-  if (task?.gid) {
-    try {
-      await pause(task.gid)
-    } catch (e) {
-      console.error('Failed to pause:', e)
-    }
-  } else if (task) {
-    // Mock mode
-    task.status = 'paused'
-    task.speed = '—'
-    task.eta = '—'
-  }
-}
-
-const resumeTask = async (taskId: number) => {
-  const task = tasks.value.find(t => t.id === taskId)
-  if (task?.gid) {
-    try {
-      await unpause(task.gid)
-    } catch (e) {
-      console.error('Failed to resume:', e)
-    }
-  } else if (task) {
-    // Mock mode
-    task.status = 'downloading'
-    task.speed = '24.6 MB/s'
-    task.eta = '38s'
-  }
-}
-
-const retryTask = (taskId: number) => {
-  const task = tasks.value.find(t => t.id === taskId)
-  if (task) {
-    task.status = 'downloading'
-    task.progress = 0
-    task.speed = '24.6 MB/s'
-    task.eta = 'calculating...'
-  }
-}
-
-const cancelTask = (taskId: number) => {
-  // Use aria2 remove function if available
-  const task = tasks.value.find(t => t.id === taskId)
-  if (task?.source.startsWith('magnet:') || task?.source.startsWith('http')) {
-    // For real aria2 tasks, we would need the GID
-    // For now, just close the modal
-  }
-  closeModal()
-}
-
+/** Open the folder containing a completed task's file. */
 const openLocation = async (taskId: number) => {
   const task = tasks.value.find(t => t.id === taskId)
   if (!task?.filePath) {
-    message.warning('No file path available')
+    message.warning(t("msg.noFilePath"))
     return
   }
   try {
-    await invoke('show_in_folder', { path: task.filePath })
+    await invoke("show_in_folder", { path: task.filePath })
   } catch (e) {
-    console.error('Failed to open folder:', e)
+    console.error("Failed to open folder:", e)
     // Fallback: copy path to clipboard
-    const dir = task.filePath.substring(0, task.filePath.lastIndexOf('/'))
+    const dir = task.filePath.substring(0, task.filePath.lastIndexOf("/"))
     navigator.clipboard.writeText(dir).then(() => {
-      message.success(`Path copied: ${dir}`)
+      message.success(`${t("msg.pathCopied")}: ${dir}`)
     }).catch(() => {
-      message.info(`File location: ${dir}`)
+      message.info(`${t("msg.fileLocation")}: ${dir}`)
     })
   }
 }
 
+// ---- Input handlers ----
+
+/** Clear all completed tasks via the store. */
 const handleClearCompleted = () => {
-  mockTasks.value = mockTasks.value.filter(t => t.status !== 'completed')
+  void tasksStore.clearCompleted()
 }
 
+/** Paste a URL from the clipboard into the URL input field. */
 const handlePasteLink = async () => {
   try {
     const text = await navigator.clipboard.readText()
@@ -291,109 +262,108 @@ const handlePasteLink = async () => {
       urlInputRef.value?.focus()
     }
   } catch (e) {
-    console.error('Failed to read clipboard:', e)
-    message.warning('无法读取剪贴板')
+    console.error("Failed to read clipboard:", e)
+    message.warning(t("msg.clipboardReadFailed"))
   }
 }
 
+/** Submit a URL or magnet link to start a download via the store. */
 const handleUrlSubmit = async () => {
   if (!urlInput.value.trim()) return
   const url = urlInput.value.trim()
 
   try {
-    await addUri(url)
-    message.success(`${t('msg.added')}: ${url.substring(0, 60)}...`)
-    console.log('Added URL to aria2:', url)
-    urlInput.value = ''
-  } catch (e: any) {
-    console.error('Failed to add URL:', e)
-    // If aria2 not connected, add as mock task so user sees something
-    if (!aria2Connected.value) {
-      message.warning('aria2 未连接，已添加到本地列表')
-      mockTasks.value.unshift({
-        id: Date.now(),
-        name: url.split('/').pop()?.split('?')[0] || url.substring(0, 40),
-        source: url,
-        status: 'downloading',
-        progress: 0,
-        speed: '—',
-        size: '等待中...',
-        eta: '—',
-        type: getTypeFromFilename(url),
-      })
-      urlInput.value = ''
+    await tasksStore.addTask(url)
+    if (tasksStore.aria2Connected) {
+      message.success(`${t("msg.added")}: ${url.substring(0, 60)}...`)
     } else {
-      message.error(`添加失败: ${e?.message || '未知错误'}`)
+      message.warning(t("msg.aria2NotConnected"))
     }
+    urlInput.value = ""
+  } catch (e: any) {
+    console.error("Failed to add URL:", e)
+    message.error(`${t("msg.addFailed")}: ${e?.message || t("msg.unknownError")}`)
   }
 }
 
+/**
+ * Submit a natural-language chat message.
+ * Records the user message and assistant response in the chat store,
+ * then triggers resource search.
+ */
 const handleChatSubmit = async () => {
-  if (chatInput.value) {
-    const input = chatInput.value
-    chatInput.value = ''
-    
-    try {
-      // Parse intent using OpenCode
-      const intent = await parseIntent(input)
-      console.log('Parsed intent:', intent)
-      
-      // Show parsed intent to user
-      message.success(`识别: ${intent.title} (${intent.quality || '自动'})${intent.need_subtitle ? ' + 字幕' : ''}`)
-      
-      // Store intent for subtitle search later
-      currentIntent.value = intent
-      
-      // Search for resources
-      searchQuery.value = intent.title
-      showSearchResults.value = true
-      await searchResources(intent)
-      
-    } catch (e) {
-      console.error('Failed:', e)
-      message.error('搜索失败，请重试')
-    }
+  if (!chatInput.value) return
+  const input = chatInput.value
+  chatInput.value = ""
+
+  // Record the user message in the chat store
+  chatStore.addUserMessage(input)
+
+  try {
+    // Parse intent using OpenCode
+    const intent = await parseIntent(input)
+    console.log("Parsed intent:", intent)
+
+    // Build a human-readable summary
+    const summary = `${t("msg.recognized")}: ${intent.title} (${intent.quality || t("msg.auto")})${intent.need_subtitle ? " + " + t("msg.subtitle") : ""}`
+
+    // Record the assistant response in the chat store
+    chatStore.addAssistantMessage(summary, intent)
+    message.success(summary)
+
+    // Store intent for subtitle search later
+    currentIntent.value = intent
+
+    // Search for resources
+    searchQuery.value = intent.title
+    showSearchResults.value = true
+    await searchResources(intent)
+  } catch (e) {
+    console.error("Failed:", e)
+    message.error(t("msg.searchFailed"))
+    chatStore.addAssistantMessage(t("msg.searchFailed"), null, true)
   }
 }
 
+/** Select a search result and add it as a download via the store. */
 const handleSelectResult = async (result: SearchResult) => {
   try {
-    await addUri(result.magnet)
-    message.success(`已添加: ${result.title}`)
+    await tasksStore.addTask(result.magnet)
+    message.success(`${t("msg.added")}: ${result.title}`)
     showSearchResults.value = false
-    
+
     // Auto-search subtitles if intent requires it
-    if (currentIntent.value?.need_subtitle && autoSearch.value) {
-      message.info('正在搜索字幕...')
+    if (currentIntent.value?.need_subtitle && subtitlesEnabled.value && autoSearch.value) {
+      message.info(t("msg.subtitleSearching"))
       await searchSubtitles(currentIntent.value.title)
-      
+
       const best = getBestSubtitle()
       if (best) {
-        message.success(`找到字幕: ${best.language} (${best.fileName})`)
+        message.success(`${t("msg.subtitleFound")}: ${best.language} (${best.fileName})`)
         // Auto-download the best subtitle
         // In production, save alongside the video file
       } else {
-        message.warning('未找到匹配字幕')
+        message.warning(t("msg.subtitleNotFound"))
       }
     }
   } catch (e) {
-    console.error('Failed to add:', e)
-    message.error('添加下载失败')
+    console.error("Failed to add:", e)
+    message.error(t("msg.addDownloadFailed"))
   }
 }
 
-import type { SubtitleResult } from '@/composables/useSubtitle'
-
+/** Select a subtitle result for download. */
 const handleSelectSubtitle = async (subtitle: SubtitleResult) => {
   try {
     // In production, download and save alongside the video
-    message.success(`下载字幕: ${subtitle.language} - ${subtitle.fileName}`)
-    console.log('Selected subtitle:', subtitle)
+    message.success(`${t("msg.subtitleDownload")}: ${subtitle.language} - ${subtitle.fileName}`)
+    console.log("Selected subtitle:", subtitle)
   } catch (e) {
-    console.error('Failed to download subtitle:', e)
-    message.error('字幕下载失败')
+    console.error("Failed to download subtitle:", e)
+    message.error(t("msg.subtitleDownloadFailed"))
   }
 }
+
 </script>
 
 <template>

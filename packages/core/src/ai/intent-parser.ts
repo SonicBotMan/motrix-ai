@@ -17,7 +17,7 @@ const INTENT_SCHEMA = {
     quality: { type: "string", enum: ["4K", "1080p", "720p", "other"], description: "清晰度" },
     need_subtitle: { type: "boolean", description: "是否需要字幕" },
     search_keywords: { type: "array", items: { type: "string" }, description: "搜索关键词列表" },
-    resource_type: { type: "string", enum: ["movie", "tv", "software", "music", "other"], description: "资源类型" },
+    resource_type: { type: "string", enum: ["movie", "tv", "software", "music", "anime", "other"], description: "资源类型" },
   },
   required: ["title", "search_keywords", "resource_type"],
 } as const;
@@ -63,8 +63,10 @@ export class IntentParser {
 
     // 资源类型检测
     let resource_type: DownloadIntent["resource_type"] = "other";
-    if (/\.(mkv|mp4|avi|ts|mov)|电影|movie|film|剧|tv|番/i.test(clean)) {
-      resource_type = /剧|tv|番|season|S\d/i.test(clean) ? "tv" : "movie";
+    if (/动漫|anime|番剧|新番|OVA|OAD/i.test(clean)) {
+      resource_type = "anime";
+    } else if (/\.(mkv|mp4|avi|ts|mov)|电影|movie|film|剧|tv|番/i.test(clean)) {
+      resource_type = /剧|tv|season|S\d/i.test(clean) ? "tv" : "movie";
     } else if (/\.(exe|dmg|deb|rpm|app)|软件|software|tool|installer/i.test(clean)) {
       resource_type = "software";
     } else if (/\.(mp3|flac|wav)|音乐|music|album|专辑/i.test(clean)) {

@@ -43,13 +43,13 @@ const categoryIcons: Record<string, typeof DocumentTextOutline> = {
 const getTypeIcon = (cat: string) => categoryIcons[cat] || DocumentTextOutline
 
 // ---- Status mapping ----
-type DisplayStatus = 'downloading' | 'completed' | 'paused' | 'waiting' | 'failed'
+type DisplayStatus = 'downloading' | 'completed' | 'paused' | 'pending' | 'failed'
 
 function toDisplayStatus(s: TaskStatus): DisplayStatus {
   if (s === 'active') return 'downloading'
   if (s === 'complete') return 'completed'
   if (s === 'paused') return 'paused'
-  if (s === 'waiting') return 'waiting'
+  if (s === 'waiting') return 'pending'
   return 'failed' // error, removed
 }
 
@@ -57,7 +57,7 @@ function aria2FilterMatch(status: TaskStatus): boolean {
   const d = toDisplayStatus(status)
   if (activeFilter.value === 'all') return true
   if (activeFilter.value === 'active') return d === 'downloading'
-  if (activeFilter.value === 'paused') return d === 'paused' || d === 'waiting'
+  if (activeFilter.value === 'paused') return d === 'paused' || d === 'pending'
   if (activeFilter.value === 'complete') return d === 'completed'
   if (activeFilter.value === 'error') return d === 'failed'
   return true
@@ -303,7 +303,7 @@ function mapCategoryToType(cat: string): 'video' | 'audio' | 'document' | 'archi
 // Convert DisplayStatus to TaskDetailModal status
 function toModalStatus(s: TaskStatus): 'downloading' | 'completed' | 'paused' | 'failed' {
   const d = toDisplayStatus(s)
-  if (d === 'waiting') return 'paused'
+  if (d === 'pending') return 'paused'
   if (d === 'downloading') return 'downloading'
   if (d === 'completed') return 'completed'
   return 'failed'
@@ -818,7 +818,7 @@ function toModalStatus(s: TaskStatus): 'downloading' | 'completed' | 'paused' | 
   color: var(--primary);
 }
 
-.task-status-badge.waiting {
+.task-status-badge.pending {
   background: var(--surface);
   color: var(--fg-muted);
 }

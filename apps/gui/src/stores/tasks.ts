@@ -12,7 +12,7 @@ import { useAria2, type Aria2Status } from '@/composables/useAria2'
 // ---------------------------------------------------------------------------
 
 /** Display-friendly task status used throughout the GUI */
-export type TaskStatus = 'downloading' | 'completed' | 'paused' | 'failed' | 'waiting'
+export type TaskStatus = 'downloading' | 'completed' | 'paused' | 'failed' | 'pending'
 
 /** File/media category derived from the filename extension */
 export type TaskType = 'video' | 'audio' | 'document' | 'archive' | 'torrent'
@@ -43,8 +43,8 @@ function mapAria2Status(status: string): TaskStatus {
     case 'complete': return 'completed'
     case 'paused': return 'paused'
     case 'error': return 'failed'
-    case 'waiting': return 'waiting'
-    default: return 'waiting'
+    case 'waiting': return 'pending'
+    default: return 'pending'
   }
 }
 
@@ -142,14 +142,37 @@ export const useTasksStore = defineStore('tasks', () => {
   // -- actions ------------------------------------------------------------
 
   /**
-   * Initialize the aria2 connection. Should be called from a component's
-   * onMounted hook since the composable's own lifecycle hooks do not fire
-   * inside a Pinia store.
+   * Initialize the aria2 connection.
+   *
+   * Replicates the startup logic from useAria2's onMounted hook, which does
+   * not fire inside a Pinia setup store. Must be called from a component's
+   * onMounted hook.
    */
   async function init(): Promise<void> {
-    if (!aria2.connected.value && !aria2.connecting.value) {
-      await aria2.connect()
+    if (aria2.connected.value || aria2.connecting.value) return
+
+    // 1. Try to start the bundled aria2c via Tauri backend
+    try {
+      const { invoke } = await import("@tauri-apps/api/core")
+      const diag = await invoke<{ exists: boolean; binary_path: string }>("check_aria2_binary")
+      if (!diag.exists) {
+        console.error("Bundled aria2c NOT FOUND at:", diag.binary_path)
+      } else {
+        await invoke<string>("start_aria2", { rpcPort: 6800 })
+        console.log("Bundled aria2c started")
+      }
+    } catch (e) {
+      console.warn("Bundled aria2c failed:", e)
+      // Fallback: try spawning a system aria2c
+      try {
+        await aria2.startAria2()
+      } catch (_) {
+        console.log("System aria2c not available either")
+      }
     }
+
+    // 2. Connect to aria2 RPC (whether bundled or system)
+    await aria2.connect()
   }
 
   /**
@@ -245,15 +268,31 @@ export const useTasksStore = defineStore('tasks', () => {
   }
 
   /**
-   * Retry a failed task by resetting its state.
+   * Retry a failed task.
+   *
+   * For real aria2 tasks the old download is removed and the source URI is
+   * re-submitted so aria2 starts fresh. For local placeholder tasks the
+   * status is simply reset.
    */
-  function retryTask(taskId: number): void {
-    const local = localTasks.value.find(t => t.id === taskId)
-    if (local) {
-      local.status = 'downloading'
-      local.progress = 0
-      local.speed = '—'
-      local.eta = '计算中...'
+  async function retryTask(taskId: number): Promise<void> {
+    const task = tasks.value.find(t => t.id === taskId)
+    if (!task) return
+
+    if (task.gid && aria2.connected.value) {
+      try {
+        await aria2.remove(task.gid)
+        await aria2.addUri(task.source)
+      } catch (e) {
+        console.error("Failed to retry task via aria2:", e)
+      }
+    } else {
+      const local = localTasks.value.find(t => t.id === taskId)
+      if (local) {
+        local.status = "downloading"
+        local.progress = 0
+        local.speed = "—"
+        local.eta = "计算中..."
+      }
     }
   }
 
@@ -294,6 +333,9 @@ export const useTasksStore = defineStore('tasks', () => {
     aria2Connecting: aria2.connecting,
     aria2Running: aria2.aria2Running,
     globalStat: aria2.globalStat,
+    // events
+    onConnectionChange: aria2.onConnectionChange,
+    onTaskComplete: aria2.onTaskComplete,
     // actions
     init,
     addTask,
