@@ -7,6 +7,7 @@ import { MikanSearchProvider } from "./mikan.js";
 
 export { BtdigSearchProvider } from "./btdig.js";
 export { MikanSearchProvider } from "./mikan.js";
+export { DuckDuckGoSearchProvider } from "./duckduckgo.js";
 
 /** 搜索 Provider 接口 */
 export interface SearchProvider {
@@ -36,16 +37,5 @@ export async function searchAll(
   });
 }
 
-/** DuckDuckGo BT 搜索 Provider */
-export class DuckDuckGoSearchProvider implements SearchProvider {
-  readonly name = "duckduckgo";
-
-  async search(keywords: string[], _intent: DownloadIntent): Promise<SearchResult[]> {
-    const query = keywords[0] ?? keywords.join(" ");
-    console.log(`[search:${this.name}] searching: ${query}`);
-    return [];
-  }
-}
-
-// Re-export MikanSearchProvider from mikan.js for backward compat
-// (also imported at top for re-export)
+// DuckDuckGoSearchProvider is now implemented in duckduckgo.js
+// and re-exported above.

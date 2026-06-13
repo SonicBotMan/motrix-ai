@@ -18,6 +18,8 @@ export type {
 
 // AI
 export { IntentParser } from "./ai/intent-parser.js";
+export { KeywordGenerator } from "./ai/keyword-generator.js";
+export { ResultEvaluator } from "./ai/result-evaluator.js";
 
 // Aria2
 export { Aria2Client } from "./aria2/client.js";
@@ -35,6 +37,8 @@ export type { SubtitleSource, SubtitleResult } from "./subtitle/finder.js";
 
 // File
 export { FileRenamer } from "./file/renamer.js";
+export { FileOrganizer } from "./file/organizer.js";
+export { TemplateEngine, DEFAULT_TEMPLATES } from "./file/templates.js";
 
 // Scheduler
 export { TimeScheduler } from "./scheduler/time-based.js";

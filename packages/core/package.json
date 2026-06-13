@@ -18,6 +18,7 @@
   "dependencies": {},
   "devDependencies": {
     "@opencode-ai/sdk": "latest",
+    "@types/better-sqlite3": "^7.6.0",
     "@types/node": "^22.0.0",
     "better-sqlite3": "^11.0.0",
     "tsup": "^8.0.0",
