@@ -8,7 +8,7 @@ export { SubhdSource } from "./subhd.js";
 
 export interface SubtitleSource {
   readonly name: string;
-  search(title: string, year?: number, language?: string): Promise<SubtitleResult[]>;
+  search(_title: string, _year?: number, _language?: string): Promise<SubtitleResult[]>;
 }
 
 export interface SubtitleResult {

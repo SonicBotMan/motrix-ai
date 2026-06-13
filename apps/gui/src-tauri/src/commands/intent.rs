@@ -160,7 +160,6 @@ fn parse_heuristic(input: &str) -> DownloadIntent {
         .replace(['【', '['], " ")
         .replace(['】', ']'], " ")
         .replace(['《', '〈', '》', '〉'], "")
-        
         .split_whitespace()
         .collect::<Vec<_>>()
         .join(" ");

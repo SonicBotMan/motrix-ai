@@ -17,7 +17,6 @@ export default [
         sourceType: "module",
       },
       globals: {
-        // Node.js globals
         console: "readonly",
         process: "readonly",
         setTimeout: "readonly",
@@ -34,8 +33,6 @@ export default [
         Response: "readonly",
         Request: "readonly",
         Headers: "readonly",
-        RequestInit: "readonly",
-        // Browser globals
         window: "readonly",
         document: "readonly",
         navigator: "readonly",
@@ -67,8 +64,13 @@ export default [
       "@typescript-eslint": tseslint,
     },
     rules: {
+      "no-unused-vars": "off",
+      "@typescript-eslint/no-unused-vars": ["error", { 
+        argsIgnorePattern: "^_",
+        varsIgnorePattern: "^_",
+        caughtErrorsIgnorePattern: "^_",
+      }],
       "@typescript-eslint/no-explicit-any": "error",
-      "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_" }],
       "no-empty": "error",
       "no-console": ["warn", { allow: ["warn", "error"] }],
       "prefer-const": "error",
@@ -77,6 +79,6 @@ export default [
     },
   },
   {
-    ignores: ["**/dist/**", "**/node_modules/**", "**/target/**", "**/*.js"],
+    ignores: ["**/dist/**", "**/node_modules/**", "**/target/**", "**/*.js", "**/*.mjs"],
   },
 ]

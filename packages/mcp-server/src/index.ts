@@ -47,9 +47,9 @@ server.tool(
           text: JSON.stringify({ success: true, task_id: task.id, status: task.status }, null, 2),
         }],
       };
-    } catch (e: any) {
+    } catch (e: unknown) {
       return {
-        content: [{ type: "text", text: `Error: ${e.message}` }],
+        content: [{ type: "text", text: `Error: ${e instanceof Error ? e.message : String(e)}` }],
         isError: true,
       };
     }
@@ -76,9 +76,9 @@ server.tool(
           })), null, 2),
         }],
       };
-    } catch (e: any) {
+    } catch (e: unknown) {
       return {
-        content: [{ type: "text", text: `Error: ${e.message}` }],
+        content: [{ type: "text", text: `Error: ${e instanceof Error ? e.message : String(e)}` }],
         isError: true,
       };
     }

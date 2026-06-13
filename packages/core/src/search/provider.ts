@@ -10,7 +10,7 @@ export { DuckDuckGoSearchProvider } from "./duckduckgo.js";
 /** 搜索 Provider 接口 */
 export interface SearchProvider {
   readonly name: string;
-  search(keywords: string[], intent: DownloadIntent): Promise<SearchResult[]>;
+  search(_keywords: string[], _intent: DownloadIntent): Promise<SearchResult[]>;
 }
 
 /** 并发查询所有 Provider，合并结果 */
