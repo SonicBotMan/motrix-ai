@@ -23,7 +23,8 @@ const INTENT_SCHEMA = {
 } as const;
 
 export class IntentParser {
-  private client: { session: { create: () => Promise<{ data: { id: string } | null }>; prompt: (params: Record<string, unknown>) => Promise<{ data: unknown }> } } | null = null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private client: any = null;
   private sessionId: string | null = null;
   private baseUrl: string;
 
@@ -40,7 +41,7 @@ export class IntentParser {
   private async ensureSession(): Promise<string> {
     if (this.sessionId) return this.sessionId;
     await this.ensureClient();
-    const res = await this.client.session.create();
+    const res = await this.client!.session.create();
     this.sessionId = res.data!.id as string;
     return this.sessionId;
   }
@@ -112,7 +113,7 @@ export class IntentParser {
       await this.ensureClient();
       const sessionId = await this.ensureSession();
 
-      const result = await this.client.session.prompt({
+      const result = await this.client!.session.prompt({
         path: { id: sessionId },
         body: {
           parts: [{
