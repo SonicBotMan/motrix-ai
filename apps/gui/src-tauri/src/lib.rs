@@ -22,7 +22,7 @@ pub fn run() {
             }
 
             // ---- System Tray ----
-            tray::create_tray(&app.handle())?;
+            tray::create_tray(app.handle())?;
 
             // Auto-start bundled aria2c
             let handle = app.handle().clone();
