@@ -45,6 +45,60 @@ export class IntentParser {
     return this.sessionId;
   }
 
+  /** 内置启发式解析（不依赖 OpenCode，用于 fallback） */
+  private parseHeuristic(input: string): DownloadIntent {
+    const clean = input
+      .replace(/^(下[载个]?|下载|给我[下找]|搜[索找]?|download|get|find)\s*/i, "")
+      .replace(/(最新版|最新|免费版|破解版|绿色版|官方版|中文版|英文版|正式版)/gi, "")
+      .trim();
+
+    // 质量检测
+    let quality: DownloadIntent["quality"] = "other";
+    if (/4k|2160p|uhd/i.test(clean)) quality = "4K";
+    else if (/1080[pi]/i.test(clean)) quality = "1080p";
+    else if (/720[pi]/i.test(clean)) quality = "720p";
+
+    // 字幕检测
+    const need_subtitle = /字幕|subtitle|sub/i.test(clean);
+
+    // 资源类型检测
+    let resource_type: DownloadIntent["resource_type"] = "other";
+    if (/\.(mkv|mp4|avi|ts|mov)|电影|movie|film|剧|tv|番/i.test(clean)) {
+      resource_type = /剧|tv|番|season|S\d/i.test(clean) ? "tv" : "movie";
+    } else if (/\.(exe|dmg|deb|rpm|app)|软件|software|tool|installer/i.test(clean)) {
+      resource_type = "software";
+    } else if (/\.(mp3|flac|wav)|音乐|music|album|专辑/i.test(clean)) {
+      resource_type = "music";
+    }
+
+    // 标题提取：去除质量/字幕/类型关键词后取主干
+    const title = clean
+      .replace(/(4k|2160p|uhd|1080[pi]|720[pi])/gi, "")
+      .replace(/(字幕|subtitle|sub)/gi, "")
+      .replace(/(bluray|web-dl|hdrip|remux|dvdrip)/gi, "")
+      .replace(/\s+/g, " ")
+      .trim() || input;
+
+    // 年份检测
+    const yearMatch = clean.match(/(?:^|\D)(\d{4})(?:\D|$)/);
+    const year = yearMatch ? Number(yearMatch[1]) : undefined;
+
+    // 搜索关键词：原始输入 + 提取的标题
+    const keywords = [title];
+    if (quality !== "other") keywords.push(`${title} ${quality}`);
+    if (resource_type === "movie") keywords.push(`${title} movie torrent`);
+    if (year) keywords.push(`${title} ${year}`);
+
+    return {
+      title,
+      year,
+      quality,
+      need_subtitle,
+      search_keywords: [...new Set(keywords)],
+      resource_type,
+    };
+  }
+
   /**
    * 将自然语言解析为结构化意图
    * @example
@@ -52,40 +106,44 @@ export class IntentParser {
    *   // { title: "流浪地球 2", year: 2023, quality: "4K", need_subtitle: true, ... }
    */
   async parse(input: string): Promise<DownloadIntent> {
-    await this.ensureClient();
-    const sessionId = await this.ensureSession();
+    try {
+      await this.ensureClient();
+      const sessionId = await this.ensureSession();
 
-    const result = await this.client.session.prompt({
-      path: { id: sessionId },
-      body: {
-        parts: [{
-          type: "text",
-          text: `分析用户的下载意图，返回结构化 JSON。
+      const result = await this.client.session.prompt({
+        path: { id: sessionId },
+        body: {
+          parts: [{
+            type: "text",
+            text: `分析用户的下载意图，返回结构化 JSON。
 
 用户输入：「${input}」`,
-        }],
-        format: {
-          type: "json_schema",
-          schema: INTENT_SCHEMA,
-          retryCount: 2,
+          }],
+          format: {
+            type: "json_schema",
+            schema: INTENT_SCHEMA,
+            retryCount: 2,
+          },
         },
-      },
-    });
+      });
 
-    const structured = (result.data as any)?.info?.structured;
-    if (!structured?.title || !structured?.search_keywords) {
-      throw new Error(
-        `意图解析失败: ${JSON.stringify((result.data as any)?.info?.error ?? "unknown error")}`
-      );
+      const structured = (result.data as any)?.info?.structured;
+      if (!structured?.title || !structured?.search_keywords) {
+        // OpenCode 返回无效结果，使用启发式解析
+        return this.parseHeuristic(input);
+      }
+
+      return {
+        title: structured.title,
+        year: structured.year,
+        quality: structured.quality ?? "other",
+        need_subtitle: structured.need_subtitle ?? false,
+        search_keywords: structured.search_keywords,
+        resource_type: structured.resource_type ?? "other",
+      };
+    } catch {
+      // OpenCode 不可用（未安装/未启动），使用内置启发式解析
+      return this.parseHeuristic(input);
     }
-
-    return {
-      title: structured.title,
-      year: structured.year,
-      quality: structured.quality ?? "other",
-      need_subtitle: structured.need_subtitle ?? false,
-      search_keywords: structured.search_keywords,
-      resource_type: structured.resource_type ?? "other",
-    };
   }
 }

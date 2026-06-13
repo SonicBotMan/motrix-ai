@@ -55,8 +55,9 @@ export function registerAskCommand(program: Command): void {
       // 2. 关键词扩展
       const keywordGen = new KeywordGenerator()
       const keywords = keywordGen.generate(intent)
-      // Merge generated keywords into intent for search
-      intent.search_keywords = [...new Set([...intent.search_keywords, ...keywords])]
+      // Use only the top 3 most specific keywords for search (avoid overly long queries)
+      const topKeywords = keywords.slice(0, 3)
+      intent.search_keywords = topKeywords
 
       // 3. 并发搜索
       console.log("🔍 搜索资源中...")

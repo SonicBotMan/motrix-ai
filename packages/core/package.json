@@ -9,15 +9,16 @@
     ".": { "import": "./dist/index.js", "types": "./dist/index.d.ts" }
   },
   "scripts": {
-    "build": "tsup src/index.ts --format esm --dts --outDir dist",
-    "dev": "tsup src/index.ts --format esm --dts --outDir dist --watch",
+    "build": "tsup src/index.ts --format esm --dts --outDir dist --external @opencode-ai/sdk",
+    "dev": "tsup src/index.ts --format esm --dts --outDir dist --watch --external @opencode-ai/sdk",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist .turbo"
   },
-  "dependencies": {},
+  "dependencies": {
+    "@opencode-ai/sdk": "latest"
+  },
   "devDependencies": {
-    "@opencode-ai/sdk": "latest",
     "@types/better-sqlite3": "^7.6.0",
     "@types/node": "^22.0.0",
     "better-sqlite3": "^11.0.0",
