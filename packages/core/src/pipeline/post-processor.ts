@@ -16,6 +16,9 @@ import type { FileRenamer } from "../file/renamer.js"
 import type { FileOrganizer } from "../file/organizer.js"
 import type { TemplateEngine } from "../file/templates.js"
 import type { ArchiveSync } from "../archive/sync.js"
+import { createLogger } from "../logger.js"
+
+const logger = createLogger("post-processor")
 
 /** PostProcessor 所需的依赖集合（依赖注入） */
 export interface PostProcessorDeps {
@@ -132,7 +135,7 @@ export class PostProcessor {
     try {
       return await this.deps.subtitleFinder.findBest(filename, languages)
     } catch (err) {
-      console.warn(`[PostProcessor] 字幕查找失败: ${filename} — ${String(err)}`)
+      logger.warn(`字幕查找失败: ${filename} — ${String(err)}`)
       return null
     }
   }
@@ -182,7 +185,7 @@ export class PostProcessor {
       await fs.rename(filePath, newPath)
       return newPath
     } catch (err) {
-      console.warn(`[PostProcessor] 重命名失败: ${filePath} — ${String(err)}`)
+      logger.warn(`重命名失败: ${filePath} — ${String(err)}`)
       return filePath
     }
   }
@@ -206,7 +209,7 @@ export class PostProcessor {
     try {
       return await this.deps.fileOrganizer.organize(filePath, intent, config)
     } catch (err) {
-      console.warn(`[PostProcessor] 归类失败: ${filePath} — ${String(err)}`)
+      logger.warn(`归类失败: ${filePath} — ${String(err)}`)
       return filePath
     }
   }
@@ -226,7 +229,7 @@ export class PostProcessor {
     try {
       await this.deps.archiveSync.syncFile(filePath, resourceType)
     } catch (err) {
-      console.warn(`[PostProcessor] 归档失败: ${filePath} — ${String(err)}`)
+      logger.warn(`归档失败: ${filePath} — ${String(err)}`)
     }
   }
 

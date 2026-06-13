@@ -3,6 +3,9 @@
 
 import type { SearchResult, DownloadIntent, Quality } from "../types.js";
 import type { SearchProvider } from "./provider.js";
+import { createLogger } from "../logger.js";
+
+const logger = createLogger("search:duckduckgo");
 
 /** Parse human-readable size string to bytes */
 function parseSizeToBytes(sizeStr: string): number {
@@ -250,7 +253,7 @@ export class DuckDuckGoSearchProvider implements SearchProvider {
 
     try {
       const url = `https://duckduckgo.com/html/?q=${encodeURIComponent(enhancedQuery)}`;
-      console.log(`[search:${this.name}] fetching: ${url}`);
+      logger.debug(`fetching: ${url}`);
 
       const response = await rateLimitedFetch(url, {
         headers: {
@@ -262,15 +265,15 @@ export class DuckDuckGoSearchProvider implements SearchProvider {
       });
 
       if (!response.ok) {
-        console.error(`[search:${this.name}] HTTP ${response.status} for ${url}`);
+        logger.error(`HTTP ${response.status} for ${url}`);
         return [];
       }
 
       const html = await response.text();
       return parseDuckDuckGoHtml(html);
     } catch (err) {
-      console.error(
-        `[search:${this.name}] error:`,
+      logger.error(
+        "search error:",
         err instanceof Error ? err.message : err,
       );
       return [];

@@ -2,6 +2,10 @@
 // 对应 PRD §7.3 数据流：Queue Manager → aria2 RPC
 
 import type { Task, TaskStatus, FileEntry } from "../types.js";
+import { Aria2Error } from "../errors.js";
+import { createLogger } from "../logger.js";
+
+const logger = createLogger("aria2");
 
 interface Aria2Options {
   rpcUrl?: string;   // 默认 http://127.0.0.1:6800/jsonrpc
@@ -47,9 +51,12 @@ export class Aria2Client {
       body: JSON.stringify({ jsonrpc: "2.0", id, method, params: allParams }),
     });
 
-    if (!res.ok) throw new Error(`aria2 RPC error: ${res.status} ${res.statusText}`);
+    if (!res.ok) throw new Aria2Error(`aria2 RPC error: ${res.status} ${res.statusText}`);
     const data = await res.json() as { result?: T; error?: { code: number; message: string } };
-    if (data.error) throw new Error(`aria2 error ${data.error.code}: ${data.error.message}`);
+    if (data.error) {
+      logger.error(`RPC call "${method}" failed: ${data.error.code} ${data.error.message}`);
+      throw new Aria2Error(`aria2 error ${data.error.code}: ${data.error.message}`);
+    }
     return data.result!;
   }
 

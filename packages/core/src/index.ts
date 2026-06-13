@@ -1,5 +1,12 @@
 // core/src/index.ts — 核心模块统一导出
 
+// Errors
+export { AppError, SearchError, Aria2Error, IntentParseError, QueueError, SubtitleError, ConfigError, ArchiveError } from "./errors.js";
+
+// Logger
+export { Logger, createLogger } from "./logger.js";
+export type { LogLevel } from "./logger.js";
+
 // 类型
 export type {
   DownloadIntent,

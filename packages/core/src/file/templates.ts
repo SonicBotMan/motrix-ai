@@ -43,13 +43,11 @@ export class TemplateEngine {
       return value !== undefined ? value : match;
     });
 
-    // 清洗非法文件名字符
-    result = result.replace(INVALID_CHARS, "");
-
-    // 去除每段（以 / 分隔）首尾空白，再合并多余分隔符
+    // 先按 / 拆分为路径段，再逐段清洗非法文件名字符、去除首尾空白，
+    // 最后过滤空段并重新拼接。这样 / 作为路径分隔符不会被误删。
     result = result
       .split("/")
-      .map((seg) => seg.trim())
+      .map((seg) => seg.replace(INVALID_CHARS, "").trim())
       .filter((seg) => seg.length > 0)
       .join("/");
 

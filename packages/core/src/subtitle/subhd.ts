@@ -2,6 +2,9 @@
 // Scrapes subhd.tv search results HTML
 
 import type { SubtitleSource, SubtitleResult } from "./finder.js";
+import { createLogger } from "../logger.js";
+
+const logger = createLogger("subtitle:subhd");
 
 /** Rate limiter */
 const lastRequestTime = new Map<string, number>();
@@ -105,7 +108,7 @@ export class SubhdSource implements SubtitleSource {
 
   async search(title: string, year?: number, language?: string): Promise<SubtitleResult[]> {
     const query = year ? `${title} ${year}` : title;
-    console.log(`[subtitle:${this.name}] searching: ${query}`);
+    logger.debug(`searching: ${query}`);
 
     try {
       const url = `${this.baseUrl}/search/${encodeURIComponent(query)}`;
@@ -120,7 +123,7 @@ export class SubhdSource implements SubtitleSource {
       });
 
       if (!response.ok) {
-        console.error(`[subtitle:${this.name}] HTTP ${response.status}`);
+        logger.error(`HTTP ${response.status}`);
         return [];
       }
 
@@ -136,7 +139,7 @@ export class SubhdSource implements SubtitleSource {
 
       return results;
     } catch (err) {
-      console.error(`[subtitle:${this.name}] error:`, err instanceof Error ? err.message : err);
+      logger.error("search error:", err instanceof Error ? err.message : err);
       return [];
     }
   }

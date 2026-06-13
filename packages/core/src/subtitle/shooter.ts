@@ -3,6 +3,9 @@
 // For MVP: try shooter, fallback to empty results gracefully.
 
 import type { SubtitleSource, SubtitleResult } from "./finder.js";
+import { createLogger } from "../logger.js";
+
+const logger = createLogger("subtitle:shooter");
 
 /** Rate limiter */
 const lastRequestTime = new Map<string, number>();
@@ -68,7 +71,7 @@ export class ShooterSource implements SubtitleSource {
     const lang = language ?? "chn";
     const query = year ? `${title} ${year}` : title;
 
-    console.log(`[subtitle:${this.name}] searching: ${query}`);
+    logger.debug(`searching: ${query}`);
 
     try {
       // Try shooter.cn API with filename-based search
@@ -93,21 +96,21 @@ export class ShooterSource implements SubtitleSource {
       );
 
       if (!response.ok) {
-        console.warn(`[subtitle:${this.name}] HTTP ${response.status}, returning empty`);
+        logger.warn(`HTTP ${response.status}, returning empty`);
         return [];
       }
 
       const data = await response.json();
       if (!Array.isArray(data)) {
-        console.warn(`[subtitle:${this.name}] unexpected response format`);
+        logger.warn("unexpected response format");
         return [];
       }
 
       return parseShooterResponse(data, lang);
     } catch (err) {
       // shooter.cn is known to be unreliable — fail silently
-      console.warn(
-        `[subtitle:${this.name}] request failed (expected):`,
+      logger.warn(
+        "request failed (expected):",
         err instanceof Error ? err.message : err
       );
       return [];

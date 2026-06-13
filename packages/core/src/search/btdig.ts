@@ -3,6 +3,9 @@
 
 import type { SearchResult, DownloadIntent, Quality } from "../types.js";
 import type { SearchProvider } from "./provider.js";
+import { createLogger } from "../logger.js";
+
+const logger = createLogger("search:btdig");
 
 /** Parse human-readable size string to bytes */
 export function parseSizeToBytes(sizeStr: string): number {
@@ -130,7 +133,7 @@ export class BtdigSearchProvider implements SearchProvider {
     try {
       // MVP: first page only (p=0)
       const url = `https://btdig.com/search?q=${encodeURIComponent(query)}&p=0`;
-      console.log(`[search:${this.name}] fetching: ${url}`);
+      logger.debug(`fetching: ${url}`);
 
       const response = await rateLimitedFetch(url, {
         headers: {
@@ -142,14 +145,14 @@ export class BtdigSearchProvider implements SearchProvider {
       });
 
       if (!response.ok) {
-        console.error(`[search:${this.name}] HTTP ${response.status} for ${url}`);
+        logger.error(`HTTP ${response.status} for ${url}`);
         return [];
       }
 
       const html = await response.text();
       return parseBtdigHtml(html);
     } catch (err) {
-      console.error(`[search:${this.name}] error:`, err instanceof Error ? err.message : err);
+      logger.error("search error:", err instanceof Error ? err.message : err);
       return [];
     }
   }

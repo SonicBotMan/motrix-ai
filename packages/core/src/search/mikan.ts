@@ -3,6 +3,9 @@
 
 import type { SearchResult, DownloadIntent, Quality } from "../types.js";
 import type { SearchProvider } from "./provider.js";
+import { createLogger } from "../logger.js";
+
+const logger = createLogger("search:mikan");
 
 /** Parse RSS XML string into SearchResult[] */
 export function parseMikanRss(xml: string): SearchResult[] {
@@ -184,7 +187,7 @@ export class MikanSearchProvider implements SearchProvider {
 
     try {
       const url = `https://mikanani.me/RSS/Search?searchstr=${encodeURIComponent(query)}`;
-      console.log(`[search:${this.name}] fetching: ${url}`);
+      logger.debug(`fetching: ${url}`);
 
       const response = await rateLimitedFetch(url, {
         headers: {
@@ -195,14 +198,14 @@ export class MikanSearchProvider implements SearchProvider {
       });
 
       if (!response.ok) {
-        console.error(`[search:${this.name}] HTTP ${response.status} for ${url}`);
+        logger.error(`HTTP ${response.status} for ${url}`);
         return [];
       }
 
       const xml = await response.text();
       return parseMikanRss(xml);
     } catch (err) {
-      console.error(`[search:${this.name}] error:`, err instanceof Error ? err.message : err);
+      logger.error("search error:", err instanceof Error ? err.message : err);
       return [];
     }
   }

@@ -5,6 +5,9 @@ import { exec } from "node:child_process"
 import { promisify } from "node:util"
 import path from "node:path"
 import type { AppConfig, ArchiveTarget, ResourceType } from "../types.js"
+import { createLogger } from "../logger.js"
+
+const logger = createLogger("archive")
 
 const execAsync = promisify(exec)
 
@@ -100,7 +103,7 @@ export class ArchiveSync {
         await this.syncFile(file, resourceType)
       } catch (err) {
         // 单文件失败不影响后续文件同步
-        console.warn(`[ArchiveSync] 同步失败: ${file} — ${String(err)}`)
+        logger.warn(`同步失败: ${file} — ${String(err)}`)
       }
     }
   }

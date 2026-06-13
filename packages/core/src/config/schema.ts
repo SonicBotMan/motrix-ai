@@ -9,6 +9,7 @@ import type {
   ResourceType,
 } from "../types.js";
 import { DEFAULT_CONFIG } from "./loader.js";
+import { ConfigError } from "../errors.js";
 
 // ---------------------------------------------------------------------------
 // 允许的枚举值
@@ -46,7 +47,7 @@ function isStringArray(val: unknown): val is string[] {
 /** 断言辅助函数 —— 条件为假时抛出带有字段路径的描述性错误 */
 function assert(condition: boolean, path: string, message: string): asserts condition {
   if (!condition) {
-    throw new Error(`Config validation error at "${path}": ${message}`);
+    throw new ConfigError(`Config validation error at "${path}": ${message}`);
   }
 }
 
