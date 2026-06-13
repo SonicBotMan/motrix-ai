@@ -9,6 +9,17 @@ export default defineConfig({
       '@': resolve(__dirname, 'src'),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'naive-ui': ['naive-ui'],
+          'vue-vendor': ['vue', 'vue-router', 'pinia'],
+        },
+      },
+    },
+    chunkSizeWarningLimit: 500,
+  },
   server: {
     port: 5173,
     proxy: {

@@ -26,3 +26,28 @@ impl From<std::io::Error> for AppError {
         AppError::Io(err.to_string())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_app_error_display() {
+        let err = AppError::Aria2("connection failed".to_string());
+        assert_eq!(err.to_string(), "Aria2 error: connection failed");
+    }
+
+    #[test]
+    fn test_app_error_from_io() {
+        let io_err = std::io::Error::new(std::io::ErrorKind::NotFound, "file not found");
+        let app_err = AppError::from(io_err);
+        assert!(matches!(app_err, AppError::Io(_)));
+    }
+
+    #[test]
+    fn test_app_error_serialize() {
+        let err = AppError::Search("no results".to_string());
+        let json = serde_json::to_string(&err).unwrap();
+        assert!(json.contains("Search"));
+    }
+}

@@ -7,24 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-06-14
+
 ### Added
-- AI natural language download (NL→search→magnet→queue)
-- aria2 download engine integration (HTTP/BT/Magnet/FTP)
-- Chat-first GUI (Tauri 2 + Vue 3 + Naive UI)
-- Task management (list/pause/resume/delete/retry)
-- Auto subtitle matching (shooter.cn + subhd)
-- File auto-rename + classify + organize
-- Smart scheduling (time-based + disk protection + retry)
-- NAS archive sync (rsync)
-- MCP Server for AI agent integration
-- CLI mode (motrix-ai ask/add/list/pause/config)
-- i18n support (Chinese + English)
-- Dark/Light/System theme
+- Browser extension (Chrome/Firefox) for one-click download
+- Smart scheduling UI with visual time-based rules
+- NAS archive UI with directory mapping
+- BYOK multi-model support (OpenCode/Anthropic/OpenAI/Ollama)
+- MCP Server with 7 tools for AI agent integration
+- i18n support (Chinese, English, Japanese, Korean, French)
+- System tray with native notifications
+- Auto-update support (tauri-plugin-updater)
+- Cross-platform CI (macOS, Windows, Linux)
+- Comprehensive test suite (202 tests, 51% coverage)
 - Structured error handling (AppError hierarchy)
 - Structured logging (Logger with level filtering)
-- Comprehensive test suite (196 tests, 51% coverage)
-- CI/CD pipeline (GitHub Actions)
-- Pre-commit hooks (Husky + lint-staged)
+
+### Changed
+- Migrated from Electron to Tauri 2 for smaller bundle size
+- Unified version management with bump script
+- Enhanced TypeScript strict mode
+
+### Fixed
+- All ESLint errors resolved
+- All Clippy warnings resolved
+- CI pipeline fully green
 
 ## [0.1.0] - 2026-06-13
 

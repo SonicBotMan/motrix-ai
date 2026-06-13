@@ -482,3 +482,46 @@ fn detect_quality(title: &str) -> Option<String> {
         None
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_size_bytes() {
+        assert_eq!(parse_size("100 B"), 100);
+    }
+
+    #[test]
+    fn test_parse_size_kb() {
+        assert_eq!(parse_size("1.5 KB"), 1536);
+    }
+
+    #[test]
+    fn test_parse_size_mb() {
+        assert_eq!(parse_size("100 MB"), 104857600);
+    }
+
+    #[test]
+    fn test_parse_size_gb() {
+        assert_eq!(parse_size("1.5 GB"), 1610612736);
+    }
+
+    #[test]
+    fn test_detect_quality_4k() {
+        assert_eq!(detect_quality("Movie.4K.BluRay"), Some("4K".to_string()));
+    }
+
+    #[test]
+    fn test_detect_quality_1080p() {
+        assert_eq!(
+            detect_quality("Movie.1080p.WEB-DL"),
+            Some("1080p".to_string())
+        );
+    }
+
+    #[test]
+    fn test_detect_quality_other() {
+        assert_eq!(detect_quality("Movie.DVDRip"), None);
+    }
+}
