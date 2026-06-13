@@ -76,7 +76,10 @@ pub fn run() {
             tauri::async_runtime::spawn(async move {
                 match commands::aria2::start_aria2(handle, Some(6800)).await {
                     Ok(url) => log::info!("Bundled aria2c started: {}", url),
-                    Err(e) => log::warn!("Bundled aria2c not available: {} (user can start manually)", e),
+                    Err(e) => log::warn!(
+                        "Bundled aria2c not available: {} (user can start manually)",
+                        e
+                    ),
                 }
             });
 

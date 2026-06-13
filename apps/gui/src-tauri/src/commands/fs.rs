@@ -148,10 +148,8 @@ pub async fn opensubtitles_download(
     use std::io::Write;
     let mut buf = Vec::new();
     {
-        let mut encoder = base64::write::EncoderWriter::new(
-            &mut buf,
-            &base64::engine::general_purpose::STANDARD,
-        );
+        let mut encoder =
+            base64::write::EncoderWriter::new(&mut buf, &base64::engine::general_purpose::STANDARD);
         encoder
             .write_all(&content)
             .map_err(|e| format!("Base64 encode failed: {}", e))?;
@@ -172,8 +170,7 @@ pub async fn get_download_path() -> Result<String, String> {
         let home = dirs::home_dir().ok_or("Cannot find home directory")?;
         let download_dir = home.join("Downloads").join("Motrix AI");
 
-        std::fs::create_dir_all(&download_dir)
-            .map_err(|e| format!("Create dir failed: {}", e))?;
+        std::fs::create_dir_all(&download_dir).map_err(|e| format!("Create dir failed: {}", e))?;
 
         Ok(download_dir.to_string_lossy().to_string())
     })
@@ -279,9 +276,7 @@ pub async fn organize_file(
 
     if src != final_path {
         std::fs::rename(&src, &final_path)
-            .or_else(|_| {
-                std::fs::copy(&src, &final_path).and_then(|_| std::fs::remove_file(&src))
-            })
+            .or_else(|_| std::fs::copy(&src, &final_path).and_then(|_| std::fs::remove_file(&src)))
             .map_err(|e| format!("Failed to move file: {}", e))?;
     }
 

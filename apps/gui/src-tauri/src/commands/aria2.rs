@@ -17,7 +17,9 @@ pub async fn start_aria2(app: tauri::AppHandle, rpc_port: Option<u16>) -> Result
 
     // Check if already running (release lock before any await!)
     let already_running = {
-        let child = ARIA2_CHILD.lock().map_err(|e| format!("Lock error: {}", e))?;
+        let child = ARIA2_CHILD
+            .lock()
+            .map_err(|e| format!("Lock error: {}", e))?;
         child.is_some()
     };
     if already_running {
@@ -69,32 +71,32 @@ pub async fn start_aria2(app: tauri::AppHandle, rpc_port: Option<u16>) -> Result
     // Start aria2c (detached from parent process)
     let mut cmd = std::process::Command::new(&aria2c_path);
     cmd.args([
-            &format!("--rpc-listen-port={}", port),
-            "--enable-rpc=true",
-            "--rpc-allow-origin-all=true",
-            "--rpc-listen-all=false",
-            "--daemon=false",
-            "--continue=true",
-            "--max-connection-per-server=16",
-            "--split=16",
-            "--min-split-size=1M",
-            "--max-concurrent-downloads=5",
-            "--auto-file-renaming=true",
-            "--follow-torrent=true",
-            "--enable-dht=true",
-            "--bt-enable-lpd=true",
-            "--bt-max-peers=100",
-            &format!("--dir={}", download_dir.display()),
-            &format!("--input-file={}", session_file.display()),
-            &format!("--save-session={}", session_file.display()),
-            "--auto-save-interval=30",
-        ])
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::from({
-            let log_file = std::fs::File::create(session_dir.join("aria2.log"))
-                .unwrap_or_else(|_| panic!("cannot create aria2.log"));
-            log_file
-        }));
+        &format!("--rpc-listen-port={}", port),
+        "--enable-rpc=true",
+        "--rpc-allow-origin-all=true",
+        "--rpc-listen-all=false",
+        "--daemon=false",
+        "--continue=true",
+        "--max-connection-per-server=16",
+        "--split=16",
+        "--min-split-size=1M",
+        "--max-concurrent-downloads=5",
+        "--auto-file-renaming=true",
+        "--follow-torrent=true",
+        "--enable-dht=true",
+        "--bt-enable-lpd=true",
+        "--bt-max-peers=100",
+        &format!("--dir={}", download_dir.display()),
+        &format!("--input-file={}", session_file.display()),
+        &format!("--save-session={}", session_file.display()),
+        "--auto-save-interval=30",
+    ])
+    .stdout(std::process::Stdio::null())
+    .stderr(std::process::Stdio::from({
+        let log_file = std::fs::File::create(session_dir.join("aria2.log"))
+            .unwrap_or_else(|_| panic!("cannot create aria2.log"));
+        log_file
+    }));
 
     // Detach from parent so process survives when Child handle is dropped
     #[cfg(unix)]
@@ -109,7 +111,9 @@ pub async fn start_aria2(app: tauri::AppHandle, rpc_port: Option<u16>) -> Result
 
     let pid = child.id();
     {
-        let mut global_child = ARIA2_CHILD.lock().map_err(|e| format!("Lock error: {}", e))?;
+        let mut global_child = ARIA2_CHILD
+            .lock()
+            .map_err(|e| format!("Lock error: {}", e))?;
         *global_child = Some(pid);
     }
 
@@ -133,7 +137,9 @@ pub async fn start_aria2(app: tauri::AppHandle, rpc_port: Option<u16>) -> Result
             Ok(rpc_url)
         }
         _ => {
-            let mut global_child = ARIA2_CHILD.lock().map_err(|e| format!("Lock error: {}", e))?;
+            let mut global_child = ARIA2_CHILD
+                .lock()
+                .map_err(|e| format!("Lock error: {}", e))?;
             if let Some(p) = *global_child {
                 let _ = std::process::Command::new("kill")
                     .args(["-9", &p.to_string()])
@@ -159,7 +165,9 @@ pub async fn start_aria2(app: tauri::AppHandle, rpc_port: Option<u16>) -> Result
 #[command]
 pub async fn stop_aria2() -> Result<String, String> {
     let pid = {
-        let mut child = ARIA2_CHILD.lock().map_err(|e| format!("Lock error: {}", e))?;
+        let mut child = ARIA2_CHILD
+            .lock()
+            .map_err(|e| format!("Lock error: {}", e))?;
         let pid = *child;
         *child = None;
         pid

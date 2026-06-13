@@ -128,7 +128,16 @@ fn parse_heuristic(input: &str) -> DownloadIntent {
     // --- Clean title ---
     let mut title = input.to_string();
     let action_words = [
-        "下载", "下个", "下", "帮我下", "download", "get", "帮我找", "找一下", "找", "给我",
+        "下载",
+        "下个",
+        "下",
+        "帮我下",
+        "download",
+        "get",
+        "帮我找",
+        "找一下",
+        "找",
+        "给我",
     ];
     for word in &action_words {
         if title.starts_with(word) {
@@ -167,7 +176,10 @@ fn parse_heuristic(input: &str) -> DownloadIntent {
     if let Some(yr) = extracted_year {
         keywords.push(format!("{} {}", title, yr));
     }
-    if title.chars().any(|c| ('\u{4E00}'..='\u{9FFF}').contains(&c)) {
+    if title
+        .chars()
+        .any(|c| ('\u{4E00}'..='\u{9FFF}').contains(&c))
+    {
         keywords.push(format!("{} 中字", title));
     }
 
@@ -183,18 +195,12 @@ fn parse_heuristic(input: &str) -> DownloadIntent {
 }
 
 /// Call an LLM API (OpenAI-compatible) for better intent parsing
-async fn parse_with_llm(
-    input: &str,
-    config: &serde_json::Value,
-) -> Result<DownloadIntent, String> {
+async fn parse_with_llm(input: &str, config: &serde_json::Value) -> Result<DownloadIntent, String> {
     let endpoint = config
         .get("endpoint")
         .and_then(|v| v.as_str())
         .ok_or("No endpoint")?;
-    let api_key = config
-        .get("api_key")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
+    let api_key = config.get("api_key").and_then(|v| v.as_str()).unwrap_or("");
     let model = config
         .get("model")
         .and_then(|v| v.as_str())

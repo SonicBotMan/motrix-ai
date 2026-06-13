@@ -68,8 +68,9 @@ static NYAA_NUM_RE: LazyLock<regex::Regex> =
 static TG_ROW_RE: LazyLock<regex::Regex> = LazyLock::new(|| {
     regex::Regex::new(r#"<div[^>]*class="tgxtable[^"]*"[^>]*>([\s\S]*?)</div>\s*</div>"#).unwrap()
 });
-static TG_TITLE_RE: LazyLock<regex::Regex> =
-    LazyLock::new(|| regex::Regex::new(r#"<a[^>]*href="(/torrent/[^"]+)"[^>]*>([\s\S]*?)</a>"#).unwrap());
+static TG_TITLE_RE: LazyLock<regex::Regex> = LazyLock::new(|| {
+    regex::Regex::new(r#"<a[^>]*href="(/torrent/[^"]+)"[^>]*>([\s\S]*?)</a>"#).unwrap()
+});
 static TG_MAGNET_RE: LazyLock<regex::Regex> =
     LazyLock::new(|| regex::Regex::new(r#"<a[^>]*href="(magnet:\?[^"]+)"[^>]*>"#).unwrap());
 static TG_SIZE_RE: LazyLock<regex::Regex> =
@@ -128,7 +129,10 @@ pub async fn search_proxy(
 
     let response = client
         .get(&url)
-        .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+        .header(
+            "Accept",
+            "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        )
         .header("Accept-Language", "en-US,en;q=0.5")
         .send()
         .await
@@ -279,10 +283,7 @@ fn parse_1337x_results(html: &str) -> Vec<SearchResult> {
 
         let detail_path = &link_caps[1];
         let raw_title = &link_caps[2];
-        let title = STRIP_TAGS_RE
-            .replace_all(raw_title, "")
-            .trim()
-            .to_string();
+        let title = STRIP_TAGS_RE.replace_all(raw_title, "").trim().to_string();
 
         if title.is_empty() {
             continue;
@@ -301,10 +302,7 @@ fn parse_1337x_results(html: &str) -> Vec<SearchResult> {
         let size = X1337_SIZE_RE
             .captures(row)
             .map(|c| {
-                let size_text = STRIP_TAGS_RE
-                    .replace_all(&c[1], "")
-                    .trim()
-                    .to_string();
+                let size_text = STRIP_TAGS_RE.replace_all(&c[1], "").trim().to_string();
                 parse_size(&size_text)
             })
             .unwrap_or(0);
@@ -342,10 +340,7 @@ fn parse_nyaa_results(html: &str) -> Vec<SearchResult> {
         let title = if let Some(caps) = NYAA_TITLE_RE.captures(row) {
             caps[2].trim().to_string()
         } else if let Some(caps) = NYAA_TITLE_FALLBACK_RE.captures(row) {
-            STRIP_TAGS_RE
-                .replace_all(&caps[2], "")
-                .trim()
-                .to_string()
+            STRIP_TAGS_RE.replace_all(&caps[2], "").trim().to_string()
         } else {
             "Unknown".to_string()
         };
@@ -396,10 +391,7 @@ fn parse_torrentgalaxy_results(html: &str) -> Vec<SearchResult> {
         };
 
         let raw_title = &title_caps[2];
-        let title = STRIP_TAGS_RE
-            .replace_all(raw_title, "")
-            .trim()
-            .to_string();
+        let title = STRIP_TAGS_RE.replace_all(raw_title, "").trim().to_string();
 
         if title.is_empty() {
             continue;
