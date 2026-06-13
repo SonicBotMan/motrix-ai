@@ -76,6 +76,8 @@ export interface DiskThresholds {
 
 /** 应用配置（对应 PRD §5 + §8.2.2） */
 export interface AppConfig {
+  /** Config schema version for migration support */
+  schemaVersion?: number;
   ai: {
     provider: "opencode" | "anthropic" | "openai" | "ollama";
     model: string;

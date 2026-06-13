@@ -1,0 +1,338 @@
+// commands/fs.rs — File system operations.
+// save_file, download_subtitle, opensubtitles_search/download,
+// get_download_path, organize_file, show_in_folder.
+
+use super::build_http_client;
+use std::path::PathBuf;
+use tauri::command;
+
+/// Save file to disk (Bug 3: wrap blocking I/O in spawn_blocking)
+#[command]
+pub async fn save_file(path: String, content: Vec<u8>) -> Result<String, String> {
+    tokio::task::spawn_blocking(move || {
+        let path = PathBuf::from(&path);
+
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent).map_err(|e| format!("Create dir failed: {}", e))?;
+        }
+
+        std::fs::write(&path, content).map_err(|e| format!("Write failed: {}", e))?;
+
+        Ok(path.to_string_lossy().to_string())
+    })
+    .await
+    .map_err(|e| format!("Task join error: {}", e))?
+}
+
+/// Download subtitle from URL (Bug 3: wrap blocking I/O; Bug 10: shared client)
+#[command]
+pub async fn download_subtitle(url: String, save_path: String) -> Result<String, String> {
+    let client = build_http_client()?;
+
+    let response = client
+        .get(&url)
+        .send()
+        .await
+        .map_err(|e| format!("Download failed: {}", e))?;
+
+    let content = response
+        .bytes()
+        .await
+        .map_err(|e| format!("Read failed: {}", e))?;
+
+    let path = save_path.clone();
+    tokio::task::spawn_blocking(move || {
+        let path = PathBuf::from(&path);
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent).map_err(|e| format!("Create dir failed: {}", e))?;
+        }
+
+        std::fs::write(&path, &content).map_err(|e| format!("Write failed: {}", e))?;
+
+        Ok(path.to_string_lossy().to_string())
+    })
+    .await
+    .map_err(|e| format!("Task join error: {}", e))?
+}
+
+/// Search OpenSubtitles API for subtitles
+#[command]
+pub async fn opensubtitles_search(
+    api_key: String,
+    query: String,
+    languages: Option<String>,
+) -> Result<serde_json::Value, String> {
+    let client = build_http_client()?;
+
+    let mut params = vec![("query", query)];
+    if let Some(ref langs) = languages {
+        params.push(("languages", langs.clone()));
+    }
+
+    let response = client
+        .get("https://api.opensubtitles.com/api/v1/subtitles")
+        .header("Api-Key", &api_key)
+        .header("Content-Type", "application/json")
+        .query(&params)
+        .send()
+        .await
+        .map_err(|e| format!("OpenSubtitles request failed: {}", e))?;
+
+    let status = response.status();
+    if !status.is_success() {
+        let body = response.text().await.unwrap_or_default();
+        return Err(format!("OpenSubtitles API error ({}): {}", status, body));
+    }
+
+    let json: serde_json::Value = response
+        .json()
+        .await
+        .map_err(|e| format!("Failed to parse OpenSubtitles response: {}", e))?;
+
+    Ok(json)
+}
+
+/// Download a subtitle from OpenSubtitles and save it to disk
+#[command]
+pub async fn opensubtitles_download(
+    api_key: String,
+    subtitle_id: String,
+    file_name: String,
+) -> Result<String, String> {
+    let client = build_http_client()?;
+
+    let body = serde_json::json!({
+        "file_name": file_name,
+        "subtitle_id": subtitle_id,
+    });
+
+    let response = client
+        .post("https://api.opensubtitles.com/api/v1/download")
+        .header("Api-Key", &api_key)
+        .header("Content-Type", "application/json")
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| format!("OpenSubtitles download request failed: {}", e))?;
+
+    let status = response.status();
+    if !status.is_success() {
+        let body = response.text().await.unwrap_or_default();
+        return Err(format!(
+            "OpenSubtitles download API error ({}): {}",
+            status, body
+        ));
+    }
+
+    let json: serde_json::Value = response
+        .json()
+        .await
+        .map_err(|e| format!("Failed to parse download response: {}", e))?;
+
+    let download_url = json["link"]
+        .as_str()
+        .ok_or("No download link in response")?;
+
+    let subtitle_response = client
+        .get(download_url)
+        .send()
+        .await
+        .map_err(|e| format!("Subtitle file download failed: {}", e))?;
+
+    let content = subtitle_response
+        .bytes()
+        .await
+        .map_err(|e| format!("Failed to read subtitle content: {}", e))?;
+
+    // Return base64-encoded content
+    use std::io::Write;
+    let mut buf = Vec::new();
+    {
+        let mut encoder = base64::write::EncoderWriter::new(
+            &mut buf,
+            &base64::engine::general_purpose::STANDARD,
+        );
+        encoder
+            .write_all(&content)
+            .map_err(|e| format!("Base64 encode failed: {}", e))?;
+    }
+
+    let result = serde_json::json!({
+        "file_name": file_name,
+        "content_base64": String::from_utf8(buf).map_err(|e| format!("UTF-8 conversion failed: {}", e))?,
+    });
+
+    Ok(result.to_string())
+}
+
+/// Get default download path (Bug 3: wrap blocking I/O in spawn_blocking)
+#[command]
+pub async fn get_download_path() -> Result<String, String> {
+    tokio::task::spawn_blocking(|| {
+        let home = dirs::home_dir().ok_or("Cannot find home directory")?;
+        let download_dir = home.join("Downloads").join("Motrix AI");
+
+        std::fs::create_dir_all(&download_dir)
+            .map_err(|e| format!("Create dir failed: {}", e))?;
+
+        Ok(download_dir.to_string_lossy().to_string())
+    })
+    .await
+    .map_err(|e| format!("Task join error: {}", e))?
+}
+
+/// Organize a downloaded file: categorize, rename, and move to the right folder.
+/// Returns the new path of the organized file.
+#[command]
+pub async fn organize_file(
+    file_path: String,
+    title: Option<String>,
+    year: Option<u32>,
+    quality: Option<String>,
+    resource_type: Option<String>,
+) -> Result<String, String> {
+    let src = PathBuf::from(&file_path);
+    if !src.exists() {
+        return Err(format!("File not found: {}", file_path));
+    }
+
+    let filename = src
+        .file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_else(|| "unknown".to_string());
+
+    let ext = src
+        .extension()
+        .map(|e| e.to_string_lossy().to_lowercase())
+        .unwrap_or_default();
+
+    let rtype = resource_type.unwrap_or_else(|| categorize_by_extension(&ext));
+    let quality = quality.unwrap_or_else(|| "other".to_string());
+    let title = title.unwrap_or_else(|| {
+        src.file_stem()
+            .map(|n| n.to_string_lossy().to_string())
+            .unwrap_or_else(|| "Unknown".to_string())
+    });
+
+    let home = dirs::home_dir().ok_or("Cannot find home")?;
+    let base_dir = home.join("Downloads").join("Motrix AI");
+
+    let (target_dir, new_filename) = match rtype.as_str() {
+        "movie" => {
+            let dir = base_dir.join("Movies").join(format!(
+                "{}{}",
+                title,
+                year.map(|y| format!(" ({})", y)).unwrap_or_default()
+            ));
+            let fname = format!(
+                "{}{}.{}",
+                title,
+                year.map(|y| format!(".{}", y)).unwrap_or_default(),
+                if quality != "other" {
+                    format!(".{}.{}", quality, ext)
+                } else {
+                    ext.clone()
+                }
+            );
+            (dir, fname)
+        }
+        "tv" => {
+            let dir = base_dir.join("TV").join(&title);
+            (dir, filename)
+        }
+        "anime" => {
+            let dir = base_dir.join("Anime").join(&title);
+            (dir, filename)
+        }
+        "music" => {
+            let dir = base_dir.join("Music").join(&title);
+            (dir, filename)
+        }
+        "software" => {
+            let dir = base_dir.join("Software").join(&title);
+            (dir, filename)
+        }
+        _ => {
+            let dir = base_dir.join("Other");
+            (dir, filename)
+        }
+    };
+
+    std::fs::create_dir_all(&target_dir)
+        .map_err(|e| format!("Failed to create directory: {}", e))?;
+
+    let target_path = target_dir.join(&new_filename);
+
+    let final_path = if target_path.exists() && target_path != src {
+        let stem = target_path
+            .file_stem()
+            .map(|s| s.to_string_lossy().to_string())
+            .unwrap_or_default();
+        let ext = target_path
+            .extension()
+            .map(|e| format!(".{}", e.to_string_lossy()))
+            .unwrap_or_default();
+        target_dir.join(format!("{} (2){}", stem, ext))
+    } else {
+        target_path
+    };
+
+    if src != final_path {
+        std::fs::rename(&src, &final_path)
+            .or_else(|_| {
+                std::fs::copy(&src, &final_path).and_then(|_| std::fs::remove_file(&src))
+            })
+            .map_err(|e| format!("Failed to move file: {}", e))?;
+    }
+
+    Ok(final_path.to_string_lossy().to_string())
+}
+
+/// Determine file category from its extension
+fn categorize_by_extension(ext: &str) -> String {
+    match ext {
+        "mkv" | "mp4" | "avi" | "mov" | "wmv" | "flv" | "ts" | "m4v" => "movie".to_string(),
+        "mp3" | "flac" | "wav" | "aac" | "ogg" | "m4a" | "wma" => "music".to_string(),
+        "exe" | "dmg" | "deb" | "rpm" | "appimage" | "msi" | "apk" | "pkg" => {
+            "software".to_string()
+        }
+        "zip" | "rar" | "7z" | "tar" | "gz" | "bz2" => "software".to_string(),
+        "torrent" => "other".to_string(),
+        _ => "other".to_string(),
+    }
+}
+
+/// Open a file's containing folder in the system file manager.
+#[command]
+pub async fn show_in_folder(path: String) -> Result<(), String> {
+    let p = PathBuf::from(&path);
+    if !p.exists() {
+        return Err(format!("File not found: {}", path));
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .args(["-R", &path])
+            .spawn()
+            .map_err(|e| format!("Failed to open Finder: {}", e))?;
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("explorer")
+            .args(["/select,", &path])
+            .spawn()
+            .map_err(|e| format!("Failed to open Explorer: {}", e))?;
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        std::process::Command::new("xdg-open")
+            .arg(p.parent().unwrap_or(&p))
+            .spawn()
+            .map_err(|e| format!("Failed to open file manager: {}", e))?;
+    }
+
+    Ok(())
+}

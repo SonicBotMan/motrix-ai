@@ -1,4 +1,5 @@
 mod commands;
+mod error;
 
 use tauri::{
     menu::{Menu, MenuItem},
@@ -73,7 +74,7 @@ pub fn run() {
             // Auto-start bundled aria2c
             let handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
-                match commands::start_aria2(handle, Some(6800)).await {
+                match commands::aria2::start_aria2(handle, Some(6800)).await {
                     Ok(url) => log::info!("Bundled aria2c started: {}", url),
                     Err(e) => log::warn!("Bundled aria2c not available: {} (user can start manually)", e),
                 }
@@ -89,18 +90,18 @@ pub fn run() {
             }
         })
         .invoke_handler(tauri::generate_handler![
-            commands::search_proxy,
-            commands::save_file,
-            commands::download_subtitle,
-            commands::get_download_path,
-            commands::opensubtitles_search,
-            commands::opensubtitles_download,
-            commands::start_aria2,
-            commands::stop_aria2,
-            commands::check_aria2_binary,
-            commands::parse_nl_intent,
-            commands::organize_file,
-            commands::show_in_folder,
+            commands::search::search_proxy,
+            commands::fs::save_file,
+            commands::fs::download_subtitle,
+            commands::fs::get_download_path,
+            commands::fs::opensubtitles_search,
+            commands::fs::opensubtitles_download,
+            commands::aria2::start_aria2,
+            commands::aria2::stop_aria2,
+            commands::aria2::check_aria2_binary,
+            commands::intent::parse_nl_intent,
+            commands::fs::organize_file,
+            commands::fs::show_in_folder,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

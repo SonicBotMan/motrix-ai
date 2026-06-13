@@ -5,6 +5,7 @@ import type { AppConfig } from "../types.js";
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "fs";
 import { join } from "path";
 import { homedir } from "os";
+import { migrateConfig } from "./migrations.js";
 
 const CONFIG_DIR = join(homedir(), ".motrix-ai");
 const CONFIG_FILE = join(CONFIG_DIR, "config.json");
@@ -50,11 +51,13 @@ export const DEFAULT_CONFIG: AppConfig = {
 export function loadConfig(): AppConfig {
   if (!existsSync(CONFIG_FILE)) {
     mkdirSync(CONFIG_DIR, { recursive: true });
-    writeFileSync(CONFIG_FILE, JSON.stringify(DEFAULT_CONFIG, null, 2), "utf-8");
-    return { ...DEFAULT_CONFIG };
+    const initial = { ...DEFAULT_CONFIG, schemaVersion: 1 };
+    writeFileSync(CONFIG_FILE, JSON.stringify(initial, null, 2), "utf-8");
+    return initial;
   }
   const raw = JSON.parse(readFileSync(CONFIG_FILE, "utf-8"));
-  return { ...DEFAULT_CONFIG, ...raw };
+  const migrated = migrateConfig(raw);
+  return { ...DEFAULT_CONFIG, ...migrated };
 }
 
 export function saveConfig(config: AppConfig): void {
