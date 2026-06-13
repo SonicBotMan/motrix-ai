@@ -16,7 +16,7 @@ import SearchResultsModal from "@/components/SearchResultsModal.vue"
 import { useTasksStore, type Task } from "@/stores/tasks"
 import { useChatStore } from "@/composables/useChatStore"
 import { useConfigStore } from "@/stores/config"
-import { useOpenCode } from "@/composables/useOpenCode"
+import { useOpenCode, type DownloadIntent } from "@/composables/useOpenCode"
 import { useSearch } from "@/composables/useSearch"
 import type { SearchResult } from "@/composables/useSearch"
 import { useSubtitle } from "@/composables/useSubtitle"
@@ -66,7 +66,7 @@ const activeFilter = computed<string>({
 
 const showSearchResults = ref(false)
 const searchQuery = ref("")
-const currentIntent = ref<Record<string, unknown> | null>(null)
+const currentIntent = ref<DownloadIntent | null>(null)
 
 // ---- Input state ----
 
