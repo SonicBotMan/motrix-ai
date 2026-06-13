@@ -6,6 +6,8 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Tauri 2](https://img.shields.io/badge/Tauri-2-FFC131?logo=tauri&logoColor=black)](https://tauri.app/)
 [![Vue 3](https://img.shields.io/badge/Vue-3-42B883?logo=vue.js&logoColor=white)](https://vuejs.org/)
+[![CI](https://github.com/SonicBotMan/motrix-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/SonicBotMan/motrix-ai/actions)
+[![Release](https://github.com/SonicBotMan/motrix-ai/actions/workflows/release.yml/badge.svg)](https://github.com/SonicBotMan/motrix-ai/releases)
 
 Motrix AI flips the download manager paradigm: instead of manually copying links and
 managing queues, you **tell the AI what you want in natural language**, and it handles
@@ -14,26 +16,60 @@ automatically.
 
 ```
 You: "Download Interstellar 4K with subtitles"
-AI:  Found → Queued → Downloaded → Subtitled → Organized ✅
+AI:  Found -> Queued -> Downloaded -> Subtitled -> Organized ✅
 ```
 
-<!-- 📸 Screenshot coming soon -->
+<!-- Screenshot coming soon -->
 <!-- ![Motrix AI Screenshot](docs/screenshots/main.png) -->
 
 ---
 
-## ✨ Features
+## Features
 
-- 🤖 **Natural language download** — describe what you want, AI parses intent and finds resources
-- ⚡ **aria2 engine** — HTTP / FTP / BitTorrent / Magnet support with multi-connection parallel download
-- 🎬 **Auto subtitle matching** — searches shooter.cn / subhd.tv after download completes
-- 📁 **Auto file organization** — renames and categorizes files into Movies / TV / Software folders
-- ⏰ **Smart scheduling** — adapts to time of day, available disk space, and network conditions
-- 🖥️ **Desktop GUI** — Tauri 2 + Vue 3 + Naive UI, lightweight native install (~7 MB)
-- 🔌 **MCP server** — expose downloads to external AI agents via Model Context Protocol
-- 🌐 **Cross-platform** — macOS, Windows, and Linux from a single codebase
+### Core
 
-## 📦 Installation
+- **Natural language download** — describe what you want, AI parses intent and finds resources
+- **aria2 engine** — HTTP / FTP / BitTorrent / Magnet support with 16-connection parallel download
+- **Auto subtitle matching** — searches shooter.cn / subhd.tv after download completes
+- **Auto file organization** — renames and categorizes files into Movies / TV / Software folders
+- **Smart scheduling** — adapts to time of day, available disk space, and network conditions
+- **Desktop GUI** — Tauri 2 + Vue 3 + Naive UI, lightweight native install (~7 MB)
+- **MCP Server** — 7 tools for AI agent integration (Claude Desktop, Hermes, etc.)
+- **Cross-platform** — macOS (ARM64/x64), Windows (x64), Linux (x64)
+
+### AI and Models
+
+- **BYOK multi-model** — OpenCode (free), Anthropic Claude, OpenAI GPT, Ollama (local)
+- **Multi-source search** — btdig, mikan, DuckDuckGo with parallel queries
+- **Smart ranking** — scores results by seeders, size, and quality match
+
+### UI and UX
+
+- **Chat-first interface** — natural language input as primary interaction
+- **Task queue** — real-time progress, speed, ETA, pause/resume/retry
+- **Dark/Light/System themes** — follows OS preference
+- **i18n** — Chinese, English, Japanese, Korean, French
+- **System tray** — minimize to tray, native notifications
+- **Scheduling UI** — visual time-based speed rules editor
+- **NAS archive UI** — configure automatic rsync to network storage
+
+### Browser Extension
+
+- **Chrome/Firefox extension** — one-click download from any page
+- **Auto-detect links** — magnet, ed2k, video sources
+- **Right-click menu** — "Download with Motrix AI"
+
+### Developer
+
+- **CLI mode** — `motrix-ai ask "下 XX"` from terminal
+- **MCP Server** — expose download capabilities to AI agents
+- **212 tests** — 202 TypeScript + 10 Rust, 51% coverage
+- **Structured errors** — typed error hierarchy with cause chaining
+- **Structured logging** — level-filtered logger replacing console.*
+
+---
+
+## Installation
 
 ### macOS
 
@@ -69,156 +105,170 @@ chmod +x motrix-ai_*.AppImage
 ./motrix-ai_*.AppImage
 ```
 
-> 💡 Pre-built binaries are published on the
-> [Releases](https://github.com/SonicBotMan/motrix-ai/releases) page.
+> Download the latest release from [GitHub Releases](https://github.com/SonicBotMan/motrix-ai/releases)
 
 ---
 
-## 🚀 Quick Start
-
-### Prerequisites
-
-- **Node.js** 20+
-- **pnpm** 10+ (`npm i -g pnpm`)
-- **Rust** toolchain (only required to build the desktop GUI / Tauri backend)
-
-### Install
+## Quick Start
 
 ```bash
+# Clone the repository
 git clone https://github.com/SonicBotMan/motrix-ai.git
 cd motrix-ai
+
+# Install dependencies
 pnpm install
+
+# Development mode
+pnpm dev
+
+# Build for production
+pnpm build
+
+# Run tests
+pnpm test
+
+# CLI usage
+pnpm cli ask "下 VS Code 最新版"
 ```
 
-### Development
+---
 
-```bash
-pnpm dev        # start all workspaces (core, cli, mcp-server, gui) in dev mode
-```
-
-### Build
-
-```bash
-pnpm build      # build all packages (turbo run build)
-pnpm test       # run the test suite
-pnpm typecheck  # type-check across the monorepo
-```
-
-### CLI usage
-
-```bash
-# Ask the AI to find and download something in natural language
-motrix-ai ask "下流浪地球 2 4K 字幕版"
-```
-
-## 🏗️ Architecture
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                       Motrix AI                             │
-│                                                             │
-│   apps/gui            packages/cli      packages/mcp-server │
-│   (Tauri 2 + Vue 3)   (Commander)       (MCP SDK)          │
-│        │                   │                   │           │
-│        └───────────────────┼───────────────────┘           │
-│                            ▼                                │
-│                    packages/core                           │
-│   ┌───────────┬──────────┬──────────┬──────────┬─────────┐ │
-│   │   ai      │  search  │  aria2   │ subtitle │  file   │ │
-│   │ (intent,  │ (BT/DDG/ │ (client/ │ (shooter │ (organ- │ │
-│   │  keywords,│  mikan)  │  queue)  │  /subhd) │  ize)   │ │
-│   │  eval)    │          │          │          │         │ │
-│   └───────────┴──────────┴──────────┴──────────┴─────────┘ │
-│   ┌───────────┬──────────────────────┐                     │
-│   │ scheduler │  pipeline + archive  │                     │
-│   │ (time/    │  (post-process, NAS  │                     │
-│   │  disk/    │   sync)              │                     │
-│   │  retry)   │                      │                     │
-│   └───────────┴──────────────────────┘                     │
-└─────────────────────────────────────────────────────────────┘
-```
-
-📄 The full product spec lives in [`docs/PRD.md`](docs/PRD.md).
-
-## 🧰 Tech Stack
-
-| Layer            | Technology                                            |
-| ---------------- | ----------------------------------------------------- |
-| Frontend         | Vue 3 + Naive UI + Pinia + Vue Router + TypeScript    |
-| Desktop Backend  | Rust (Tauri 2)                                        |
-| Download Engine  | aria2c (bundled binary, JSON-RPC)                     |
-| AI               | OpenCode SDK (free models, BYOK supported)            |
-| Search Providers | BTDigg · DuckDuckGo · Mikan                           |
-| Subtitle Sources | shooter.cn · subhd.tv                                 |
-| Storage          | better-sqlite3 (task queue)                           |
-| MCP Integration  | @modelcontextprotocol/sdk                             |
-| Build            | pnpm + Turborepo · Vite · tsup                        |
-| Testing          | Vitest                                                |
-
-## 📁 Project Structure
+## Architecture
 
 ```
 motrix-ai/
-├── apps/
-│   └── gui/                      # Tauri desktop app
-│       ├── src/                  #   Vue 3 frontend (views, components, composables)
-│       └── src-tauri/            #   Rust backend + bundled aria2c binary
-│           ├── src/              #     commands.rs, lib.rs, main.rs
-│           └── resources/bin/    #     aria2c engine
+├── apps/gui/              # Tauri 2 desktop app (Vue 3 + Naive UI)
+│   ├── src/               # Frontend (components, views, stores, composables)
+│   └── src-tauri/         # Rust backend (commands, tray, error handling)
 ├── packages/
-│   ├── core/                     # Shared business logic
-│   │   └── src/
-│   │       ├── ai/               #   intent parser, keyword generator, result evaluator
-│   │       ├── aria2/            #   aria2 JSON-RPC client
-│   │       ├── config/           #   schema + config loader
-│   │       ├── file/             #   organizer, renamer, templates
-│   │       ├── pipeline/         #   post-processor
-│   │       ├── queue/            #   SQLite-backed task database + manager
-│   │       ├── scheduler/        #   time-based, disk-based, retry scheduling
-│   │       ├── search/           #   btdig, duckduckgo, mikan providers
-│   │       ├── subtitle/         #   shooter, subhd, finder
-│   │       ├── archive/          #   NAS / multi-device sync
-│   │       └── types.ts
-│   ├── cli/                      # Command-line interface (`motrix-ai`)
-│   │   └── src/commands/         #   add, ask, config, list, pause
-│   └── mcp-server/               # MCP server for external agent integration
-├── docs/                         # PRD, design preview, interaction audit
-├── package.json                  # Monorepo root (turbo scripts)
-└── pnpm-workspace.yaml
+│   ├── core/              # Shared business logic (25 modules)
+│   │   ├── ai/            # Intent parser, keyword generator, result evaluator
+│   │   ├── aria2/         # aria2 RPC client
+│   │   ├── search/        # Search providers (btdig, mikan, duckduckgo)
+│   │   ├── subtitle/      # Subtitle matchers (shooter, subhd)
+│   │   ├── queue/         # Task queue (SQLite persistence)
+│   │   ├── file/          # File organizer, renamer, templates
+│   │   ├── scheduler/     # Time/disk/retry schedulers
+│   │   ├── archive/       # NAS sync (rsync)
+│   │   ├── pipeline/      # Post-processor
+│   │   ├── config/        # Config schema, loader, migrations
+│   │   ├── errors/        # Typed error hierarchy
+│   │   └── logger/        # Structured logging
+│   ├── cli/               # Command-line interface
+│   └── mcp-server/        # MCP server (7 tools)
+├── extensions/browser/    # Chrome/Firefox extension
+├── docs/                  # PRD, architecture, design docs
+└── scripts/               # Version bump, utilities
 ```
 
-## 🗺️ Roadmap
-
-- [x] **PoC** — natural-language → search → download proof of concept
-- [x] **MVP core modules** — intent parser, aria2 client, search, subtitle, file organizer, scheduler, queue
-- [ ] 🔄 **MVP GUI integration** — wire core engine into Tauri + Vue desktop app _(in progress)_
-- [ ] **Alpha release** — bundled installers, onboarding, settings UI
-- [ ] **Beta + 6-platform CI** — macOS / Windows / Linux, automated builds & tests
-- [ ] **v1.0** — stable public release
-
-## 🤝 Contributing
-
-Contributions are welcome! This project is early-stage, so please open an issue first
-to discuss what you'd like to change.
-
-- 📖 Contributing guide: [`CONTRIBUTING.md`](CONTRIBUTING.md) _(coming soon)_
-- 🐛 Found a bug or have an idea? Open an
-  [issue](https://github.com/SonicBotMan/motrix-ai/issues/new/choose).
-- 🔧 Pull requests are welcome against the `main` branch.
-
-## 📄 License
-
-[MIT](LICENSE) © Motrix AI contributors
-
-## 🙏 Acknowledgments
-
-Motrix AI stands on the shoulders of giants. Built with inspiration from:
-
-- **[Motrix Next](https://github.com/agalwood/Motrix)** — the modern Motrix revival (Tauri 2 + aria2) that proved the architecture
-- **[Aria2 Next](https://github.com/aria2/aria2)** — the powerhouse download engine under the hood
-- **[OpenCode](https://github.com/opencode-ai)** — AI SDK powering natural-language understanding
-- **[Tauri](https://tauri.app/)** — for a secure, lightweight, cross-platform desktop runtime
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed architecture documentation.
 
 ---
 
-<p align="center">Made with ❤️ for people who'd rather just say it than hunt for the link.</p>
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| **Frontend** | Vue 3 + Pinia + Naive UI + TypeScript |
+| **Backend** | Rust (Tauri 2) |
+| **Download Engine** | aria2 (JSON-RPC, bundled) |
+| **AI** | OpenCode SDK (BYOK: Anthropic/OpenAI/Ollama) |
+| **Database** | SQLite (better-sqlite3) |
+| **Build** | Vite + Cargo + pnpm + Turborepo |
+| **Tests** | Vitest + cargo test |
+| **CI/CD** | GitHub Actions (4 platform matrix) |
+
+---
+
+## Project Status
+
+| Metric | Value |
+|--------|-------|
+| **Version** | 1.0.0 |
+| **Tests** | 212 (202 TS + 10 Rust) |
+| **Coverage** | 51% |
+| **ESLint** | 0 errors, 0 warnings |
+| **Platforms** | 4 (macOS ARM64/x64, Windows x64, Linux x64) |
+| **Languages** | 5 (中/英/日/韩/法) |
+| **Core Modules** | 25 |
+| **Composables** | 10 |
+| **Tauri Plugins** | 6 |
+
+---
+
+## Roadmap
+
+- ✅ **v0.1.0** — PoC (OpenCode SDK validation)
+- ✅ **v0.2.0** — Alpha (cross-platform CI, system tray, notifications)
+- ✅ **v1.0.0** — Stable release (all features, 212 tests, 5 languages)
+
+### Future
+
+- E2E tests (Playwright)
+- Code signing (macOS/Windows)
+- Homebrew/Scoop auto-update
+- Deep link support (magnet://, ed2k://)
+- Startup on boot
+- Performance benchmarks
+- Accessibility (ARIA)
+- More search providers
+- More subtitle sources
+
+---
+
+## Contributing
+
+We welcome contributions! Please see:
+
+- [CONTRIBUTING.md](CONTRIBUTING.md) — Development setup, code quality, PR guidelines
+- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) — Community standards
+- [PRIVACY.md](PRIVACY.md) — Data handling practices
+
+### Quick Start for Contributors
+
+```bash
+# Fork and clone
+git clone https://github.com/YOUR_USERNAME/motrix-ai.git
+cd motrix-ai
+
+# Install dependencies
+pnpm install
+
+# Create feature branch
+git checkout -b feature/my-feature
+
+# Make changes, run tests
+pnpm test
+pnpm lint
+pnpm typecheck
+
+# Commit with conventional message
+git commit -m "feat: add my feature"
+
+# Push and create PR
+git push origin feature/my-feature
+```
+
+---
+
+## License
+
+MIT License — see [LICENSE](LICENSE) for details.
+
+---
+
+## Acknowledgments
+
+- [Motrix Next](https://github.com/AnInsomniacy/motrix-next) — Architecture inspiration
+- [Aria2](https://aria2.github.io/) — Download engine
+- [OpenCode](https://github.com/anomalyco/opencode) — AI SDK
+- [Tauri](https://tauri.app/) — Desktop framework
+- [Vue.js](https://vuejs.org/) — Frontend framework
+- [Naive UI](https://www.naiveui.com/) — UI components
+
+---
+
+<div align="center">
+  <sub>Built with love by <a href="https://github.com/SonicBotMan">Orion</a></sub>
+</div>
