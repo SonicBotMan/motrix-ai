@@ -100,7 +100,7 @@ export function useTauri() {
    */
   const openInFileManager = async (path: string): Promise<void> => {
     if (!isTauri.value) {
-      console.log('Would open:', path)
+      console.warn('Not in Tauri environment, cannot open:', path)
       return
     }
 

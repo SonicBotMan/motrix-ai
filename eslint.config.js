@@ -123,4 +123,13 @@ export default [
   {
     ignores: ["**/dist/**", "**/node_modules/**", "**/target/**", "**/*.js", "**/*.mjs"],
   },
+
+  // CLI commands use console.log for user-facing output.
+  // This is intentional — the CLI is a terminal tool that prints to stdout.
+  {
+    files: ["packages/cli/**/*.ts"],
+    rules: {
+      "no-console": "off",
+    },
+  },
 ]

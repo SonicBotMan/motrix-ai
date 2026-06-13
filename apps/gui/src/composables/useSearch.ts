@@ -104,11 +104,6 @@ export function useSearch() {
         perSource[source] = result.status === 'fulfilled' ? result.value : []
       })
 
-      const totalFound = Object.entries(perSource)
-        .map(([k, v]) => `${v.length} from ${k}`)
-        .join(', ')
-      console.log(`Search results: ${totalFound}`)
-
       // Merge all results (preserving source order)
       const allSources = [...perSource.btdig, ...perSource['1337x'], ...perSource.nyaa, ...perSource.torrentgalaxy, ...perSource.mikan]
 

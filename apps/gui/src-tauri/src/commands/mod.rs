@@ -4,6 +4,7 @@
 pub mod aria2;
 pub mod config;
 pub mod fs;
+pub mod http_api;
 pub mod intent;
 pub mod search;
 

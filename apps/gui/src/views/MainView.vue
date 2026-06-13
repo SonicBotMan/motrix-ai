@@ -141,7 +141,6 @@ tasksStore.onTaskComplete(async (task) => {
         resourceType: currentIntent.value?.resource_type || undefined,
       })
       message.success(`${t("msg.organized")}: ${newPath.split("/").pop()}`)
-      console.log("File organized to:", newPath)
     } catch (e) {
       console.warn("Auto-organize failed:", e)
       // Not critical — file stays in download dir
@@ -302,7 +301,6 @@ const handleChatSubmit = async () => {
   try {
     // Parse intent using OpenCode
     const intent = await parseIntent(input)
-    console.log("Parsed intent:", intent)
 
     // Build a human-readable summary
     const summary = `${t("msg.recognized")}: ${intent.title} (${intent.quality || t("msg.auto")})${intent.need_subtitle ? " + " + t("msg.subtitle") : ""}`
@@ -357,7 +355,6 @@ const handleSelectSubtitle = async (subtitle: SubtitleResult) => {
   try {
     // In production, download and save alongside the video
     message.success(`${t("msg.subtitleDownload")}: ${subtitle.language} - ${subtitle.fileName}`)
-    console.log("Selected subtitle:", subtitle)
   } catch (e) {
     console.error("Failed to download subtitle:", e)
     message.error(t("msg.subtitleDownloadFailed"))

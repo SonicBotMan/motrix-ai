@@ -60,6 +60,7 @@ pub fn run() {
             commands::fs::show_in_folder,
             commands::request_notification_permission,
             commands::send_notification,
+            commands::http_api::start_http_api,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

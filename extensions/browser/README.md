@@ -49,6 +49,19 @@ The extension communicates with the Motrix AI desktop app via a local HTTP API:
 | **Endpoint**  | `POST /api/download`       |
 | **Body**      | `{ "url": "...", "title": "..." }` |
 
+### How it works
+
+The browser extension sends download requests to Motrix AI's built-in **local
+HTTP API** (a bridge server inside the Tauri app). The bridge then forwards the
+request to aria2 via JSON-RPC on port 6800. This design means:
+
+- The extension never talks to aria2 directly — all requests go through the
+  Motrix AI bridge, which handles authentication, intent parsing, and queue
+  management.
+- The bridge validates and sanitises incoming URLs before passing them to
+  aria2.
+- The raw aria2 RPC port (6800) does not need to be exposed.
+
 ### Steps
 
 1. **Launch Motrix AI** on your computer (the GUI desktop app).
@@ -56,7 +69,19 @@ The extension communicates with the Motrix AI desktop app via a local HTTP API:
 3. The default port is **18900**. If you changed it, update the URLs in
    `background.js` and `popup.js`.
 4. Right-click a download link or use the popup — the URL will be sent to the
-   app instantly.
+  app instantly.
+
+### Configuring the port
+
+The HTTP API bridge port defaults to **18900** and can be configured at runtime
+via the `start_http_api` Tauri command (see
+`apps/gui/src-tauri/src/commands/http_api.rs`). If you use a non-default port,
+update the `PORT` constant in `background.js`:
+
+```js
+// background.js
+const API_PORT = 18900 // change this to match your Motrix AI configuration
+```
 
 ### If the desktop app isn't running
 

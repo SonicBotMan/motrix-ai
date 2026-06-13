@@ -92,12 +92,12 @@ const formatTime = (date: Date) => {
 <template>
   <NModal
     :show="visible"
-    @update:show="(val) => !val && emit('close')"
     :mask-closable="true"
     :close-on-esc="true"
     transform-origin="center"
+    @update:show="(val) => !val && emit('close')"
   >
-    <div class="detail-panel" v-if="task">
+    <div v-if="task" class="detail-panel">
       <!-- Header -->
       <div class="detail-header">
         <div class="detail-header-left">
@@ -151,19 +151,19 @@ const formatTime = (date: Date) => {
         <div class="detail-stats">
           <div class="stat-item">
             <div class="stat-label">Downloaded</div>
-            <div class="stat-value" id="statDownloaded">{{ task.size.split(' / ')[0] }}</div>
+            <div id="statDownloaded" class="stat-value">{{ task.size.split(' / ')[0] }}</div>
           </div>
           <div class="stat-item">
             <div class="stat-label">Total</div>
-            <div class="stat-value" id="statTotal">{{ task.size.split(' / ')[1] || task.size }}</div>
+            <div id="statTotal" class="stat-value">{{ task.size.split(' / ')[1] || task.size }}</div>
           </div>
           <div class="stat-item">
             <div class="stat-label">Speed</div>
-            <div class="stat-value" id="statSpeed">{{ task.speed }}</div>
+            <div id="statSpeed" class="stat-value">{{ task.speed }}</div>
           </div>
           <div class="stat-item">
             <div class="stat-label">ETA</div>
-            <div class="stat-value" id="statEta">{{ task.eta }}</div>
+            <div id="statEta" class="stat-value">{{ task.eta }}</div>
           </div>
           <div class="stat-item">
             <div class="stat-label">Connections</div>
@@ -226,7 +226,7 @@ const formatTime = (date: Date) => {
           Retry
         </NButton>
 
-        <NButton @click="emit('pause', task.id)" v-if="task.status === 'downloading'">
+        <NButton v-if="task.status === 'downloading'" @click="emit('pause', task.id)">
           <template #icon><NIcon><PauseOutline /></NIcon></template>
           Pause
         </NButton>

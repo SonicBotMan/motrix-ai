@@ -11,6 +11,8 @@ import { useAria2Manager } from '@/composables/useAria2Manager'
 import { useOpenCode } from '@/composables/useOpenCode'
 import { useAIProvider } from '@/composables/useAIProvider'
 import { theme, language, t } from '@/composables/useSettings'
+import ScheduleConfig from '@/components/ScheduleConfig.vue'
+import NASConfig from '@/components/NASConfig.vue'
 
 const router = useRouter()
 const message = useMessage()
@@ -452,6 +454,20 @@ async function applyAria2Settings() {
           </div>
         </NTabPane>
 
+        <!-- Schedule -->
+        <NTabPane name="schedule" :tab="t('settings.schedule') || 'Schedule'">
+          <div class="tab-content">
+            <h3>{{ t('settings.schedule') || 'Schedule' }}</h3>
+
+            <NAlert type="info" :bordered="false" style="margin-bottom: 16px">
+              Automatically adjust download speed and concurrency based on the
+              time of day.
+            </NAlert>
+
+            <ScheduleConfig />
+          </div>
+        </NTabPane>
+
         <!-- Subtitles -->
         <NTabPane name="subtitles" :tab="t('settings.subtitles')">
           <div class="tab-content">
@@ -554,6 +570,11 @@ async function applyAria2Settings() {
               <NSelect v-model:value="logLevel" :options="logLevelOptions" />
               <p class="setting-hint">Controls the verbosity of application logs.</p>
             </div>
+
+            <NDivider />
+
+            <!-- NAS Archive -->
+            <NASConfig />
 
             <NDivider />
 

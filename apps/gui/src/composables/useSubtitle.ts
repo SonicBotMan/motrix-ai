@@ -253,9 +253,6 @@ export function useSubtitle() {
       const cached = getCachedResults(title, langs)
       if (cached) {
         subtitleResults.value = cached
-        console.log(
-          `Loaded ${cached.length} cached subtitles for "${title}"`,
-        )
         return
       }
 
@@ -271,7 +268,6 @@ export function useSubtitle() {
       setCachedResults(title, langs, results)
 
       subtitleResults.value = results
-      console.log(`Found ${results.length} subtitles for "${title}"`)
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e)
       console.error('Subtitle search failed:', e)
@@ -327,7 +323,6 @@ export function useSubtitle() {
         content: Array.from(contentBytes),
       })
 
-      console.log(`Downloaded subtitle to: ${savedPath}`)
       return savedPath
     } catch (e) {
       console.error('Subtitle download failed:', e)

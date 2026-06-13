@@ -63,7 +63,8 @@ const prevStep = () => {
         </div>
         <div class="form-group">
           <label>Language</label>
-          <NSelect v-model:value="uiLanguage"
+          <NSelect
+v-model:value="uiLanguage"
             :options="[
             { label: 'English', value: 'en' },
             { label: '中文', value: 'zh' },

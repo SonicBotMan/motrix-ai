@@ -489,14 +489,12 @@ export function useAria2(opts: Aria2Options = {}) {
 
       // Diagnostic: check binary exists
       const diag = await invoke<Aria2BinaryDiagnostic>('check_aria2_binary')
-      console.log('aria2c binary diagnostic:', diag)
 
       if (!diag.exists) {
         console.error('Bundled aria2c NOT FOUND at:', diag.binary_path)
         emitConnection('error', 'Bundled aria2c binary not found')
       } else {
-        const rpcUrl = await invoke<string>('start_aria2', { rpcPort: 6800 })
-        console.log('Bundled aria2c started:', rpcUrl)
+        await invoke<string>('start_aria2', { rpcPort: 6800 })
         aria2Running.value = true
       }
     } catch (e) {
@@ -507,7 +505,7 @@ export function useAria2(opts: Aria2Options = {}) {
       try {
         await startAria2()
       } catch (_) {
-        console.log('System aria2c not available either')
+        console.warn('System aria2c not available either')
       }
     }
     // Connect to aria2 RPC (whether bundled or system)

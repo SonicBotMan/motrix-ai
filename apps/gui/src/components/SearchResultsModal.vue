@@ -63,10 +63,10 @@ const formatDownloads = (count: number): string => {
 <template>
   <NModal
     :show="visible"
-    @update:show="(val: boolean) => !val && emit('close')"
     :mask-closable="true"
     :close-on-esc="true"
     transform-origin="center"
+    @update:show="(val: boolean) => !val && emit('close')"
   >
     <div class="search-modal">
       <!-- Header -->
