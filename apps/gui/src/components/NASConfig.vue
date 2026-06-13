@@ -60,7 +60,7 @@ const saved = localStorage.getItem('motrix-ai:nas-config')
 if (saved) {
   try {
     Object.assign(config.value, JSON.parse(saved))
-  } catch {}
+  } catch (e) { console.warn("Failed to load NAS config:", e) }
 }
 </script>
 
