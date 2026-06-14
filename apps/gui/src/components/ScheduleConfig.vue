@@ -88,7 +88,7 @@ const currentRule = computed(() => {
           <div class="rule-time">
             <n-icon :size="14"><TimeOutline /></n-icon>
             <n-input v-model:value="rule.time_start" size="tiny" style="width: 70px" placeholder="HH:mm" />
-            <span>—</span>
+            <span>·</span>
             <n-input v-model:value="rule.time_end" size="tiny" style="width: 70px" placeholder="HH:mm" />
           </div>
           <div class="rule-speed">
@@ -104,7 +104,7 @@ const currentRule = computed(() => {
       <n-input v-model:value="newRule.name" placeholder="规则名称" size="small" />
       <div class="form-row">
         <n-input v-model:value="newRule.time_start" placeholder="开始时间" size="small" style="width: 70px" />
-        <span>—</span>
+        <span>·</span>
         <n-input v-model:value="newRule.time_end" placeholder="结束时间" size="small" style="width: 70px" />
       </div>
       <div class="form-actions">

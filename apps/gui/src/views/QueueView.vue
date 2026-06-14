@@ -643,10 +643,13 @@ function toModalStatus(s: TaskStatus): 'downloading' | 'completed' | 'paused' | 
 .search-input {
   background: transparent;
   border: none;
-  outline: none;
   color: var(--fg);
   font-size: 12px;
   width: 100%;
+}
+
+.search-input:focus {
+  outline: none;
 }
 
 .search-input::placeholder {
@@ -939,5 +942,12 @@ function toModalStatus(s: TaskStatus): 'downloading' | 'completed' | 'paused' | 
 .connection-text {
   font-size: 11px;
   color: var(--fg-tertiary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 100ms !important;
+  }
 }
 </style>

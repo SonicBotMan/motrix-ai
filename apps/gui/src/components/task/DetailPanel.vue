@@ -96,7 +96,7 @@ const ringCaption = computed(() => {
     case 'downloading': return `Downloading · ${props.task.eta || '—'} remaining`
     case 'paused': return 'Paused'
     case 'completed': return 'Completed'
-    case 'failed': return 'Failed — retry to resume'
+    case 'failed': return 'Failed. Retry to resume.'
     default: return 'Queued'
   }
 })

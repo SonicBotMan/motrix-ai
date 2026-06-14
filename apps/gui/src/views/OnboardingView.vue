@@ -244,4 +244,11 @@ h1 {
   justify-content: space-between;
   margin-top: var(--space-8);
 }
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 100ms !important;
+  }
+}
 </style>

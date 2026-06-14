@@ -488,19 +488,19 @@ const handleSelectSubtitle = async (subtitle: SubtitleResult) => {
       <!-- Quick Actions -->
       <div class="quick-actions">
         <NButton size="small" class="action-chip action-chip-primary" @click="handlePasteLink">
-          🔗 {{ t('action.pasteLink') }}
+          {{ t('action.pasteLink') }}
         </NButton>
         <NButton size="small" class="action-chip">
-          📁 {{ t('action.uploadTorrent') }}
+          {{ t('action.uploadTorrent') }}
         </NButton>
         <NButton size="small" class="action-chip">
-          ⬇️ {{ t('action.quickDownload') }}
+          {{ t('action.quickDownload') }}
         </NButton>
         <NButton size="small" class="action-chip" @click="router.push('/queue')">
-          📋 {{ t('action.queue') }}
+          {{ t('action.queue') }}
         </NButton>
         <NButton size="small" class="action-chip">
-          ⏸ {{ t('btn.pauseAll') }}
+          {{ t('btn.pauseAll') }}
         </NButton>
       </div>
 
@@ -515,7 +515,7 @@ const handleSelectSubtitle = async (subtitle: SubtitleResult) => {
             @keyup.enter="handleUrlSubmit"
           />
           <NButton quaternary circle size="tiny" class="input-action-btn" @click="handleUrlSubmit">
-            ⬇️
+            &#8595;
           </NButton>
           <div class="input-divider"></div>
           <input
@@ -525,7 +525,7 @@ const handleSelectSubtitle = async (subtitle: SubtitleResult) => {
             @keyup.enter="handleChatSubmit"
           />
           <NButton type="primary" circle size="tiny" class="send-btn" @click="handleChatSubmit">
-            ➤
+            &#8594;
           </NButton>
         </div>
       </div>
@@ -916,12 +916,15 @@ const handleSelectSubtitle = async (subtitle: SubtitleResult) => {
   flex: 1;
   background: transparent;
   border: none;
-  outline: none;
   color: var(--fg);
   font-size: 13px;
   font-family: var(--font-ui);
   padding: 8px 0;
   min-width: 0;
+}
+
+.input-field:focus {
+  outline: none;
 }
 
 .input-field::placeholder {
@@ -942,5 +945,12 @@ const handleSelectSubtitle = async (subtitle: SubtitleResult) => {
 
 .send-btn {
   flex-shrink: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 100ms !important;
+  }
 }
 </style>

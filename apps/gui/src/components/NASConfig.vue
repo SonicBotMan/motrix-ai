@@ -65,7 +65,7 @@ if (saved) {
 </script>
 
 <template>
-  <n-card title="🖥️ NAS 归档" class="nas-card">
+  <n-card title="NAS 归档" class="nas-card">
     <template #header-extra>
       <n-tag :type="config.connected ? 'success' : 'error'" size="small">
         {{ config.connected ? '已连接' : '未连接' }}

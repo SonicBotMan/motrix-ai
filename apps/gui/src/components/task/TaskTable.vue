@@ -59,6 +59,8 @@ const filterTabs: FilterTab[] = [
 
 const selectedRowIndex = ref<number>(-1)
 const flashingRowId = ref<number | null>(null)
+/** Track which row's context menu is currently open */
+const openMenuId = ref<number | null>(null)
 
 // --- Computed ---
 
@@ -179,6 +181,16 @@ function setFilter(value: string): void {
   emit('update:filter', value)
   selectedRowIndex.value = -1
 }
+
+/** Toggle the row context menu and track open state for aria-expanded */
+function handleMenuToggle(taskId: number, event: MouseEvent): void {
+  if (openMenuId.value === taskId) {
+    openMenuId.value = null
+  } else {
+    openMenuId.value = taskId
+  }
+  emit('toggleMenu', taskId, event)
+}
 </script>
 
 <template>
@@ -270,8 +282,8 @@ function setFilter(value: string): void {
               class="task-row-menu"
               title="Row actions"
               aria-haspopup="menu"
-              :aria-expanded="false"
-              @click.stop="emit('toggleMenu', task.id, $event)"
+              :aria-expanded="openMenuId === task.id"
+              @click.stop="handleMenuToggle(task.id, $event)"
             >
               &#8943;
             </button>
@@ -334,10 +346,9 @@ function setFilter(value: string): void {
 }
 
 .filter-tab:focus-visible {
-  outline: none;
-  box-shadow:
-    0 0 0 2px var(--focus-ring, oklch(92% 0.005 255)),
-    0 0 0 6px var(--focus-ring-soft, oklch(92% 0.005 255 / 0.22));
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 6px var(--focus-ring-soft);
 }
 
 /* --- Table --- */
@@ -614,11 +625,10 @@ tr:hover .task-row-menu {
 }
 
 .task-row-menu:focus-visible {
-  outline: none;
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 6px var(--focus-ring-soft);
   opacity: 1;
-  box-shadow:
-    0 0 0 2px var(--focus-ring, oklch(92% 0.005 255)),
-    0 0 0 6px var(--focus-ring-soft, oklch(92% 0.005 255 / 0.22));
 }
 
 /* --- Empty state --- */

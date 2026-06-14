@@ -337,7 +337,7 @@ async function applyAria2Settings() {
             <NDivider />
 
             <!-- Advanced: manual OpenAI-compatible endpoint -->
-            <h4 style="margin-bottom: 16px">Advanced — Custom Endpoint</h4>
+            <h4 style="margin-bottom: 16px">Advanced: Custom Endpoint</h4>
 
             <div class="setting-group">
               <label>Current Mode</label>
@@ -740,5 +740,12 @@ async function applyAria2Settings() {
 
 .danger-item strong {
   font-size: 13px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 100ms !important;
+  }
 }
 </style>

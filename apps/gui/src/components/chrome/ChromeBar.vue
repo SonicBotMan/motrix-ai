@@ -183,10 +183,9 @@ defineEmits<{
 }
 
 .chrome-btn:focus-visible {
-  outline: none;
-  box-shadow:
-    0 0 0 2px var(--focus-ring, oklch(92% 0.005 255)),
-    0 0 0 8px var(--focus-ring-soft, oklch(92% 0.005 255 / 0.22));
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 8px var(--focus-ring-soft);
 }
 
 /* --- Reduced motion --- */

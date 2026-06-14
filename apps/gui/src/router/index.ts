@@ -6,6 +6,11 @@ const router = createRouter({
     {
       path: '/',
       name: 'main',
+      component: () => import('@/views/TaskFirstView.vue'),
+    },
+    {
+      path: '/legacy',
+      name: 'legacy',
       component: () => import('@/views/MainView.vue'),
     },
     {
@@ -16,6 +21,11 @@ const router = createRouter({
     {
       path: '/settings',
       name: 'settings',
+      component: () => import('@/views/SettingsNewView.vue'),
+    },
+    {
+      path: '/settings-legacy',
+      name: 'settings-legacy',
       component: () => import('@/views/SettingsView.vue'),
     },
     {
