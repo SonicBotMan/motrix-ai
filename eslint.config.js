@@ -27,7 +27,7 @@ const sharedGlobals = {
   ReadableStream: "readonly",
   WritableStream: "readonly",
   TransformStream: "readonly",
-  structuredClone: "readonly",  MouseEvent: "readonly",
+  structuredClone: "readonly",  MouseEvent: "readonly",  Node: "readonly",
   window: "readonly",
   document: "readonly",
   navigator: "readonly",
