@@ -19,9 +19,10 @@ const SIZE_RANGES: Record<ResourceType, [number, number]> = {
 };
 
 /** Scoring weights — must sum to 1.0 */
-const WEIGHT_SEEDERS = 0.4;
-const WEIGHT_SIZE = 0.3;
-const WEIGHT_QUALITY = 0.3;
+const WEIGHT_SEEDERS = 0.3;
+const WEIGHT_SIZE = 0.2;
+const WEIGHT_QUALITY = 0.2;
+const WEIGHT_RELEVANCE = 0.3;
 
 /** Quality proximity pairs for "close match" scoring */
 const CLOSE_QUALITY_PAIRS: ReadonlyArray<[Quality, Quality]> = [
@@ -39,15 +40,20 @@ interface ScoredResult {
 /**
  * Evaluates and ranks SearchResult candidates against a DownloadIntent.
  *
- * Scoring is a weighted combination of three normalised sub-scores:
- *  - **Seeders** (0.4) — popularity / health of the swarm
- *  - **Size reasonableness** (0.3) — does the file size match expectations for the type?
- *  - **Quality match** (0.3) — does the detected quality match the user's request?
+ * Scoring is a weighted combination of four normalised sub-scores:
+ *  - **Seeders** (0.3) — popularity / health of the swarm
+ *  - **Size reasonableness** (0.2) — does the file size match expectations for the type?
+ *  - **Quality match** (0.2) — does the detected quality match the user's request?
+ *  - **Title relevance** (0.3) — does the result title contain the search keywords?
+ *
+ * Results are also pre-filtered to remove obviously irrelevant candidates
+ * (e.g. excessively large files for non-movie types, or large dead torrents).
  */
 export class ResultEvaluator {
   /**
    * Evaluate and sort results by computed score (descending).
    *
+   * Pre-filters obviously irrelevant candidates before scoring.
    * Does NOT mutate the input array; returns a new sorted copy.
    *
    * @param results - Raw search results from one or more providers
@@ -57,17 +63,29 @@ export class ResultEvaluator {
   evaluate(results: SearchResult[], intent: DownloadIntent): SearchResult[] {
     if (results.length === 0) return [];
 
-    const maxSeeders = Math.max(...results.map((r) => r.seeders), 1);
+    // Filter out results that are way too large (>100GB for non-movie) or
+    // have 0 seeders and are large (>10GB) — these are almost certainly useless
+    const filtered = results.filter((r) => {
+      if (r.size > 100 * GB && intent.resource_type !== "movie") return false;
+      if (r.seeders === 0 && r.size > 10 * GB) return false;
+      return true;
+    });
 
-    const scored: ScoredResult[] = results.map((result) => {
+    if (filtered.length === 0) return [];
+
+    const maxSeeders = Math.max(...filtered.map((r) => r.seeders), 1);
+
+    const scored: ScoredResult[] = filtered.map((result) => {
       const seedersScore = this.scoreSeeders(result.seeders, maxSeeders);
       const sizeScore = this.scoreSize(result.size, intent.resource_type);
       const qualityScore = this.scoreQuality(result.quality, intent.quality);
+      const relevanceScore = this.scoreRelevance(result.title, intent);
 
       const score =
         WEIGHT_SEEDERS * seedersScore +
         WEIGHT_SIZE * sizeScore +
-        WEIGHT_QUALITY * qualityScore;
+        WEIGHT_QUALITY * qualityScore +
+        WEIGHT_RELEVANCE * relevanceScore;
 
       return { result, score };
     });
@@ -160,5 +178,38 @@ export class ResultEvaluator {
 
     // No match
     return 0;
+  }
+
+  /**
+   * Title relevance score (0–1).
+   *
+   * Checks how many of the search keywords and the main title appear in the
+   * result title. A full main-title match gives a +2 bonus (weight 2), and
+   * each keyword match contributes +1. The raw count is normalised by the
+   * maximum possible score (keywords.length + 2).
+   *
+   * @param resultTitle - Title of the search result candidate
+   * @param intent - The original download intent with keywords and main title
+   * @returns Normalised relevance score between 0 and 1
+   */
+  private scoreRelevance(resultTitle: string, intent: DownloadIntent): number {
+    const titleLower = resultTitle.toLowerCase();
+    const keywords = intent.search_keywords.map((k) => k.toLowerCase());
+
+    let matchCount = 0;
+    for (const keyword of keywords) {
+      if (titleLower.includes(keyword)) {
+        matchCount++;
+      }
+    }
+
+    // Bonus for main title match
+    const mainTitle = intent.title.toLowerCase();
+    if (mainTitle && titleLower.includes(mainTitle)) {
+      matchCount += 2;
+    }
+
+    // Normalise to 0-1
+    return Math.min(matchCount / (keywords.length + 2), 1);
   }
 }

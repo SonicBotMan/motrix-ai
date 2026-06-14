@@ -185,28 +185,46 @@ export class MikanSearchProvider implements SearchProvider {
     const query = keywords.join(" ");
     if (!query) return [];
 
-    try {
-      const url = `https://mikanani.me/RSS/Search?searchstr=${encodeURIComponent(query)}`;
+    const encoded = encodeURIComponent(query);
+    // mikanani.me is the primary domain but has frequent outages;
+    // fall back to known mirror domains on failure.
+    const hosts = ["mikanani.me", "mikan.tv", "mikannani.me"];
+
+    for (const host of hosts) {
+      const url = `https://${host}/RSS/Search?searchstr=${encoded}`;
       logger.debug(`fetching: ${url}`);
 
-      const response = await rateLimitedFetch(url, {
-        headers: {
-          "User-Agent": this.userAgent,
-          Accept: "application/rss+xml, application/xml, text/xml",
-        },
-        signal: AbortSignal.timeout(15_000),
-      });
+      try {
+        const response = await rateLimitedFetch(url, {
+          headers: {
+            "User-Agent": this.userAgent,
+            Accept: "application/rss+xml, application/xml, text/xml",
+            "Accept-Language": "en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7",
+          },
+          signal: AbortSignal.timeout(15_000),
+        });
 
-      if (!response.ok) {
-        logger.error(`HTTP ${response.status} for ${url}`);
-        return [];
+        if (!response.ok) {
+          logger.warn(`HTTP ${response.status} for ${host}, trying next domain`);
+          continue;
+        }
+
+        const xml = await response.text();
+        const results = parseMikanRss(xml);
+        if (results.length > 0) {
+          logger.debug(`got ${results.length} results from ${host}`);
+          return results;
+        }
+        // Empty results — return immediately (no point trying other domains)
+        return results;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        logger.warn(`fetch failed for ${host}: ${msg}, trying next domain`);
+        continue;
       }
-
-      const xml = await response.text();
-      return parseMikanRss(xml);
-    } catch (err) {
-      logger.error("search error:", err instanceof Error ? err.message : err);
-      return [];
     }
+
+    logger.error("all mikan domains failed");
+    return [];
   }
 }

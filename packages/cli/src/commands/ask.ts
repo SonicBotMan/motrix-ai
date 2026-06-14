@@ -10,6 +10,7 @@ import {
   QueueManager,
   DuckDuckGoSearchProvider,
   MikanSearchProvider,
+  NyaaSearchProvider,
   BtdigSearchProvider,
   searchAll,
   loadConfig,
@@ -65,6 +66,7 @@ export function registerAskCommand(program: Command): void {
       const providers = [
         new BtdigSearchProvider(),
         new MikanSearchProvider(),
+        new NyaaSearchProvider(),
         new DuckDuckGoSearchProvider(),
       ]
 

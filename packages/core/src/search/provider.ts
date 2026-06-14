@@ -5,6 +5,7 @@ import type { SearchResult, DownloadIntent } from "../types.js";
 
 export { BtdigSearchProvider } from "./btdig.js";
 export { MikanSearchProvider } from "./mikan.js";
+export { NyaaSearchProvider } from "./nyaa.js";
 export { DuckDuckGoSearchProvider } from "./duckduckgo.js";
 
 /** 搜索 Provider 接口 */

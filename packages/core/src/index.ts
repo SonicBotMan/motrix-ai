@@ -32,7 +32,7 @@ export { ResultEvaluator } from "./ai/result-evaluator.js";
 export { Aria2Client } from "./aria2/client.js";
 
 // Search
-export { searchAll, DuckDuckGoSearchProvider, MikanSearchProvider, BtdigSearchProvider } from "./search/provider.js";
+export { searchAll, DuckDuckGoSearchProvider, MikanSearchProvider, NyaaSearchProvider, BtdigSearchProvider } from "./search/provider.js";
 export type { SearchProvider } from "./search/provider.js";
 
 // Queue
