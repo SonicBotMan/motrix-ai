@@ -324,9 +324,7 @@ const tasks = ref<MockTask[]>([
 // ---------------------------------------------------------------------------
 
 const router = useRouter()
-const emit = defineEmits<{
-  navigate: [view: string]
-}>()
+// (We no longer emit 'navigate'; router.push() goes directly through useRouter)
 
 const activeFilter = ref('all')
 const selectedTask = ref<Task | null>(null)
