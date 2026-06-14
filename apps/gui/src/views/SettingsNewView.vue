@@ -11,7 +11,7 @@
  * Design ref: docs/design/handoff/HANDOFF.md §3.1 (Settings screen)
  */
 
-import { ref, computed } from 'vue'
+import { ref } from 'vue'
 import UiInput from '@/components/ui/UiInput.vue'
 import UiButton from '@/components/ui/UiButton.vue'
 import UiTag from '@/components/ui/UiTag.vue'
