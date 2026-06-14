@@ -3,8 +3,8 @@
 // Parses URLs from `magnet:`, `ed2k://`, `thunder://`, and the app's own
 // `motrixai://` scheme so the frontend can react accordingly.
 
-use tauri::command;
 use serde::{Deserialize, Serialize};
+use tauri::command;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DeepLinkInfo {

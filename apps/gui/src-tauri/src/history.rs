@@ -41,10 +41,8 @@ impl DownloadHistory {
         if history.len() > 1000 {
             history = history[history.len() - 1000..].to_vec();
         }
-        let json = serde_json::to_string_pretty(&history)
-            .map_err(|e| e.to_string())?;
-        std::fs::write(&self.db_path, json)
-            .map_err(|e| e.to_string())
+        let json = serde_json::to_string_pretty(&history).map_err(|e| e.to_string())?;
+        std::fs::write(&self.db_path, json).map_err(|e| e.to_string())
     }
 
     /// Load all history entries from disk.
@@ -52,25 +50,20 @@ impl DownloadHistory {
         if !self.db_path.exists() {
             return Vec::new();
         }
-        let data = std::fs::read_to_string(&self.db_path)
-            .unwrap_or_default();
+        let data = std::fs::read_to_string(&self.db_path).unwrap_or_default();
         serde_json::from_str(&data).unwrap_or_default()
     }
 
     /// Remove all entries (resets file to `[]`).
     pub fn clear(&self) -> Result<(), String> {
-        std::fs::write(&self.db_path, "[]")
-            .map_err(|e| e.to_string())
+        std::fs::write(&self.db_path, "[]").map_err(|e| e.to_string())
     }
 }
 
 /// Load all download history entries from disk.
 #[tauri::command]
-pub async fn get_download_history(
-    app: tauri::AppHandle,
-) -> Result<Vec<HistoryEntry>, String> {
-    let app_dir = app.path().app_data_dir()
-        .map_err(|e| e.to_string())?;
+pub async fn get_download_history(app: tauri::AppHandle) -> Result<Vec<HistoryEntry>, String> {
+    let app_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
     let history = DownloadHistory::new(&app_dir);
     Ok(history.load())
 }
@@ -78,8 +71,7 @@ pub async fn get_download_history(
 /// Delete all download history entries.
 #[tauri::command]
 pub async fn clear_download_history(app: tauri::AppHandle) -> Result<(), String> {
-    let app_dir = app.path().app_data_dir()
-        .map_err(|e| e.to_string())?;
+    let app_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
     let history = DownloadHistory::new(&app_dir);
     history.clear()
 }
