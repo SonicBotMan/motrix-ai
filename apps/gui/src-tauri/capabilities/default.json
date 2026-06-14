@@ -10,6 +10,8 @@
     "notification:default",
     "notification:allow-notify",
     "notification:allow-is-permission-granted",
-    "notification:allow-request-permission"
+    "notification:allow-request-permission",
+    "deep-link:default",
+    "window-state:default"
   ]
 }

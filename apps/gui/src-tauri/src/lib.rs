@@ -1,7 +1,9 @@
 mod commands;
 mod error;
+mod history;
 mod tray;
 
+use tauri::Manager;
 use tauri::WindowEvent;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -12,6 +14,15 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_deep_link::init())
+        .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+            // When second instance tries to launch, focus the existing window
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.set_focus();
+            }
+            println!("Single instance: focusing existing window");
+        }))
+        .plugin(tauri_plugin_window_state::Builder::new().build())
         .setup(|app| {
             if cfg!(debug_assertions) {
                 app.handle().plugin(
@@ -19,6 +30,18 @@ pub fn run() {
                         .level(log::LevelFilter::Info)
                         .build(),
                 )?;
+            }
+
+            // ---- Deep Link ----
+            // Log deep-link URLs so the frontend can react to them.
+            #[cfg(desktop)]
+            {
+                use tauri_plugin_deep_link::DeepLinkExt;
+                app.deep_link().on_open_url(|event| {
+                    for url in event.urls() {
+                        log::info!("Deep link opened: {}", url);
+                    }
+                });
             }
 
             // ---- System Tray ----
@@ -61,6 +84,9 @@ pub fn run() {
             commands::request_notification_permission,
             commands::send_notification,
             commands::http_api::start_http_api,
+            commands::protocol::handle_deep_link,
+            history::get_download_history,
+            history::clear_download_history,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
