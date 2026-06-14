@@ -50,7 +50,7 @@ const emit = defineEmits<{
   delete: []
   openLocation: []
   copySource: []
-  toggleFile: [fileIndex: number]
+  toggleFile: [payload: { index: number; name: string; checked: boolean }]
   cancel: []
   priority: []
 }>()
@@ -368,7 +368,7 @@ watch(showMoreMenu, (visible) => {
                     class="file-check"
                     :checked="f.checked !== false"
                     :aria-label="f.name"
-                    @change="emit('toggleFile', i)"
+                    @change="emit('toggleFile', { index: i, name: f.name, checked: ($event.target as HTMLInputElement).checked })"
                   >
                   <span class="file-name" :title="f.name">{{ f.name }}</span>
                   <span class="file-size">{{ f.size }}</span>

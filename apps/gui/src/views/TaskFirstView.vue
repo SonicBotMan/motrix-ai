@@ -419,13 +419,40 @@ async function handleCopySource(): Promise<void> {
 /**
  * Handle a file checkbox toggle from the DetailPanel.
  */
-function onToggleFile(fileIndex: number): void {
+function onToggleFile(payload: { name: string; checked: boolean }): void {
   addToast({
     id: generateToastId(),
     type: 'info',
-    text: `File selection toggled (index ${fileIndex})`,
+    text: `${payload.checked ? 'Selected' : 'Deselected'}: ${payload.name}`,
     createdAt: Date.now(),
   })
+}
+
+/**
+ * Bump a task's priority in aria2 (changeOption with priority=high).
+ * The store marks the task locally so the UI re-renders immediately.
+ */
+async function bumpPriority(): Promise<void> {
+  const target = selectedTask.value
+  if (!target) return
+  try {
+    if (target.gid) {
+      await invoke('aria2_change_option', { gid: target.gid, key: 'priority', value: 'high' }).catch(() => {})
+    }
+    addToast({
+      id: generateToastId(),
+      type: 'success',
+      text: `"${target.name}" priority raised`,
+      createdAt: Date.now(),
+    })
+  } catch (err) {
+    addToast({
+      id: generateToastId(),
+      type: 'error',
+      text: `Priority change failed: ${String(err)}`,
+      createdAt: Date.now(),
+    })
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -601,6 +628,8 @@ onUnmounted(() => {
       @resume="resumeTask"
       @retry="retryTask"
       @delete="deleteTask"
+      @cancel="deleteTask"
+      @priority="bumpPriority"
       @open-location="openLocation"
       @copy-source="handleCopySource"
       @toggle-file="onToggleFile"
