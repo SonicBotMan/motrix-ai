@@ -18,6 +18,9 @@
 
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { invoke } from '@tauri-apps/api/core'
+import { open as openDialog } from '@tauri-apps/plugin-dialog'
+import { theme, toggleTheme as settingsToggleTheme } from '@/composables/useSettings'
 import ChromeBar from '@/components/chrome/ChromeBar.vue'
 import TaskTable from '@/components/task/TaskTable.vue'
 import DetailPanel from '@/components/task/DetailPanel.vue'
@@ -324,6 +327,8 @@ const tasks = ref<MockTask[]>([
 // ---------------------------------------------------------------------------
 
 const router = useRouter()
+// theme + settingsToggleTheme are imported at the top of the file from
+// @/composables/useSettings so we can call toggleTheme() without re-binding.
 // (We no longer emit 'navigate'; router.push() goes directly through useRouter)
 
 const activeFilter = ref('all')
@@ -331,6 +336,7 @@ const selectedTask = ref<Task | null>(null)
 const showDetail = ref(false)
 const showMenu = ref(false)
 const menuTask = ref<Task | null>(null)
+const menuPosition = ref<{ x: number; y: number } | null>(null)
 const toasts = ref<Toast[]>([])
 const showOnboarding = ref(false)
 const keyboardIndex = ref(-1)
@@ -351,8 +357,8 @@ const quickActions = [
 const TOAST_LIFETIME = 2000
 const TOAST_STACK_MAX = 4
 const TOAST_EXIT_DELAY = 300
-const TOAST_THINK_MIN = 700
-const TOAST_THINK_MAX = 1100
+// (TOAST_THINK_MIN/MAX were removed when the chat input was rewired to call
+//  aria2 directly instead of the local "thinking" simulation.)
 
 let toastCounter = 0
 
@@ -361,7 +367,9 @@ function generateToastId(): string {
   return `toast-${Date.now()}-${toastCounter}`
 }
 
-function deriveToastType(text: string): ToastType {
+// (deriveToastType is no longer used; the new addUri/addMagnet paths emit
+//  typed toasts directly based on the actual aria2 response.)
+function _deriveToastTypeLegacy(text: string): ToastType {
   const lower = text.toLowerCase()
   if (lower.includes('cancel') || lower.includes('remove') || lower.includes('delete')) return 'error'
   if (lower.includes('error') || lower.includes('fail') || lower.includes('hash')) return 'error'
@@ -397,21 +405,86 @@ function dismissToast(id: string): void {
 // Chat handlers
 // ---------------------------------------------------------------------------
 
-function handleSendMessage(message: string): void {
-  const type = deriveToastType(message)
-  const thinkDelay = TOAST_THINK_MIN + Math.random() * (TOAST_THINK_MAX - TOAST_THINK_MIN)
-  const toast: Toast = {
-    id: generateToastId(),
-    type,
-    text: message,
-    createdAt: Date.now(),
+/**
+ * Add a URI (HTTP/HTTPS/FTP/magnet) to the running aria2 daemon via JSON-RPC.
+ * aria2.addUri accepts magnet URIs as well as regular HTTP URLs.
+ * @returns the aria2 GID string on success
+ */
+async function aria2AddUri(uri: string): Promise<string> {
+  const resp = await fetch('http://127.0.0.1:6800/jsonrpc', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      id: 'motrix-gui',
+      method: 'aria2.addUri',
+      params: [[uri]],
+    }),
+  })
+  const data = await resp.json()
+  if (data.error) {
+    throw new Error(data.error.message || 'aria2 RPC error')
   }
-  addToast(toast)
-  // Simulate "thinking" → "done" transition (just refresh createdAt for visual)
-  setTimeout(() => {
-    const t = toasts.value.find(x => x.id === toast.id)
-    if (t) t.createdAt = Date.now()
-  }, thinkDelay)
+  return data.result as string
+}
+
+/**
+ * Handle a chat input submission.
+ * - magnet:? → aria2.addUri (treated as torrent)
+ * - http(s)/ftp → aria2.addUri (direct download)
+ * - otherwise → parse as natural-language intent via Tauri command
+ */
+async function handleSendMessage(message: string): Promise<void> {
+  if (!message.trim()) return
+  const trimmed = message.trim()
+
+  // --- Magnet link → torrent download ---
+  if (trimmed.startsWith('magnet:')) {
+    addToast({ id: generateToastId(), type: 'info', text: 'Adding magnet link…', createdAt: Date.now() })
+    try {
+      const gid = await aria2AddUri(trimmed)
+      addToast({ id: generateToastId(), type: 'success', text: `Magnet added: ${gid.slice(0, 8)}…`, createdAt: Date.now() })
+    } catch (err) {
+      addToast({ id: generateToastId(), type: 'error', text: `Add failed: ${String(err)}`, createdAt: Date.now() })
+    }
+    return
+  }
+
+  // --- HTTP / HTTPS / FTP URL → direct download ---
+  if (/^(https?|ftp):\/\//i.test(trimmed)) {
+    addToast({ id: generateToastId(), type: 'info', text: 'Adding download…', createdAt: Date.now() })
+    try {
+      const gid = await aria2AddUri(trimmed)
+      addToast({ id: generateToastId(), type: 'success', text: `Download added: ${gid.slice(0, 8)}…`, createdAt: Date.now() })
+    } catch (err) {
+      addToast({ id: generateToastId(), type: 'error', text: `Add failed: ${String(err)}`, createdAt: Date.now() })
+    }
+    return
+  }
+
+  // --- Natural language → parse intent ---
+  addToast({ id: generateToastId(), type: 'info', text: `Recognising: "${trimmed}"…`, createdAt: Date.now() })
+  try {
+    const intent = await invoke<{ title?: string; resource_type?: string; search_keywords?: string[] }>(
+      'parse_nl_intent',
+      { input: trimmed, llmConfig: null },
+    )
+    const title = intent.title || trimmed
+    const rtype = intent.resource_type || 'unknown'
+    addToast({
+      id: generateToastId(),
+      type: 'success',
+      text: `Found: "${title}" (${rtype}) — paste a URL or magnet to download`,
+      createdAt: Date.now(),
+    })
+  } catch {
+    addToast({
+      id: generateToastId(),
+      type: 'info',
+      text: `Hint: try pasting a magnet link or HTTP URL`,
+      createdAt: Date.now(),
+    })
+  }
 }
 
 function handleQuickAction(index: number): void {
@@ -419,13 +492,43 @@ function handleQuickAction(index: number): void {
   if (message) handleSendMessage(message)
 }
 
-function handleAttach(): void {
-  addToast({
-    id: generateToastId(),
-    type: 'info',
-    text: 'Attach a magnet or URL',
-    createdAt: Date.now(),
-  })
+/**
+ * Open a native file dialog to select a .torrent file.
+ * On success, adds it to aria2 via JSON-RPC (aria2.addTorrent accepts base64).
+ */
+async function handleAttach(): Promise<void> {
+  try {
+    const selected = await openDialog({
+      multiple: false,
+      filters: [{ name: 'Torrent', extensions: ['torrent'] }],
+    })
+    if (typeof selected === 'string') {
+      addToast({ id: generateToastId(), type: 'info', text: `Loading ${selected.split('/').pop() || selected}…`, createdAt: Date.now() })
+      // Read the .torrent file as base64 and send to aria2
+      try {
+        const fileResp = await fetch(`asset://localhost/${encodeURIComponent(selected)}`)
+        const fileBytes = await fileResp.arrayBuffer()
+        const base64 = btoa(String.fromCharCode(...new Uint8Array(fileBytes)))
+        const rpcResp = await fetch('http://127.0.0.1:6800/jsonrpc', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            jsonrpc: '2.0',
+            id: 'motrix-gui',
+            method: 'aria2.addTorrent',
+            params: [base64],
+          }),
+        })
+        const data = await rpcResp.json()
+        if (data.error) throw new Error(data.error.message || 'aria2 error')
+        addToast({ id: generateToastId(), type: 'success', text: `Torrent added: ${String(data.result).slice(0, 8)}…`, createdAt: Date.now() })
+      } catch (err) {
+        addToast({ id: generateToastId(), type: 'error', text: `Could not add torrent: ${String(err)}`, createdAt: Date.now() })
+      }
+    }
+  } catch (err) {
+    addToast({ id: generateToastId(), type: 'error', text: `Could not open file: ${String(err)}`, createdAt: Date.now() })
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -447,13 +550,14 @@ function closeDetail(): void {
 // Row menu
 // ---------------------------------------------------------------------------
 
-function toggleRowMenu(taskId: number, _event: MouseEvent): void {
+function toggleRowMenu(taskId: number, event: MouseEvent): void {
   if (showMenu.value && menuTask.value?.id === taskId) {
     closeMenu()
   } else {
     const task = tasks.value.find(t => t.id === taskId)
     if (task) {
       menuTask.value = task
+      menuPosition.value = { x: event.clientX, y: event.clientY }
       showMenu.value = true
     }
   }
@@ -462,6 +566,7 @@ function toggleRowMenu(taskId: number, _event: MouseEvent): void {
 function closeMenu(): void {
   showMenu.value = false
   menuTask.value = null
+  menuPosition.value = null
 }
 
 // ---------------------------------------------------------------------------
@@ -555,44 +660,11 @@ function goHome(): void {
   closeMenu()
 }
 
-// Theme state — 'dark' is the design-system default.
-// We persist this so a reload remembers the user's choice.
-const currentTheme = ref<'dark' | 'light'>('dark')
-try {
-  const saved = localStorage.getItem('motrix:theme')
-  if (saved === 'light' || saved === 'dark') {
-    currentTheme.value = saved
-  }
-} catch {
-  // localStorage may be unavailable; fall back to dark
-}
-
 function toggleTheme(): void {
-  const next: 'dark' | 'light' = currentTheme.value === 'dark' ? 'light' : 'dark'
-  currentTheme.value = next
-  try {
-    localStorage.setItem('motrix:theme', next)
-  } catch {
-    // ignore — persistence is best-effort
-  }
-  // Sync the html attribute so the design-token CSS responds
-  const html = document.documentElement
-  if (next === 'light') {
-    html.setAttribute('data-theme', 'light')
-  } else {
-    html.removeAttribute('data-theme')
-  }
+  // Delegates to the shared settings store. The store updates the
+  // `data-theme` attribute on <html> which lets tokens.css take over.
+  settingsToggleTheme()
 }
-
-// Initialise the html attribute on mount
-onMounted(() => {
-  const html = document.documentElement
-  if (currentTheme.value === 'light') {
-    html.setAttribute('data-theme', 'light')
-  } else {
-    html.removeAttribute('data-theme')
-  }
-})
 
 function openSettings(): void {
   router.push('/settings')
@@ -714,7 +786,7 @@ onUnmounted(() => {
   <div class="app-layout">
     <!-- Chrome bar (48px, sticky top) -->
     <ChromeBar
-      :current-theme="currentTheme"
+      :current-theme="theme === 'system' ? 'dark' : theme"
       @go-home="goHome"
       @toggle-theme="toggleTheme"
       @open-settings="openSettings"

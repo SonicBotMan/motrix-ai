@@ -12,13 +12,30 @@
  * `close` to reset it.
  */
 
-import { ref, watch, onUnmounted, nextTick } from 'vue'
+import { ref, computed, watch, onUnmounted, nextTick } from 'vue'
 import type { Task } from '@/stores/tasks'
 
 const props = defineProps<{
   task: Task
   show: boolean
+  /** Click X coordinate for fixed positioning (from MouseEvent.clientX) */
+  x?: number
+  /** Click Y coordinate for fixed positioning (from MouseEvent.clientY) */
+  y?: number
 }>()
+
+/** Clamp the menu within the viewport so it never overflows the right edge */
+const menuLeft = computed(() => {
+  const x = props.x ?? 0
+  const approxWidth = 184
+  if (x + approxWidth > window.innerWidth) {
+    return Math.max(8, window.innerWidth - approxWidth - 8) + 'px'
+  }
+  return x + 'px'
+})
+
+/** Position 4px below the click point */
+const menuTop = computed(() => (props.y ?? 0) + 4 + 'px')
 
 const emit = defineEmits<{
   pause: []
@@ -83,11 +100,13 @@ function run(action: 'pause' | 'resume' | 'retry' | 'delete' | 'openLocation') {
 </script>
 
 <template>
+  <Teleport to="body">
   <Transition name="row-menu">
     <div
       v-if="props.show"
       ref="menuRef"
       class="row-menu"
+      :style="{ left: menuLeft, top: menuTop }"
       role="menu"
       aria-label="Task actions"
     >
@@ -164,13 +183,12 @@ function run(action: 'pause' | 'resume' | 'retry' | 'delete' | 'openLocation') {
       </button>
     </div>
   </Transition>
+  </Teleport>
 </template>
 
 <style scoped>
 .row-menu {
-  position: absolute;
-  right: 0;
-  top: calc(100% + 4px);
+  position: fixed;
   z-index: var(--z-hover-menu);
   min-width: 168px;
   padding: var(--space-1);

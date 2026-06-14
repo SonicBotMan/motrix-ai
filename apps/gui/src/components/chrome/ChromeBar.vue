@@ -59,7 +59,6 @@ const themeLabel = computed(() =>
         <line x1="12" y1="15" x2="12" y2="3" />
       </svg>
       <span class="logo-motrix">Motrix</span>
-      <span class="logo-ai">AI</span>
     </div>
 
     <div class="chrome-center" />

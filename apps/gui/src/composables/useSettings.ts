@@ -1,5 +1,9 @@
 // src/composables/useSettings.ts
-// Global settings store — reactive, persisted to localStorage, read by App.vue
+// Global settings store — reactive, persisted to localStorage.
+//
+// The single source of truth for theme is `theme` (a Vue ref). The dark/light
+// CSS variables live in styles/tokens.css. This composable only toggles the
+// `data-theme` attribute on <html>; it does NOT write inline styles.
 
 import { ref, watch, computed } from 'vue'
 
@@ -10,24 +14,32 @@ type Language = 'en' | 'zh' | 'ja' | 'ko' | 'fr'
 function load<T>(key: string, fallback: T): T {
   try {
     const v = localStorage.getItem(key)
-    return v ? JSON.parse(v) : fallback
+    return v ? (JSON.parse(v) as T) : fallback
   } catch {
     return fallback
   }
 }
 function save<T>(key: string, value: T) {
-  localStorage.setItem(key, JSON.stringify(value))
+  try {
+    localStorage.setItem(key, JSON.stringify(value))
+  } catch {
+    // localStorage may be unavailable; best-effort
+  }
 }
 
 // ---- Reactive settings ----
-export const theme = ref<Theme>(load('motrix-ai:theme', 'dark'))
-export const language = ref<Language>(load('motrix-ai:language', 'en'))
+export const theme = ref<Theme>(load<Theme>('motrix-ai:theme', 'dark'))
+export const language = ref<Language>(load<Language>('motrix-ai:language', 'en'))
 
 // System theme detection
-const systemDark = ref(window.matchMedia('(prefers-color-scheme: dark)').matches)
-window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
-  systemDark.value = e.matches
-})
+const systemDark = ref(typeof window !== 'undefined'
+  && window.matchMedia('(prefers-color-scheme: dark)').matches)
+
+if (typeof window !== 'undefined') {
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+    systemDark.value = e.matches
+  })
+}
 
 // Resolved theme: 'system' → actual value
 export const resolvedTheme = computed<'dark' | 'light'>(() => {
@@ -39,55 +51,36 @@ export const resolvedTheme = computed<'dark' | 'light'>(() => {
 export const isDark = computed(() => resolvedTheme.value === 'dark')
 
 // ---- Persist on change ----
-watch(theme, (v) => save('motrix-ai:theme', v))
+watch(theme, (v) => {
+  save('motrix-ai:theme', v)
+  applyThemeAttribute(resolvedTheme.value)
+})
 watch(language, (v) => save('motrix-ai:language', v))
+watch(resolvedTheme, (v) => applyThemeAttribute(v))
 
-// ---- CSS variables for light/dark ----
-function applyThemeVars(dark: boolean) {
-  const root = document.documentElement
-  if (dark) {
-    root.style.setProperty('--bg', '#0a0a0a')
-    root.style.setProperty('--bg-elevated', '#141414')
-    root.style.setProperty('--surface', '#1a1a1a')
-    root.style.setProperty('--surface-hover', '#222222')
-    root.style.setProperty('--surface-elevated', '#1e1e1e')
-    root.style.setProperty('--border', '#2a2a2a')
-    root.style.setProperty('--fg', '#e8e8e8')
-    root.style.setProperty('--fg-secondary', '#a0a0a0')
-    root.style.setProperty('--fg-muted', '#666666')
-    root.style.setProperty('--primary', '#3B82F6')
-    root.style.setProperty('--primary-muted', 'rgba(59, 130, 246, 0.15)')
-    root.style.setProperty('--danger', '#EF4444')
-    root.style.setProperty('--success', '#10B981')
-    root.style.setProperty('--warning', '#F59E0B')
-    root.style.colorScheme = 'dark'
+// ---- Apply data-theme attribute ----
+//
+// tokens.css defines :root for dark and [data-theme="light"] for light.
+// We just flip the attribute; CSS handles the rest.
+function applyThemeAttribute(value: 'dark' | 'light'): void {
+  if (typeof document === 'undefined') return
+  const html = document.documentElement
+  if (value === 'light') {
+    html.setAttribute('data-theme', 'light')
   } else {
-    root.style.setProperty('--bg', '#f5f5f5')
-    root.style.setProperty('--bg-elevated', '#ffffff')
-    root.style.setProperty('--surface', '#ffffff')
-    root.style.setProperty('--surface-hover', '#f0f0f0')
-    root.style.setProperty('--surface-elevated', '#fafafa')
-    root.style.setProperty('--border', '#e0e0e0')
-    root.style.setProperty('--fg', '#1a1a1a')
-    root.style.setProperty('--fg-secondary', '#555555')
-    root.style.setProperty('--fg-muted', '#999999')
-    root.style.setProperty('--primary', '#2563EB')
-    root.style.setProperty('--primary-muted', 'rgba(37, 99, 235, 0.1)')
-    root.style.setProperty('--danger', '#DC2626')
-    root.style.setProperty('--success', '#059669')
-    root.style.setProperty('--warning', '#D97706')
-    root.style.colorScheme = 'light'
+    html.removeAttribute('data-theme')
   }
 }
 
+// Apply on initial load so the first paint matches the saved preference.
+applyThemeAttribute(resolvedTheme.value)
+
 // ---- i18n strings ----
 const strings: Record<string, Record<Language, string>> = {
-  // Nav
   'nav.downloads': { en: 'Downloads', zh: '下载' , ja: 'ダウンロード', ko: '다운로드', fr: 'Téléchargements' },
   'nav.queue': { en: 'Queue', zh: '队列' , ja: 'キュー', ko: '대기열', fr: "File d'attente" },
   'nav.settings': { en: 'Settings', zh: '设置' , ja: '設定', ko: '설정', fr: 'Paramètres' },
   'nav.back': { en: 'Back to Chat', zh: '返回聊天' , ja: 'チャットに戻る', ko: '채팅으로 돌아가기', fr: 'Retour au chat' },
-  // Buttons
   'btn.pause': { en: 'Pause', zh: '暂停' , ja: '一時停止', ko: '일시정지', fr: 'Pause' },
   'btn.resume': { en: 'Resume', zh: '恢复' , ja: '再開', ko: '재개', fr: 'Reprendre' },
   'btn.retry': { en: 'Retry', zh: '重试' , ja: '再試行', ko: '재시도', fr: 'Réessayer' },
@@ -101,13 +94,11 @@ const strings: Record<string, Record<Language, string>> = {
   'btn.open': { en: 'Open', zh: '打开' , ja: '開く', ko: '열기', fr: 'Ouvrir' },
   'btn.openFolder': { en: 'Open Folder', zh: '打开文件夹' , ja: 'フォルダを開く', ko: '폴더 열기', fr: 'Ouvrir le dossier' },
   'btn.send': { en: 'Send', zh: '发送' , ja: '送信', ko: '보내기', fr: 'Envoyer' },
-  // Filters
   'filter.all': { en: 'All', zh: '全部' , ja: 'すべて', ko: '전체', fr: 'Tous' },
   'filter.active': { en: 'Active', zh: '活跃' , ja: 'アクティブ', ko: '진행중', fr: 'Actifs' },
   'filter.completed': { en: 'Completed', zh: '已完成' , ja: '完了', ko: '완료', fr: 'Terminés' },
   'filter.paused': { en: 'Paused', zh: '已暂停' , ja: '一時停止', ko: '일시정지', fr: 'En pause' },
   'filter.failed': { en: 'Failed', zh: '失败' , ja: '失敗', ko: '실패', fr: 'Échoués' },
-  // Status
   'status.downloading': { en: 'DOWNLOADING', zh: '下载中' , ja: 'ダウンロード中', ko: '다운로드 중', fr: 'TÉLÉCHARGEMENT' },
   'status.completed': { en: 'COMPLETED', zh: '已完成' , ja: '完了', ko: '완료', fr: 'TERMINÉ' },
   'status.paused': { en: 'PAUSED', zh: '已暂停' , ja: '一時停止', ko: '일시정지', fr: 'EN PAUSE' },
@@ -115,19 +106,16 @@ const strings: Record<string, Record<Language, string>> = {
   'status.active': { en: 'Active', zh: '活跃' , ja: 'アクティブ', ko: '진행중', fr: 'Actif' },
   'status.pending': { en: 'PENDING', zh: '等待中' , ja: '待機中', ko: '대기중', fr: 'EN ATTENTE' },
   'status.removed': { en: 'REMOVED', zh: '已移除' , ja: '削除済み', ko: '삭제됨', fr: 'SUPPRIMÉ' },
-  // Search
   'search.placeholder': { en: 'Paste URL, magnet link, or ed2k://...', zh: '粘贴 URL、磁力链接或 ed2k://...' , ja: 'URL、マグネットリンク、ed2k://を貼り付け...', ko: 'URL, 마그넷 링크, ed2k:// 붙여넣기...', fr: 'Coller URL, lien magnet ou ed2k://...' },
   'search.chatPlaceholder': { en: 'Or describe what you want to download...', zh: '或描述你想下载什么...' , ja: 'またはダウンロードしたいものを説明...', ko: '또는 다운로드할 내용 설명...', fr: 'Ou décrivez ce que vous voulez télécharger...' },
   'search.results': { en: 'Search results', zh: '搜索结果' , ja: '検索結果', ko: '검색 결과', fr: 'Résultats de recherche' },
   'search.found': { en: 'resources found', zh: '个资源' , ja: '件のリソース', ko: '개 리소스', fr: 'ressources trouvées' },
   'search.searching': { en: 'Searching...', zh: '搜索中...' , ja: '検索中...', ko: '검색 중...', fr: 'Recherche...' },
-  'search.noResults': { en: 'No resources found', zh: '未找到资源' , ja: 'リソースが見つかりません', ko: '리소스를 찾을 수 없습니다', fr: 'Aucune ressource trouvée' },
-  // Quick actions
+  'search.noResults': { en: 'No resources found', zh: '未找到资源' , ja: 'リソースが見つかりません', ko: '리소스를 찾을 수 없음', fr: 'Aucune ressource trouvée' },
   'action.pasteLink': { en: 'Paste Link', zh: '粘贴链接' , ja: 'リンクを貼り付け', ko: '링크 붙여넣기', fr: 'Coller le lien' },
   'action.uploadTorrent': { en: 'Upload .torrent', zh: '上传种子' , ja: 'Torrentをアップロード', ko: 'Torrent 업로드', fr: 'Uploader .torrent' },
   'action.quickDownload': { en: 'Quick Download', zh: '快速下载' , ja: 'クイックダウンロード', ko: '빠른 다운로드', fr: 'Téléchargement rapide' },
   'action.queue': { en: 'Queue', zh: '队列' , ja: 'キュー', ko: '대기열', fr: "File d'attente" },
-  // Table headers
   'table.name': { en: 'NAME', zh: '名称' , ja: '名前', ko: '이름', fr: 'NOM' },
   'table.source': { en: 'SOURCE', zh: '来源' , ja: 'ソース', ko: '소스', fr: 'SOURCE' },
   'table.status': { en: 'STATUS', zh: '状态' , ja: 'ステータス', ko: '상태', fr: 'STATUT' },
@@ -135,7 +123,6 @@ const strings: Record<string, Record<Language, string>> = {
   'table.speed': { en: 'SPEED', zh: '速度' , ja: '速度', ko: '속도', fr: 'VITESSE' },
   'table.size': { en: 'SIZE', zh: '大小' , ja: 'サイズ', ko: '크기', fr: 'TAILLE' },
   'table.eta': { en: 'ETA', zh: '剩余' , ja: '残り時間', ko: '남은 시간', fr: 'TEMPS RESTANT' },
-  // Queue
   'queue.title': { en: 'Download Queue', zh: '下载队列' , ja: 'ダウンロードキュー', ko: '다운로드 대기열', fr: 'File de téléchargement' },
   'queue.total': { en: 'Total', zh: '总计' , ja: '合計', ko: '합계', fr: 'Total' },
   'queue.speed': { en: 'Speed', zh: '速度' , ja: '速度', ko: '속도', fr: 'Vitesse' },
@@ -146,7 +133,6 @@ const strings: Record<string, Record<Language, string>> = {
   'queue.bulkPause': { en: 'Pause Selected', zh: '暂停所选' , ja: '選択を一時停止', ko: '선택 일시정지', fr: 'Mettre en pause la sélection' },
   'queue.bulkResume': { en: 'Resume Selected', zh: '恢复所选' , ja: '選択を再開', ko: '선택 재개', fr: 'Reprendre la sélection' },
   'queue.bulkRemove': { en: 'Remove Selected', zh: '删除所选' , ja: '選択を削除', ko: '선택 삭제', fr: 'Supprimer la sélection' },
-  // Settings
   'settings.title': { en: 'Settings', zh: '设置' , ja: '設定', ko: '설정', fr: 'Paramètres' },
   'settings.aiModel': { en: 'AI Model', zh: 'AI 模型' , ja: 'AI モデル', ko: 'AI 모델', fr: 'Modèle IA' },
   'settings.downloads': { en: 'Downloads', zh: '下载设置' , ja: 'ダウンロード設定', ko: '다운로드 설정', fr: 'Téléchargements' },
@@ -176,7 +162,6 @@ const strings: Record<string, Record<Language, string>> = {
   'settings.logLevel': { en: 'Log Level', zh: '日志级别' , ja: 'ログレベル', ko: '로그 레벨', fr: 'Niveau de journal' },
   'settings.dangerZone': { en: 'Danger Zone', zh: '危险操作' , ja: '危険ゾーン', ko: '위험 영역', fr: 'Zone de danger' },
   'settings.clearHistory': { en: 'Clear Download History', zh: '清除下载历史' , ja: '履歴をクリア', ko: '기록 지우기', fr: "Effacer l'historique" },
-  // Messages
   'msg.added': { en: 'Added', zh: '已添加' , ja: '追加しました', ko: '추가됨', fr: 'Ajouté' },
   'msg.addFailed': { en: 'Add failed', zh: '添加失败' , ja: '追加失敗', ko: '추가 실패', fr: "Échec de l'ajout" },
   'msg.addDownloadFailed': { en: 'Failed to add download', zh: '添加下载失败' , ja: 'ダウンロード追加失敗', ko: '다운로드 추가 실패', fr: "Échec de l'ajout du téléchargement" },
@@ -194,7 +179,7 @@ const strings: Record<string, Record<Language, string>> = {
   'msg.searchFailed': { en: 'Search failed, please retry', zh: '搜索失败，请重试' , ja: '検索失敗', ko: '검색 실패', fr: 'Échec de la recherche' },
   'msg.subtitleSearching': { en: 'Searching subtitles...', zh: '正在搜索字幕...' , ja: '字幕を検索中...', ko: '자막 검색 중...', fr: 'Recherche de sous-titres...' },
   'msg.subtitleFound': { en: 'Subtitle found', zh: '找到字幕' , ja: '字幕が見つかりました', ko: '자막을 찾았습니다', fr: 'Sous-titres trouvés' },
-  'msg.subtitleNotFound': { en: 'No subtitles found', zh: '未找到匹配字幕' , ja: '字幕が見つかりません', ko: '자막을 찾을 수 없습니다', fr: 'Aucun sous-titre trouvé' },
+  'msg.subtitleNotFound': { en: 'No subtitles found', zh: '未找到匹配字幕' , ja: '字幕が見つかりません', ko: '자막을 찾을 수 없음', fr: 'Aucun sous-titre trouvé' },
   'msg.subtitleDownload': { en: 'Downloading subtitle', zh: '下载字幕' , ja: '字幕ダウンロード', ko: '자막 다운로드', fr: 'Téléchargement de sous-titres' },
   'msg.subtitleDownloadFailed': { en: 'Subtitle download failed', zh: '字幕下载失败' , ja: '字幕ダウンロード失敗', ko: '자막 다운로드 실패', fr: 'Échec du téléchargement' },
   'msg.parsing': { en: 'Parsing...', zh: '解析中...' , ja: '解析中...', ko: '분석 중...', fr: 'Analyse...' },
@@ -205,6 +190,7 @@ export function t(key: string): string {
   return strings[key]?.[language.value] ?? key
 }
 
-// ---- Apply on load ----
-applyThemeVars(isDark.value)
-watch(isDark, (dark) => applyThemeVars(dark))
+// Toggle helper so callers don't have to know about the data-theme attribute.
+export function toggleTheme(): void {
+  theme.value = theme.value === 'dark' ? 'light' : 'dark'
+}

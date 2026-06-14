@@ -48,10 +48,14 @@ const emit = defineEmits<{
   resume: []
   retry: []
   delete: []
+  openLocation: []
+  copySource: []
 }>()
 
 const panelRef = ref<HTMLElement | null>(null)
 const isClosing = ref(false)
+const showMoreMenu = ref(false)
+const moreMenuRef = ref<HTMLElement | null>(null)
 
 /** Status → label + color token for the status chip */
 const statusInfo = computed(() => {
@@ -128,22 +132,9 @@ function requestClose() {
   }, 220)
 }
 
-watch(
-  () => props.show,
-  async (visible) => {
-    if (visible) {
-      document.addEventListener('keydown', handleKeydown)
-      await nextTick()
-      panelRef.value?.focus()
-    } else {
-      document.removeEventListener('keydown', handleKeydown)
-      isClosing.value = false
-    }
-  },
-)
-
 onUnmounted(() => {
   document.removeEventListener('keydown', handleKeydown)
+  document.removeEventListener('click', handleMoreMenuOutsideClick, true)
 })
 
 function onPause() {
@@ -156,8 +147,55 @@ function onRetry() {
   emit('retry')
 }
 function onDelete() {
+  showMoreMenu.value = false
   emit('delete')
 }
+
+/** Toggle the more-actions dropdown */
+function toggleMoreMenu() {
+  showMoreMenu.value = !showMoreMenu.value
+}
+
+/** Run an action from the more-menu */
+function onMoreAction(action: 'copySource' | 'openLocation' | 'delete') {
+  showMoreMenu.value = false
+  if (action === 'copySource') emit('copySource')
+  else if (action === 'openLocation') emit('openLocation')
+  else if (action === 'delete') emit('delete')
+}
+
+/** Outside-click handler for the more-menu dropdown */
+function handleMoreMenuOutsideClick(e: MouseEvent) {
+  if (!showMoreMenu.value) return
+  const target = e.target as Node
+  if (moreMenuRef.value && !moreMenuRef.value.contains(target)) {
+    showMoreMenu.value = false
+  }
+}
+
+watch(
+  () => props.show,
+  async (visible) => {
+    if (visible) {
+      document.addEventListener('keydown', handleKeydown)
+      await nextTick()
+      panelRef.value?.focus()
+    } else {
+      document.removeEventListener('keydown', handleKeydown)
+      isClosing.value = false
+      showMoreMenu.value = false
+    }
+  },
+)
+
+/** Bind/unbind the more-menu outside-click listener */
+watch(showMoreMenu, (visible) => {
+  if (visible) {
+    document.addEventListener('click', handleMoreMenuOutsideClick, true)
+  } else {
+    document.removeEventListener('click', handleMoreMenuOutsideClick, true)
+  }
+})
 </script>
 
 <template>
@@ -200,19 +238,52 @@ function onDelete() {
                 class="detail-status-chip"
                 :class="statusInfo.cls"
               >{{ statusInfo.label }}</span>
-              <button
-                class="detail-icon-btn detail-more-menu"
-                title="More actions"
-                aria-haspopup="menu"
-                aria-expanded="false"
-                type="button"
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                  <circle cx="5" cy="12" r="1.6" />
-                  <circle cx="12" cy="12" r="1.6" />
-                  <circle cx="19" cy="12" r="1.6" />
-                </svg>
-              </button>
+              <div class="detail-more-menu-wrap" ref="moreMenuRef">
+                <button
+                  class="detail-icon-btn detail-more-menu"
+                  title="More actions"
+                  aria-haspopup="menu"
+                  :aria-expanded="showMoreMenu"
+                  type="button"
+                  @click.stop="toggleMoreMenu"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <circle cx="5" cy="12" r="1.6" />
+                    <circle cx="12" cy="12" r="1.6" />
+                    <circle cx="19" cy="12" r="1.6" />
+                  </svg>
+                </button>
+                <Transition name="row-menu">
+                  <div
+                    v-if="showMoreMenu"
+                    class="detail-more-dropdown"
+                    role="menu"
+                    aria-label="More actions"
+                  >
+                    <button class="row-menu-item" role="menuitem" type="button" @click.stop="onMoreAction('copySource')">
+                      <svg class="row-menu-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                      </svg>
+                      <span>Copy source</span>
+                    </button>
+                    <button class="row-menu-item" role="menuitem" type="button" @click.stop="onMoreAction('openLocation')">
+                      <svg class="row-menu-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                      </svg>
+                      <span>Open file location</span>
+                    </button>
+                    <div class="row-menu-sep" role="separator" />
+                    <button class="row-menu-item row-menu-item--danger" role="menuitem" type="button" @click.stop="onMoreAction('delete')">
+                      <svg class="row-menu-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <polyline points="3 6 5 6 21 6" />
+                        <path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                      </svg>
+                      <span>Delete</span>
+                    </button>
+                  </div>
+                </Transition>
+              </div>
               <button
                 class="detail-icon-btn detail-close"
                 title="Close (Esc)"
@@ -510,6 +581,88 @@ function onDelete() {
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
   box-shadow: 0 0 0 6px var(--focus-ring-soft);
+}
+
+/* ── More-menu dropdown ──────────────────────────────────────────── */
+
+.detail-more-menu-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.detail-more-dropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: var(--z-hover-menu);
+  min-width: 168px;
+  padding: var(--space-1);
+  background: var(--surface-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+}
+
+.detail-more-dropdown .row-menu-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  font-family: var(--font-ui);
+  font-size: var(--text-body-sm);
+  font-weight: 400;
+  color: var(--fg);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-xs);
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--transition-fast) var(--ease-out),
+              color var(--transition-fast) var(--ease-out);
+}
+
+.detail-more-dropdown .row-menu-item:hover {
+  background: var(--surface-hover);
+}
+
+.detail-more-dropdown .row-menu-icon {
+  flex: 0 0 auto;
+  color: var(--fg-tertiary);
+}
+
+.detail-more-dropdown .row-menu-item--danger {
+  color: var(--error);
+}
+
+.detail-more-dropdown .row-menu-item--danger .row-menu-icon {
+  color: var(--error);
+}
+
+.detail-more-dropdown .row-menu-item--danger:hover {
+  background: var(--error-muted);
+}
+
+.detail-more-dropdown .row-menu-sep {
+  height: 1px;
+  margin: var(--space-1) 0;
+  background: var(--border);
+}
+
+/* Enter / leave transition (reuses row-menu transition name) */
+.row-menu-enter-active,
+.row-menu-leave-active {
+  transition: opacity 140ms var(--ease-out),
+              transform 140ms var(--ease-out);
+}
+
+.row-menu-enter-from,
+.row-menu-leave-to {
+  opacity: 0;
+  transform: translateY(8px);
 }
 
 /* ── Zone 2: Stat strip ──────────────────────────────────────────── */

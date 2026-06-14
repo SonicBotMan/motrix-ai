@@ -1,23 +1,19 @@
 <script setup lang="ts">
-import { NConfigProvider, NMessageProvider, NDialogProvider, darkTheme, lightTheme } from 'naive-ui'
-import { computed } from 'vue'
-import { isDark } from '@/composables/useSettings'
-
-const naiveTheme = computed(() => isDark.value ? darkTheme : lightTheme)
+/**
+ * App.vue — root component.
+ *
+ * Renders the active route inside <router-view />. We removed the
+ * Naive UI NConfigProvider because the design system is built on
+ * tokens.css, not Naive's theming. See docs/design/handoff/HANDOFF.md.
+ */
 </script>
 
 <template>
-  <NConfigProvider :theme="naiveTheme">
-    <NMessageProvider>
-      <NDialogProvider>
-        <router-view />
-      </NDialogProvider>
-    </NMessageProvider>
-  </NConfigProvider>
+  <router-view />
 </template>
 
 <style>
-/* Design tokens are now provided by styles/tokens.css */
+/* Design tokens live in styles/tokens.css (imported in main.ts). */
 
 * {
   margin: 0;
@@ -26,10 +22,13 @@ const naiveTheme = computed(() => isDark.value ? darkTheme : lightTheme)
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: var(--font-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
   background: var(--bg);
   color: var(--fg);
   overflow: hidden;
+  transition:
+    background var(--transition-base, 200ms) var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1)),
+    color var(--transition-base, 200ms) var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1));
 }
 
 /* Scrollbar */
