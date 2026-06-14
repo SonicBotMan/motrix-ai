@@ -1,0 +1,801 @@
+<script setup lang="ts">
+/**
+ * DetailPanel — 5-zone task detail overlay
+ *
+ * Spec: docs/design/handoff/02-components.md §4
+ * Sizing: 720 × min(88vh, 760px), centered horizontally + vertically.
+ *
+ * 5 zones:
+ *   1. Sticky header: icon + filename + status chip + more menu + close
+ *   2. 4-col stat strip: Size / Speed / ETA / Connections
+ *   3. Progress ring (SVG circular progress, 120×120)
+ *   4. Collapsible sections: Files list, Timeline (native <details>)
+ *   5. Sticky footer: Pause/Resume + Retry + Delete
+ *
+ * Open:  modalScaleIn (400ms) — applied via .detail-panel
+ * Close: modalScaleOut (220ms) — applied via .detail-panel--closing,
+ *        then @close fires. Backdrop click + Esc also close.
+ *
+ * The ring rotation lives on a <g> wrapper (not the <svg> itself) so the
+ * centered percentage text stays upright — a real bug from the handoff spec.
+ */
+
+import { computed, ref, watch, onUnmounted, nextTick } from 'vue'
+import type { Task } from '@/stores/tasks'
+
+interface TimelineEvent {
+  time: string
+  text: string
+  type?: 'active' | 'completed' | 'info'
+}
+
+/** Extended task shape the panel renders; optional fields fall back gracefully */
+interface DetailTask extends Task {
+  total?: string
+  connections?: string
+  files?: Array<{ name: string; size: string; checked?: boolean }>
+  timeline?: TimelineEvent[]
+}
+
+const props = defineProps<{
+  show: boolean
+  task: DetailTask | null
+}>()
+
+const emit = defineEmits<{
+  close: []
+  pause: []
+  resume: []
+  retry: []
+  delete: []
+}>()
+
+const panelRef = ref<HTMLElement | null>(null)
+const isClosing = ref(false)
+
+/** Status → label + color token for the status chip */
+const statusInfo = computed(() => {
+  if (!props.task) return { label: '', cls: '' }
+  switch (props.task.status) {
+    case 'downloading':
+      return { label: 'DOWNLOADING', cls: 'downloading' }
+    case 'paused':
+      return { label: 'PAUSED', cls: 'paused' }
+    case 'completed':
+      return { label: 'COMPLETED', cls: 'completed' }
+    case 'failed':
+      return { label: 'FAILED', cls: 'error' }
+    default:
+      return { label: 'PENDING', cls: '' }
+  }
+})
+
+/** Ring stroke color follows status, same mapping as the progress bar */
+const ringColor = computed(() => {
+  if (!props.task) return 'var(--border)'
+  switch (props.task.status) {
+    case 'downloading': return 'var(--primary)'
+    case 'paused': return 'var(--warning)'
+    case 'completed': return 'var(--accent)'
+    case 'failed': return 'var(--error)'
+    default: return 'var(--border)'
+  }
+})
+
+/** Circumference of r=48 ring → 2π·48 ≈ 301.6 */
+const RING_CIRC = 2 * Math.PI * 48
+const ringDashoffset = computed(() => {
+  const pct = Math.max(0, Math.min(100, props.task?.progress ?? 0))
+  return RING_CIRC * (1 - pct / 100)
+})
+
+/** Caption under the ring */
+const ringCaption = computed(() => {
+  if (!props.task) return ''
+  switch (props.task.status) {
+    case 'downloading': return `Downloading · ${props.task.eta || '—'} remaining`
+    case 'paused': return 'Paused'
+    case 'completed': return 'Completed'
+    case 'failed': return 'Failed — retry to resume'
+    default: return 'Queued'
+  }
+})
+
+const files = computed(() => props.task?.files ?? [])
+const timeline = computed(() => props.task?.timeline ?? [])
+const isPaused = computed(() => props.task?.status === 'paused')
+
+/** Sub-line under the filename in the header */
+const subLine = computed(() => {
+  if (!props.task) return ''
+  return [props.task.size, props.task.type, props.task.source].filter(Boolean).join(' · ')
+})
+
+/** Esc handler bound while open */
+function handleKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape' && props.show && !isClosing.value) {
+    requestClose()
+  }
+}
+
+/** Animate close (220ms) then emit @close so the parent can hide us */
+function requestClose() {
+  if (isClosing.value) return
+  isClosing.value = true
+  setTimeout(() => {
+    isClosing.value = false
+    emit('close')
+  }, 220)
+}
+
+watch(
+  () => props.show,
+  async (visible) => {
+    if (visible) {
+      document.addEventListener('keydown', handleKeydown)
+      await nextTick()
+      panelRef.value?.focus()
+    } else {
+      document.removeEventListener('keydown', handleKeydown)
+      isClosing.value = false
+    }
+  },
+)
+
+onUnmounted(() => {
+  document.removeEventListener('keydown', handleKeydown)
+})
+
+function onPause() {
+  emit('pause')
+}
+function onResume() {
+  emit('resume')
+}
+function onRetry() {
+  emit('retry')
+}
+function onDelete() {
+  emit('delete')
+}
+</script>
+
+<template>
+  <Teleport to="body">
+    <div
+      v-if="props.show"
+      class="detail-overlay"
+      @click.self="requestClose"
+    >
+      <div
+        ref="panelRef"
+        class="detail-panel"
+        :class="{ 'detail-panel--closing': isClosing }"
+        role="dialog"
+        aria-modal="true"
+        :aria-labelledby="props.task ? 'detailName' : undefined"
+        tabindex="-1"
+      >
+        <template v-if="props.task">
+          <!-- ── Zone 1: Sticky header ────────────────────────────── -->
+          <header class="detail-header">
+            <div class="detail-header-left">
+              <div class="detail-icon" aria-hidden="true">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+              </div>
+              <div class="detail-header-text">
+                <h2 id="detailName" class="detail-name" :title="props.task.name">
+                  {{ props.task.name }}
+                </h2>
+                <p class="detail-sub">{{ subLine }}</p>
+              </div>
+            </div>
+            <div class="detail-header-right">
+              <span
+                v-if="statusInfo.label"
+                class="detail-status-chip"
+                :class="statusInfo.cls"
+              >{{ statusInfo.label }}</span>
+              <button
+                class="detail-icon-btn detail-more-menu"
+                title="More actions"
+                aria-haspopup="menu"
+                aria-expanded="false"
+                type="button"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <circle cx="5" cy="12" r="1.6" />
+                  <circle cx="12" cy="12" r="1.6" />
+                  <circle cx="19" cy="12" r="1.6" />
+                </svg>
+              </button>
+              <button
+                class="detail-icon-btn detail-close"
+                title="Close (Esc)"
+                aria-label="Close detail panel"
+                type="button"
+                @click="requestClose"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+          </header>
+
+          <!-- ── Zone 2: 4-col stat strip ─────────────────────────── -->
+          <section class="detail-stats" aria-label="Task statistics">
+            <div class="stat-cell">
+              <div class="stat-label">Size</div>
+              <div class="stat-value">
+                {{ props.task.size }}<template v-if="props.task.total"> / {{ props.task.total }}</template>
+              </div>
+            </div>
+            <div class="stat-cell">
+              <div class="stat-label">Speed</div>
+              <div class="stat-value">{{ props.task.speed || '·' }}</div>
+            </div>
+            <div class="stat-cell">
+              <div class="stat-label">ETA</div>
+              <div class="stat-value">{{ props.task.eta || '—' }}</div>
+            </div>
+            <div class="stat-cell">
+              <div class="stat-label">Connections</div>
+              <div class="stat-value">{{ props.task.connections ?? '—' }}</div>
+            </div>
+          </section>
+
+          <!-- ── Zone 3: Progress ring ────────────────────────────── -->
+          <section class="detail-ring" aria-label="Download progress">
+            <svg class="ring-svg" width="120" height="120" viewBox="0 0 120 120">
+              <!-- background ring -->
+              <circle cx="60" cy="60" r="48" fill="none" stroke="var(--border)" stroke-width="4" />
+              <!-- foreground ring (rotate on the <g> so text stays upright) -->
+              <g transform="rotate(-90 60 60)">
+                <circle
+                  cx="60" cy="60" r="48" fill="none"
+                  :stroke="ringColor"
+                  stroke-width="4"
+                  stroke-linecap="round"
+                  :stroke-dasharray="RING_CIRC"
+                  :stroke-dashoffset="ringDashoffset"
+                />
+              </g>
+              <text
+                x="60" y="60"
+                text-anchor="middle"
+                dominant-baseline="central"
+                class="ring-text"
+              >{{ props.task.progress }}%</text>
+            </svg>
+            <p class="ring-caption">{{ ringCaption }}</p>
+          </section>
+
+          <!-- ── Zone 4: Collapsible sections ──────────────────────── -->
+          <section class="detail-sections">
+            <details class="detail-section" open>
+              <summary class="detail-summary">
+                <span class="summary-title">Files <span class="summary-count">({{ files.length }})</span></span>
+                <svg class="summary-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
+              </summary>
+              <div v-if="files.length" class="files-list">
+                <div v-for="(f, i) in files" :key="i" class="file-row">
+                  <input
+                    type="checkbox"
+                    class="file-check"
+                    :checked="f.checked !== false"
+                    :aria-label="f.name"
+                  >
+                  <span class="file-name" :title="f.name">{{ f.name }}</span>
+                  <span class="file-size">{{ f.size }}</span>
+                </div>
+              </div>
+              <p v-else class="empty-note">No file list available.</p>
+            </details>
+
+            <details class="detail-section" open>
+              <summary class="detail-summary">
+                <span class="summary-title">Timeline <span class="summary-count">({{ timeline.length }})</span></span>
+                <svg class="summary-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
+              </summary>
+              <div v-if="timeline.length" class="timeline-list">
+                <div v-for="(ev, i) in timeline" :key="i" class="timeline-row">
+                  <span class="timeline-dot" :class="ev.type ?? 'info'" aria-hidden="true" />
+                  <span class="timeline-time">{{ ev.time }}</span>
+                  <span class="timeline-text">{{ ev.text }}</span>
+                </div>
+              </div>
+              <p v-else class="empty-note">No activity yet.</p>
+            </details>
+          </section>
+
+          <!-- ── Zone 5: Sticky footer ────────────────────────────── -->
+          <footer class="detail-footer">
+            <button
+              v-if="isPaused"
+              class="footer-btn footer-btn--primary"
+              type="button"
+              @click="onResume"
+            >Resume</button>
+            <button
+              v-else
+              class="footer-btn footer-btn--primary"
+              type="button"
+              :disabled="props.task.status === 'completed'"
+              @click="onPause"
+            >Pause</button>
+            <button
+              class="footer-btn footer-btn--ghost"
+              type="button"
+              @click="onRetry"
+            >Retry</button>
+            <button
+              class="footer-btn footer-btn--danger"
+              type="button"
+              @click="onDelete"
+            >Delete</button>
+          </footer>
+        </template>
+      </div>
+    </div>
+  </Teleport>
+</template>
+
+<style scoped>
+/* ── Overlay + backdrop ──────────────────────────────────────────── */
+.detail-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal-backdrop);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  animation: fadeSlideUp 250ms var(--ease-out);
+}
+
+/* ── Panel ───────────────────────────────────────────────────────── */
+.detail-panel {
+  width: 720px;
+  max-width: 94vw;
+  height: min(88vh, 760px);
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-xl);
+  z-index: var(--z-modal-panel);
+  outline: none;
+  overflow: hidden;
+  animation: modalScaleIn 400ms var(--ease-default);
+}
+
+.detail-panel--closing {
+  animation: modalScaleOut 220ms var(--ease-default) forwards;
+}
+
+/* ── Zone 1: Header ──────────────────────────────────────────────── */
+.detail-header {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  height: 64px;
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.detail-header-left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.detail-icon {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-sm);
+  background: var(--primary-muted);
+  color: var(--primary);
+}
+
+.detail-header-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.detail-name {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.detail-sub {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: var(--text-caption);
+  color: var(--fg-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.detail-header-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 0 0 auto;
+}
+
+.detail-status-chip {
+  font-family: var(--font-ui);
+  font-size: var(--text-caption);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 4px var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--surface-hover);
+  color: var(--fg-secondary);
+}
+
+.detail-status-chip.downloading {
+  background: var(--primary-muted);
+  color: var(--primary);
+}
+
+.detail-status-chip.paused {
+  background: var(--warning-muted);
+  color: var(--warning);
+}
+
+.detail-status-chip.completed {
+  background: var(--accent-muted);
+  color: var(--accent);
+}
+
+.detail-status-chip.error {
+  background: var(--error-muted);
+  color: var(--error);
+}
+
+.detail-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-xs);
+  color: var(--fg-tertiary);
+  cursor: pointer;
+  transition: background var(--transition-fast) var(--ease-out),
+              color var(--transition-fast) var(--ease-out);
+}
+
+.detail-icon-btn:hover {
+  background: var(--surface-hover);
+  color: var(--fg);
+}
+
+.detail-icon-btn:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 6px var(--focus-ring-soft);
+}
+
+/* ── Zone 2: Stat strip ──────────────────────────────────────────── */
+.detail-stats {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  height: 80px;
+  border-bottom: 1px solid var(--border);
+}
+
+.stat-cell {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
+  border-right: 1px solid var(--border);
+}
+
+.stat-cell:last-child {
+  border-right: none;
+}
+
+.stat-label {
+  font-family: var(--font-ui);
+  font-size: var(--text-micro);
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fg-tertiary);
+}
+
+.stat-value {
+  font-family: var(--font-mono);
+  font-feature-settings: 'tnum' 1;
+  font-variant-numeric: tabular-nums;
+  font-size: var(--text-h2);
+  font-weight: 600;
+  color: var(--fg);
+  white-space: nowrap;
+}
+
+/* ── Zone 3: Progress ring ───────────────────────────────────────── */
+.detail-ring {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-6) var(--space-5) var(--space-5);
+}
+
+.ring-svg {
+  display: block;
+}
+
+.ring-text {
+  font-family: var(--font-ui);
+  font-size: 26px;
+  font-weight: 600;
+  fill: var(--fg);
+}
+
+.ring-caption {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: var(--text-body-sm);
+  color: var(--fg-tertiary);
+  text-align: center;
+}
+
+/* ── Zone 4: Sections (scrollable) ───────────────────────────────── */
+.detail-sections {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 0 var(--space-5) var(--space-6);
+}
+
+.detail-section {
+  border-bottom: 1px solid var(--border);
+}
+
+.detail-section:last-child {
+  border-bottom: none;
+}
+
+.detail-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-4) 0;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.detail-summary::-webkit-details-marker {
+  display: none;
+}
+
+.summary-title {
+  font-family: var(--font-ui);
+  font-size: var(--text-body-lg);
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.summary-count {
+  font-weight: 400;
+  color: var(--fg-tertiary);
+}
+
+.summary-chevron {
+  color: var(--fg-tertiary);
+  transition: transform var(--transition-fast) var(--ease-out);
+}
+
+.detail-section[open] .summary-chevron {
+  transform: rotate(180deg);
+}
+
+/* Files list */
+.files-list {
+  display: flex;
+  flex-direction: column;
+  padding-bottom: var(--space-4);
+}
+
+.file-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+}
+
+.file-check {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+
+.file-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-body-sm);
+  color: var(--fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.file-size {
+  flex: 0 0 auto;
+  font-family: var(--font-mono);
+  font-feature-settings: 'tnum' 1;
+  font-variant-numeric: tabular-nums;
+  font-size: var(--text-body-sm);
+  color: var(--fg-tertiary);
+  white-space: nowrap;
+}
+
+/* Timeline */
+.timeline-list {
+  display: flex;
+  flex-direction: column;
+  padding-bottom: var(--space-4);
+}
+
+.timeline-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+}
+
+.timeline-dot {
+  flex: 0 0 auto;
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--fg-muted);
+}
+
+.timeline-dot.active {
+  background: var(--primary);
+}
+
+.timeline-dot.completed {
+  background: var(--accent);
+}
+
+.timeline-time {
+  flex: 0 0 auto;
+  font-family: var(--font-mono);
+  font-feature-settings: 'tnum' 1;
+  font-variant-numeric: tabular-nums;
+  font-size: var(--text-micro);
+  color: var(--fg-tertiary);
+}
+
+.timeline-text {
+  font-family: var(--font-ui);
+  font-size: var(--text-body-sm);
+  color: var(--fg);
+}
+
+.empty-note {
+  margin: 0;
+  padding-bottom: var(--space-4);
+  font-family: var(--font-ui);
+  font-size: var(--text-body-sm);
+  color: var(--fg-tertiary);
+}
+
+/* ── Zone 5: Footer ──────────────────────────────────────────────── */
+.detail-footer {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.footer-btn {
+  flex: 1 1 0;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-ui);
+  font-size: var(--text-body-sm);
+  font-weight: 500;
+  border: 1px solid transparent;
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+  transition: background var(--transition-fast) var(--ease-out),
+              border-color var(--transition-fast) var(--ease-out),
+              color var(--transition-fast) var(--ease-out);
+}
+
+.footer-btn:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 6px var(--focus-ring-soft);
+}
+
+.footer-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.footer-btn--primary {
+  background: var(--primary);
+  color: #fff;
+}
+
+.footer-btn--primary:not(:disabled):hover {
+  background: var(--primary-hover);
+}
+
+.footer-btn--ghost {
+  background: transparent;
+  color: var(--fg-secondary);
+  border-color: var(--border);
+}
+
+.footer-btn--ghost:not(:disabled):hover {
+  background: var(--surface-hover);
+  color: var(--fg);
+  border-color: var(--border-hover);
+}
+
+.footer-btn--danger {
+  background: transparent;
+  color: var(--error);
+  border-color: var(--error);
+}
+
+.footer-btn--danger:not(:disabled):hover {
+  background: var(--error-muted);
+}
+</style>
