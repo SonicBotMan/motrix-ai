@@ -17,6 +17,7 @@
  */
 
 import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { useRouter } from 'vue-router'
 import ChromeBar from '@/components/chrome/ChromeBar.vue'
 import TaskTable from '@/components/task/TaskTable.vue'
 import DetailPanel from '@/components/task/DetailPanel.vue'
@@ -322,6 +323,7 @@ const tasks = ref<MockTask[]>([
 // View-level state
 // ---------------------------------------------------------------------------
 
+const router = useRouter()
 const emit = defineEmits<{
   navigate: [view: string]
 }>()
@@ -555,14 +557,47 @@ function goHome(): void {
   closeMenu()
 }
 
-function toggleTheme(): void {
-  const html = document.documentElement
-  const current = html.getAttribute('data-theme')
-  html.setAttribute('data-theme', current === 'light' ? 'dark' : 'light')
+// Theme state — 'dark' is the design-system default.
+// We persist this so a reload remembers the user's choice.
+const currentTheme = ref<'dark' | 'light'>('dark')
+try {
+  const saved = localStorage.getItem('motrix:theme')
+  if (saved === 'light' || saved === 'dark') {
+    currentTheme.value = saved
+  }
+} catch {
+  // localStorage may be unavailable; fall back to dark
 }
 
+function toggleTheme(): void {
+  const next: 'dark' | 'light' = currentTheme.value === 'dark' ? 'light' : 'dark'
+  currentTheme.value = next
+  try {
+    localStorage.setItem('motrix:theme', next)
+  } catch {
+    // ignore — persistence is best-effort
+  }
+  // Sync the html attribute so the design-token CSS responds
+  const html = document.documentElement
+  if (next === 'light') {
+    html.setAttribute('data-theme', 'light')
+  } else {
+    html.removeAttribute('data-theme')
+  }
+}
+
+// Initialise the html attribute on mount
+onMounted(() => {
+  const html = document.documentElement
+  if (currentTheme.value === 'light') {
+    html.setAttribute('data-theme', 'light')
+  } else {
+    html.removeAttribute('data-theme')
+  }
+})
+
 function openSettings(): void {
-  emit('navigate', 'settings')
+  router.push('/settings')
 }
 
 // ---------------------------------------------------------------------------
@@ -681,6 +716,7 @@ onUnmounted(() => {
   <div class="app-layout">
     <!-- Chrome bar (48px, sticky top) -->
     <ChromeBar
+      :current-theme="currentTheme"
       @go-home="goHome"
       @toggle-theme="toggleTheme"
       @open-settings="openSettings"
