@@ -238,10 +238,12 @@ function handleMenuToggle(taskId: number, event: MouseEvent): void {
         >
           <!-- Name -->
           <td class="col-name">
-            <svg class="task-type-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path :d="typeIconPaths[task.type]" />
-            </svg>
-            <span class="task-name-text">{{ task.name }}</span>
+            <div class="col-name-inner">
+              <svg class="task-type-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path :d="typeIconPaths[task.type]" />
+              </svg>
+              <span class="task-name-text">{{ task.name }}</span>
+            </div>
           </td>
 
           <!-- Source -->
@@ -256,14 +258,16 @@ function handleMenuToggle(taskId: number, event: MouseEvent): void {
 
           <!-- Progress -->
           <td class="col-progress">
-            <div class="task-progress">
-              <div
-                class="task-progress-fill"
-                :class="fillClass(task.status)"
-                :style="{ width: task.progress + '%' }"
-              />
+            <div class="col-progress-inner">
+              <div class="task-progress">
+                <div
+                  class="task-progress-fill"
+                  :class="fillClass(task.status)"
+                  :style="{ width: task.progress + '%' }"
+                />
+              </div>
+              <span class="task-progress-pct">{{ task.progress }}%</span>
             </div>
-            <span class="task-progress-pct">{{ task.progress }}%</span>
           </td>
 
           <!-- Speed -->
@@ -383,12 +387,12 @@ function handleMenuToggle(taskId: number, event: MouseEvent): void {
   padding-right: var(--space-3, 12px);
 }
 
-/* Column widths: 26% | 18% | 8% | 18% | 8% | 10% | 7% | 5% */
-.task-table .col-name { width: 26%; }
-.task-table .col-source { width: 18%; }
-.task-table .col-status { width: 8%; }
-.task-table .col-progress { width: 18%; }
-.task-table .col-speed { width: 8%; }
+/* Column widths: 30% | 14% | 9% | 16% | 9% | 10% | 7% | 5% */
+.task-table .col-name { width: 30%; }
+.task-table .col-source { width: 14%; }
+.task-table .col-status { width: 9%; }
+.task-table .col-progress { width: 16%; }
+.task-table .col-speed { width: 9%; }
 .task-table .col-size { width: 10%; }
 .task-table .col-eta { width: 7%; }
 .task-table .col-actions { width: 5%; }
@@ -435,11 +439,16 @@ function handleMenuToggle(taskId: number, event: MouseEvent): void {
   overflow: hidden;
 }
 
-/* Name column */
+/* Name column — td must stay table-cell, flex goes on inner div */
 .col-name {
+  /* td default: table-cell */
+}
+
+.col-name-inner {
   display: flex;
   align-items: center;
   gap: var(--space-2, 8px);
+  overflow: hidden;
 }
 
 .task-type-icon {
@@ -452,6 +461,7 @@ function handleMenuToggle(taskId: number, event: MouseEvent): void {
   text-overflow: ellipsis;
   white-space: nowrap;
   font-weight: 500;
+  min-width: 0;
 }
 
 /* Source column */
@@ -522,9 +532,13 @@ function handleMenuToggle(taskId: number, event: MouseEvent): void {
   color: var(--fg-tertiary);
 }
 
-/* --- Progress bar --- */
+/* --- Progress bar — td must stay table-cell, flex goes on inner div --- */
 
 .col-progress {
+  /* td default: table-cell */
+}
+
+.col-progress-inner {
   display: flex;
   align-items: center;
   gap: var(--space-2, 8px);
