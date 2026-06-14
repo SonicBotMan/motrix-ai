@@ -1,0 +1,73 @@
+/**
+ * Motrix AI — Accessibility Styles
+ *
+ * Source of truth: docs/design/handoff/04-accessibility.md
+ * WCAG 2.1 AA is the floor.
+ */
+
+/* ==========================================================================
+   1. Focus Ring System
+   ========================================================================== */
+
+/**
+ * Applied to every interactive element.
+ * - 2px outline (WCAG 2.4.13 AAA)
+ * - 3px offset (prevents ring from merging with border)
+ * - 6px box-shadow halo (ambient pre-location)
+ * - Uses theme-aware --focus-ring token, never hardcoded
+ */
+.btn:focus-visible,
+.chip:focus-visible,
+.filter-tab:focus-visible,
+.menu-trigger:focus-visible,
+.settings-tab:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 6px var(--focus-ring-soft);
+}
+
+/* ==========================================================================
+   2. Skip Link
+   ========================================================================== */
+
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  padding: 8px 16px;
+  background: var(--primary);
+  color: var(--fg);
+  z-index: 100;
+  transition: top var(--transition-fast) var(--ease-out);
+}
+
+.skip-link:focus {
+  top: 0;
+}
+
+/* ==========================================================================
+   3. Screen Reader Only — visually hidden, announced to SRs
+   ========================================================================== */
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ==========================================================================
+   4. Reduced Motion (supplemental — main block lives in animations.css)
+   ========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  /* Never use smooth scroll under reduced motion */
+  html {
+    scroll-behavior: auto;
+  }
+}

@@ -1,0 +1,158 @@
+/**
+ * Motrix AI — Motion System
+ *
+ * Source of truth: docs/design/handoff/03-motion.md
+ *
+ * 7 keyframes, 1 single motion language (spring-out easing).
+ * Do not add new keyframes or easings without an ADR.
+ *
+ * The easing used for modals + row reveal is:
+ *   cubic-bezier(0.2, 0.8, 0.2, 1)  -- the "default" spring
+ */
+
+/* ==========================================================================
+   1. Keyframes
+   ========================================================================== */
+
+/** Onboarding step transitions — 250ms, ease-out. */
+@keyframes fadeSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/** Progress bar highlight sweep — 2s infinite, linear. */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/** Spinner rotation — 700ms infinite, linear. */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/** Thinking dot pulse — 1.5s infinite, ease-in-out. */
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+/** Detail panel / modal open — 400ms, ease-default. */
+@keyframes modalScaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/** Detail panel / modal close — 220ms, ease-default. */
+@keyframes modalScaleOut {
+  from {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.96) translateY(6px);
+  }
+}
+
+/** Table row reveal on filter switch — 220ms, ease-default, staggered. */
+@keyframes rowReveal {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ==========================================================================
+   2. Animation Utility Classes
+   ========================================================================== */
+
+.animate-fade-slide-up {
+  animation: fadeSlideUp 250ms var(--ease-out);
+}
+
+.animate-spin {
+  animation: spin 700ms linear infinite;
+}
+
+.animate-pulse {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.animate-modal-in {
+  animation: modalScaleIn 400ms var(--ease-default);
+}
+
+.animate-modal-out {
+  animation: modalScaleOut 220ms var(--ease-default);
+}
+
+.animate-row-reveal {
+  animation: rowReveal 220ms var(--ease-default) backwards;
+}
+
+/* ==========================================================================
+   3. Reduced Motion — WCAG 2.3.3 Compliance
+   ========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 100ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* Strip shimmer entirely — display: none is not subject to animation-duration */
+  .task-progress-fill::after {
+    display: none;
+  }
+
+  /* Strip row flash transform */
+  .task-table tbody tr.row-flash {
+    transform: none;
+  }
+
+  /* Allow toasts + detail panel very fast transitions (100ms) */
+  .chat-toast {
+    transition-duration: 100ms !important;
+  }
+
+  .detail-panel {
+    transition-duration: 100ms !important;
+  }
+
+  /* Fully strip table row stagger animation */
+  .task-table tbody tr {
+    animation: none !important;
+  }
+}
