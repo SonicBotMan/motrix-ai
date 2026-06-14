@@ -50,6 +50,9 @@ const emit = defineEmits<{
   delete: []
   openLocation: []
   copySource: []
+  toggleFile: [fileIndex: number]
+  cancel: []
+  priority: []
 }>()
 
 const panelRef = ref<HTMLElement | null>(null)
@@ -145,10 +148,6 @@ function onResume() {
 }
 function onRetry() {
   emit('retry')
-}
-function onDelete() {
-  showMoreMenu.value = false
-  emit('delete')
 }
 
 /** Toggle the more-actions dropdown */
@@ -247,7 +246,7 @@ watch(showMoreMenu, (visible) => {
                   type="button"
                   @click.stop="toggleMoreMenu"
                 >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                     <circle cx="5" cy="12" r="1.6" />
                     <circle cx="12" cy="12" r="1.6" />
                     <circle cx="19" cy="12" r="1.6" />
@@ -291,7 +290,7 @@ watch(showMoreMenu, (visible) => {
                 type="button"
                 @click="requestClose"
               >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
                   <line x1="18" y1="6" x2="6" y2="18" />
                   <line x1="6" y1="6" x2="18" y2="18" />
                 </svg>
@@ -316,14 +315,20 @@ watch(showMoreMenu, (visible) => {
               <div class="stat-value">{{ props.task.eta || '—' }}</div>
             </div>
             <div class="stat-cell">
-              <div class="stat-label">Connections</div>
+              <div class="stat-label">Seeders</div>
               <div class="stat-value">{{ props.task.connections ?? '—' }}</div>
             </div>
           </section>
 
           <!-- ── Zone 3: Progress ring ────────────────────────────── -->
           <section class="detail-ring" aria-label="Download progress">
-            <svg class="ring-svg" width="120" height="120" viewBox="0 0 120 120">
+            <svg class="ring-svg" width="120" height="120" viewBox="0 0 120 120"
+              role="progressbar"
+              :aria-valuenow="props.task.progress"
+              aria-valuemin="0"
+              aria-valuemax="100"
+              :aria-valuetext="`${props.task.progress}% complete`"
+            >
               <!-- background ring -->
               <circle cx="60" cy="60" r="48" fill="none" stroke="var(--border)" stroke-width="4" />
               <!-- foreground ring (rotate on the <g> so text stays upright) -->
@@ -363,12 +368,25 @@ watch(showMoreMenu, (visible) => {
                     class="file-check"
                     :checked="f.checked !== false"
                     :aria-label="f.name"
+                    @change="emit('toggleFile', i)"
                   >
                   <span class="file-name" :title="f.name">{{ f.name }}</span>
                   <span class="file-size">{{ f.size }}</span>
                 </div>
               </div>
               <p v-else class="empty-note">No file list available.</p>
+            </details>
+
+            <details class="detail-section">
+              <summary class="detail-summary">
+                <span class="summary-title">Sources</span>
+                <svg class="summary-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
+              </summary>
+              <div class="sources-list">
+                <p class="source-url" :title="props.task.source">{{ props.task.source }}</p>
+              </div>
             </details>
 
             <details class="detail-section" open>
@@ -410,10 +428,15 @@ watch(showMoreMenu, (visible) => {
               @click="onRetry"
             >Retry</button>
             <button
+              class="footer-btn footer-btn--ghost"
+              type="button"
+              @click="emit('priority')"
+            >Priority</button>
+            <button
               class="footer-btn footer-btn--danger"
               type="button"
-              @click="onDelete"
-            >Delete</button>
+              @click="emit('cancel')"
+            >Cancel</button>
           </footer>
         </template>
       </div>
@@ -880,6 +903,20 @@ watch(showMoreMenu, (visible) => {
   font-family: var(--font-ui);
   font-size: var(--text-body-sm);
   color: var(--fg-tertiary);
+}
+
+/* Sources section */
+.sources-list {
+  padding-bottom: var(--space-4);
+}
+
+.source-url {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-body-sm);
+  color: var(--fg-secondary);
+  word-break: break-all;
+  line-height: 1.5;
 }
 
 /* ── Zone 5: Footer ──────────────────────────────────────────────── */

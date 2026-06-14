@@ -52,7 +52,7 @@ const filterTabs: FilterTab[] = [
   { label: 'All', value: 'all' },
   { label: 'Active', value: 'active' },
   { label: 'Completed', value: 'completed' },
-  { label: 'Failed', value: 'failed' },
+  { label: 'Paused', value: 'paused' },
 ]
 
 // --- State ---
@@ -70,8 +70,8 @@ const filteredTasks = computed<Task[]>(() => {
     return props.tasks.filter(t => t.status === 'downloading' || t.status === 'paused')
   }
   return props.tasks.filter(t => {
-    // Map 'failed' UI status to 'error' pill
-    if (props.activeFilter === 'failed') return t.status === 'failed'
+    // Map 'paused' UI status
+    if (props.activeFilter === 'paused') return t.status === 'paused'
     return t.status === props.activeFilter
   })
 })
@@ -102,10 +102,10 @@ const emptyState = computed<EmptyState>(() => {
         heading: 'Nothing completed yet',
         sub: 'Downloads appear here once they finish.',
       }
-    case 'failed':
+    case 'paused':
       return {
-        heading: 'No failed downloads',
-        sub: 'Failed downloads will appear here.',
+        heading: 'No paused downloads',
+        sub: 'Paused downloads will appear here.',
       }
     default:
       return {
@@ -196,14 +196,15 @@ function handleMenuToggle(taskId: number, event: MouseEvent): void {
 <template>
   <div class="task-table-wrapper">
     <!-- Filter tabs -->
-    <div class="filter-tabs">
+    <div class="filter-tabs" role="tablist" aria-label="Filter tasks">
       <button
         v-for="tab in filterTabs"
         :key="tab.value"
         type="button"
         class="filter-tab"
         :class="{ active: activeFilter === tab.value }"
-        :aria-current="activeFilter === tab.value ? 'page' : 'false'"
+        role="tab"
+        :aria-selected="activeFilter === tab.value ? 'true' : 'false'"
         @click="setFilter(tab.value)"
       >
         {{ tab.label }}
@@ -239,7 +240,7 @@ function handleMenuToggle(taskId: number, event: MouseEvent): void {
           <!-- Name -->
           <td class="col-name">
             <div class="col-name-inner">
-              <svg class="task-type-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <svg class="task-type-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path :d="typeIconPaths[task.type]" />
               </svg>
               <span class="task-name-text">{{ task.name }}</span>
@@ -274,7 +275,7 @@ function handleMenuToggle(taskId: number, event: MouseEvent): void {
           <td class="col-speed">{{ task.status === 'downloading' ? task.speed : '\u00B7' }}</td>
 
           <!-- Size -->
-          <td class="col-size">{{ task.size }}</td>
+          <td class="col-size">{{ task.size }}<template v-if="task.total"> / {{ task.total }}</template></td>
 
           <!-- ETA -->
           <td class="col-eta">{{ task.eta || '\u2014' }}</td>
@@ -387,13 +388,13 @@ function handleMenuToggle(taskId: number, event: MouseEvent): void {
   padding-right: var(--space-3, 12px);
 }
 
-/* Column widths: 30% | 14% | 9% | 16% | 9% | 10% | 7% | 5% */
-.task-table .col-name { width: 30%; }
-.task-table .col-source { width: 14%; }
-.task-table .col-status { width: 9%; }
-.task-table .col-progress { width: 16%; }
-.task-table .col-speed { width: 9%; }
-.task-table .col-size { width: 10%; }
+/* Column widths: 28% | 16% | 8% | 17% | 8% | 11% | 7% | 5% */
+.task-table .col-name { width: 28%; }
+.task-table .col-source { width: 16%; }
+.task-table .col-status { width: 8%; }
+.task-table .col-progress { width: 17%; }
+.task-table .col-speed { width: 8%; }
+.task-table .col-size { width: 11%; }
 .task-table .col-eta { width: 7%; }
 .task-table .col-actions { width: 5%; }
 

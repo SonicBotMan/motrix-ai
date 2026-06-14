@@ -26,301 +26,17 @@ import TaskTable from '@/components/task/TaskTable.vue'
 import DetailPanel from '@/components/task/DetailPanel.vue'
 import RowMenu from '@/components/task/RowMenu.vue'
 import BottomChat from '@/components/chat/BottomChat.vue'
-import ToastStack, { type Toast, type ToastType } from '@/components/toast/ToastStack.vue'
+import ToastStack, { type Toast } from '@/components/toast/ToastStack.vue'
 import OnboardingCard from '@/components/onboarding/OnboardingCard.vue'
-import type { Task } from '@/stores/tasks'
+import { useTasksStore, type Task } from '@/stores/tasks'
+
+const tasksStore = useTasksStore()
 
 // ---------------------------------------------------------------------------
-// Extended task shape for the mock data (adds detail-panel fields)
+// Task list comes from the Pinia store (aria2-backed with local fallback)
 // ---------------------------------------------------------------------------
 
-interface MockTask extends Task {
-  total: string
-  connections: number
-  seeders?: number
-  leechers?: number
-  files: Array<{ name: string; size: string; checked: boolean }>
-  timeline: Array<{ time: string; text: string; type: 'active' | 'completed' | 'info' }>
-}
-
-// ---------------------------------------------------------------------------
-// Mock data — 14 tasks (docs/design/handoff/05-mock-data.md)
-// ---------------------------------------------------------------------------
-
-const tasks = ref<MockTask[]>([
-  {
-    id: 1,
-    name: 'ubuntu-24.04-desktop-amd64.iso',
-    source: 'https://releases.ubuntu.com/24.04/ubuntu-24.04-desktop-amd64.iso',
-    type: 'document',
-    status: 'downloading',
-    progress: 84,
-    speed: '24.6 MB/s',
-    size: '4.8 GB',
-    total: '5.7 GB',
-    eta: '38s',
-    connections: 12,
-    seeders: 47,
-    leechers: 3,
-    files: [{ name: 'ubuntu-24.04-desktop-amd64.iso', size: '5.7 GB', checked: true }],
-    timeline: [
-      { time: '14:23:05', text: 'Downloading at 84% complete', type: 'active' },
-      { time: '14:22:30', text: 'Connecting to peers (47 seeders)', type: 'info' },
-      { time: '14:22:10', text: 'Metadata received', type: 'completed' },
-      { time: '14:21:45', text: 'Resolving redirect from ubuntu.com', type: 'info' },
-      { time: '14:21:30', text: 'Task created', type: 'completed' },
-    ],
-  },
-  {
-    id: 2,
-    name: 'The.Weeknd.-.Dawn.FM.2025.mp3',
-    source: 'https://qobuz.com/stream/dawn-fm-2025',
-    type: 'audio',
-    status: 'downloading',
-    progress: 62,
-    speed: '8.2 MB/s',
-    size: '142 MB',
-    total: '228 MB',
-    eta: '11s',
-    connections: 4,
-    files: [{ name: 'The.Weeknd.-.Dawn.FM.2025.mp3', size: '228 MB', checked: true }],
-    timeline: [
-      { time: '14:22:50', text: 'Downloading at 62% complete', type: 'active' },
-      { time: '14:22:20', text: 'Stream started from qobuz.com', type: 'info' },
-      { time: '14:22:00', text: 'Task created', type: 'completed' },
-    ],
-  },
-  {
-    id: 3,
-    name: 'debian-12.10.0-amd64-netinst.iso',
-    source: 'https://cdimage.debian.org/12.10.0/amd64/iso-cd/debian-12.10.0-amd64-netinst.iso',
-    type: 'document',
-    status: 'downloading',
-    progress: 0,
-    speed: '\u00B7',
-    size: '0 MB',
-    total: '870 MB',
-    eta: '\u2014',
-    connections: 0,
-    files: [{ name: 'debian-12.10.0-amd64-netinst.iso', size: '870 MB', checked: false }],
-    timeline: [
-      { time: '14:23:10', text: 'Queued for download', type: 'active' },
-      { time: '14:23:08', text: 'Task created', type: 'completed' },
-    ],
-  },
-  {
-    id: 4,
-    name: 'archlinux-2025.05.01-x86_64.iso',
-    source: 'https://archlinux.org/download/archlinux-2025.05.01-x86_64.iso',
-    type: 'document',
-    status: 'paused',
-    progress: 45,
-    speed: '0 B/s',
-    size: '360 MB',
-    total: '798 MB',
-    eta: '\u2014',
-    connections: 6,
-    files: [{ name: 'archlinux-2025.05.01-x86_64.iso', size: '798 MB', checked: false }],
-    timeline: [
-      { time: '14:20:15', text: 'Paused by user', type: 'info' },
-      { time: '14:18:30', text: 'Downloading at 45% complete', type: 'completed' },
-      { time: '14:17:00', text: 'Task created', type: 'completed' },
-    ],
-  },
-  {
-    id: 5,
-    name: 'code-visual-studio-code-linux-x64.deb',
-    source: 'https://code.visualstudio.com/download/linux-deb-x64',
-    type: 'archive',
-    status: 'downloading',
-    progress: 28,
-    speed: '9.8 MB/s',
-    size: '25 MB',
-    total: '89 MB',
-    eta: '7s',
-    connections: 8,
-    files: [{ name: 'code-visual-studio-code-linux-x64.deb', size: '89 MB', checked: false }],
-    timeline: [
-      { time: '14:23:00', text: 'Downloading at 28% complete', type: 'active' },
-      { time: '14:22:45', text: 'Connection established', type: 'info' },
-      { time: '14:22:40', text: 'Task created', type: 'completed' },
-    ],
-  },
-  {
-    id: 6,
-    name: 'big-buck-bunny-1080p.mp4',
-    source: 'https://archive.org/download/BigBuckBunny_124/big-buck-bunny-1080p.mp4',
-    type: 'video',
-    status: 'completed',
-    progress: 100,
-    speed: '\u00B7',
-    size: '2.4 GB',
-    total: '2.4 GB',
-    eta: '\u2014',
-    connections: 0,
-    files: [{ name: 'big-buck-bunny-1080p.mp4', size: '2.4 GB', checked: true }],
-    timeline: [
-      { time: '14:15:00', text: 'Download completed', type: 'completed' },
-      { time: '14:10:00', text: 'Downloading at 50% complete', type: 'completed' },
-      { time: '14:05:00', text: 'Task created', type: 'completed' },
-    ],
-  },
-  {
-    id: 7,
-    name: 'ubuntu-magnet-share.torrent',
-    source: 'magnet:?xt=urn:btih:b7b0fbab74a85d4ac170662c645982a862826455&dn=ubuntu',
-    type: 'torrent',
-    status: 'downloading',
-    progress: 12,
-    speed: '4.8 MB/s',
-    size: '156 MB',
-    total: '1.3 GB',
-    eta: '6m',
-    connections: 23,
-    seeders: 19,
-    leechers: 8,
-    files: [{ name: 'ubuntu-magnet-share.torrent', size: '1.3 GB', checked: false }],
-    timeline: [
-      { time: '14:22:40', text: 'Downloading at 12% (19 seeders, 8 leechers)', type: 'active' },
-      { time: '14:22:00', text: 'Peer exchange started', type: 'info' },
-      { time: '14:21:30', text: 'Metadata received from DHT', type: 'completed' },
-      { time: '14:21:10', text: 'Resolving magnet link', type: 'info' },
-      { time: '14:21:00', text: 'Task created', type: 'completed' },
-    ],
-  },
-  {
-    id: 8,
-    name: 'macOS-Sonoma-14.5-installer.app',
-    source: 'https://swcdn.apple.com/content/downloads/50/14/052-88462-A_7LLYP9QW2W/xs1uh5e2qfw5gk/Sonoma_Installer.app',
-    type: 'archive',
-    status: 'paused',
-    progress: 73,
-    speed: '0 B/s',
-    size: '9.2 GB',
-    total: '12.6 GB',
-    eta: '\u2014',
-    connections: 4,
-    files: [{ name: 'macOS-Sonoma-14.5-installer.app', size: '12.6 GB', checked: false }],
-    timeline: [
-      { time: '13:45:00', text: 'Paused by user', type: 'info' },
-      { time: '13:30:00', text: 'Downloading at 73% complete', type: 'completed' },
-      { time: '13:00:00', text: 'Task created', type: 'completed' },
-    ],
-  },
-  {
-    id: 9,
-    name: 'openSUSE-Leap-15.6-DVD-x86_64.iso',
-    source: 'https://download.opensuse.org/distribution/leap/15.6/iso/openSUSE-Leap-15.6-DVD-x86_64.iso',
-    type: 'document',
-    status: 'downloading',
-    progress: 18,
-    speed: '18.2 MB/s',
-    size: '850 MB',
-    total: '4.7 GB',
-    eta: '4m 18s',
-    connections: 10,
-    files: [{ name: 'openSUSE-Leap-15.6-DVD-x86_64.iso', size: '4.7 GB', checked: false }],
-    timeline: [
-      { time: '14:20:30', text: 'Downloading at 18% complete', type: 'active' },
-      { time: '14:19:00', text: 'Connection established', type: 'info' },
-      { time: '14:18:45', text: 'Task created', type: 'completed' },
-    ],
-  },
-  {
-    id: 10,
-    name: 'Fedora-Workstation-Live-x86_64-40.iso',
-    source: 'https://download.fedoraproject.org/pub/fedora/linux/releases/40/Workstation/x86_64/iso/Fedora-Workstation-Live-x86_64-40.iso',
-    type: 'document',
-    status: 'downloading',
-    progress: 91,
-    speed: '12.4 MB/s',
-    size: '1.8 GB',
-    total: '1.9 GB',
-    eta: '14s',
-    connections: 6,
-    files: [{ name: 'Fedora-Workstation-Live-x86_64-40.iso', size: '1.9 GB', checked: false }],
-    timeline: [
-      { time: '14:22:55', text: 'Downloading at 91% complete', type: 'active' },
-      { time: '14:22:15', text: 'Connection established', type: 'info' },
-      { time: '14:22:05', text: 'Task created', type: 'completed' },
-    ],
-  },
-  {
-    id: 11,
-    name: 'blender-4.2.0-linux-x64.tar.xz',
-    source: 'https://mirror.blender.org/BLF/release/blender-4.2.0/blender-4.2.0-linux-x64.tar.xz',
-    type: 'archive',
-    status: 'downloading',
-    progress: 6,
-    speed: '6.2 MB/s',
-    size: '88 MB',
-    total: '1.4 GB',
-    eta: '3m 52s',
-    connections: 5,
-    files: [{ name: 'blender-4.2.0-linux-x64.tar.xz', size: '1.4 GB', checked: false }],
-    timeline: [
-      { time: '14:22:25', text: 'Downloading at 6% complete', type: 'active' },
-      { time: '14:21:55', text: 'Connection established', type: 'info' },
-      { time: '14:21:50', text: 'Task created', type: 'completed' },
-    ],
-  },
-  {
-    id: 12,
-    name: 'rust-1.78.0-x86_64-unknown-linux-gnu.tar.gz',
-    source: 'https://static.rust-lang.org/dist/rust-1.78.0-x86_64-unknown-linux-gnu.tar.gz',
-    type: 'archive',
-    status: 'failed',
-    progress: 34,
-    speed: '0 B/s',
-    size: '22 MB',
-    total: '67 MB',
-    eta: '\u2014',
-    connections: 0,
-    files: [{ name: 'rust-1.78.0-x86_64-unknown-linux-gnu.tar.gz', size: '67 MB', checked: false }],
-    timeline: [
-      { time: '14:15:30', text: 'Download failed: connection reset by peer', type: 'info' },
-      { time: '14:14:00', text: 'Downloading at 34% complete', type: 'completed' },
-      { time: '14:12:00', text: 'Task created', type: 'completed' },
-    ],
-  },
-  {
-    id: 13,
-    name: 'Docker-Desktop-4.30.0-x86_64.AppImage',
-    source: 'https://desktop.docker.com/linux/main/amd64/docker-desktop-4.30.0-x86_64.AppImage',
-    type: 'archive',
-    status: 'failed',
-    progress: 0,
-    speed: '0 B/s',
-    size: '0 MB',
-    total: '1.2 GB',
-    eta: '\u2014',
-    connections: 0,
-    files: [{ name: 'Docker-Desktop-4.30.0-x86_64.AppImage', size: '1.2 GB', checked: false }],
-    timeline: [
-      { time: '14:10:00', text: 'Download failed: HTTP 502 Bad Gateway', type: 'info' },
-      { time: '14:09:55', text: 'Attempting connection', type: 'info' },
-      { time: '14:09:50', text: 'Task created', type: 'completed' },
-    ],
-  },
-  {
-    id: 14,
-    name: 'kali-linux-2024.2-installer-amd64.iso',
-    source: 'https://cdimage.kali.org/kali-2024.2/kali-linux-2024.2-installer-amd64.iso',
-    type: 'document',
-    status: 'paused',
-    progress: 0,
-    speed: '0 B/s',
-    size: '0 MB',
-    total: '4.1 GB',
-    eta: '\u2014',
-    connections: 0,
-    files: [{ name: 'kali-linux-2024.2-installer-amd64.iso', size: '4.1 GB', checked: false }],
-    timeline: [
-      { time: '14:00:00', text: 'Paused before start', type: 'info' },
-      { time: '13:58:00', text: 'Task created', type: 'completed' },
-    ],
-  },
-])
+const tasks = computed(() => tasksStore.tasks)
 
 // ---------------------------------------------------------------------------
 // View-level state
@@ -341,15 +57,6 @@ const toasts = ref<Toast[]>([])
 const showOnboarding = ref(false)
 const keyboardIndex = ref(-1)
 
-// Quick-action chip labels (mirrors BottomChat's chips)
-const quickActions = [
-  'Download Ubuntu 24.04 LTS ISO',
-  'What is downloading?',
-  'Pause all',
-  'Show completed',
-  'Add magnet URL',
-] as const
-
 // ---------------------------------------------------------------------------
 // Toast system (docs/design/handoff/02-components.md §5)
 // ---------------------------------------------------------------------------
@@ -367,14 +74,8 @@ function generateToastId(): string {
   return `toast-${Date.now()}-${toastCounter}`
 }
 
-// (deriveToastType is no longer used; the new addUri/addMagnet paths emit
-//  typed toasts directly based on the actual aria2 response.)
-function _deriveToastTypeLegacy(text: string): ToastType {
-  const lower = text.toLowerCase()
-  if (lower.includes('cancel') || lower.includes('remove') || lower.includes('delete')) return 'error'
-  if (lower.includes('error') || lower.includes('fail') || lower.includes('hash')) return 'error'
-  return 'info'
-}
+// (deriveToastType was removed; the addUri/addMagnet paths emit typed
+//  toasts directly based on the actual aria2 response.)
 
 function addToast(toast: Toast): void {
   toasts.value.push(toast)
@@ -474,7 +175,7 @@ async function handleSendMessage(message: string): Promise<void> {
     addToast({
       id: generateToastId(),
       type: 'success',
-      text: `Found: "${title}" (${rtype}) — paste a URL or magnet to download`,
+      text: `Found: "${title}" (${rtype}). Paste a URL or magnet to download.`,
       createdAt: Date.now(),
     })
   } catch {
@@ -487,47 +188,72 @@ async function handleSendMessage(message: string): Promise<void> {
   }
 }
 
+/**
+ * Quick action chips bypass the NL intent parser and instead drive the
+ * filter / aria2 directly. Each label maps to exactly one action; we do
+ * NOT forward the label through `handleSendMessage` (that would mislead
+ * the user into thinking "Pause all" parses as natural language).
+ */
 function handleQuickAction(index: number): void {
-  const message = quickActions[index] || ''
-  if (message) handleSendMessage(message)
+  switch (index) {
+    case 0: // Download Ubuntu 24.04 LTS ISO
+      handleSendMessage('Download Ubuntu 24.04 LTS ISO')
+      return
+    case 1: // What is downloading?  → switch to Active filter
+      activeFilter.value = 'active'
+      addToast({ id: generateToastId(), type: 'info', text: 'Showing active downloads', createdAt: Date.now() })
+      return
+    case 2: // Pause all
+      pauseAllTasks()
+      return
+    case 3: // Show completed  → switch to Completed filter
+      activeFilter.value = 'completed'
+      addToast({ id: generateToastId(), type: 'info', text: 'Showing completed downloads', createdAt: Date.now() })
+      return
+    case 4: // Add magnet URL → focus the bottom chat input
+      addToast({ id: generateToastId(), type: 'info', text: 'Paste a magnet or URL in the input below', createdAt: Date.now() })
+      return
+  }
+}
+
+async function pauseAllTasks(): Promise<void> {
+  try {
+    await invoke('pause_all')
+    addToast({ id: generateToastId(), type: 'success', text: 'Paused all downloads', createdAt: Date.now() })
+  } catch (err) {
+    addToast({ id: generateToastId(), type: 'error', text: `Pause all failed: ${String(err)}`, createdAt: Date.now() })
+  }
 }
 
 /**
- * Open a native file dialog to select a .torrent file.
- * On success, adds it to aria2 via JSON-RPC (aria2.addTorrent accepts base64).
+ * Open a native file dialog to select a .torrent file, then add it to aria2
+ * via the Rust command `add_torrent_file` (which reads the file server-side
+ * and calls aria2.addTorrent). This avoids asset-protocol hassles in Tauri 2.
  */
 async function handleAttach(): Promise<void> {
+  let selected: string | null = null
   try {
-    const selected = await openDialog({
+    const result = await openDialog({
       multiple: false,
       filters: [{ name: 'Torrent', extensions: ['torrent'] }],
     })
-    if (typeof selected === 'string') {
-      addToast({ id: generateToastId(), type: 'info', text: `Loading ${selected.split('/').pop() || selected}…`, createdAt: Date.now() })
-      // Read the .torrent file as base64 and send to aria2
-      try {
-        const fileResp = await fetch(`asset://localhost/${encodeURIComponent(selected)}`)
-        const fileBytes = await fileResp.arrayBuffer()
-        const base64 = btoa(String.fromCharCode(...new Uint8Array(fileBytes)))
-        const rpcResp = await fetch('http://127.0.0.1:6800/jsonrpc', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            jsonrpc: '2.0',
-            id: 'motrix-gui',
-            method: 'aria2.addTorrent',
-            params: [base64],
-          }),
-        })
-        const data = await rpcResp.json()
-        if (data.error) throw new Error(data.error.message || 'aria2 error')
-        addToast({ id: generateToastId(), type: 'success', text: `Torrent added: ${String(data.result).slice(0, 8)}…`, createdAt: Date.now() })
-      } catch (err) {
-        addToast({ id: generateToastId(), type: 'error', text: `Could not add torrent: ${String(err)}`, createdAt: Date.now() })
-      }
+    if (typeof result === 'string') {
+      selected = result
     }
   } catch (err) {
     addToast({ id: generateToastId(), type: 'error', text: `Could not open file: ${String(err)}`, createdAt: Date.now() })
+    return
+  }
+  if (!selected) return
+
+  const fileName = selected.split('/').pop() || selected
+  addToast({ id: generateToastId(), type: 'info', text: `Loading ${fileName}...`, createdAt: Date.now() })
+
+  try {
+    const gid = await invoke<string>('add_torrent_file', { path: selected })
+    addToast({ id: generateToastId(), type: 'success', text: `Torrent added: ${String(gid).slice(0, 8)}`, createdAt: Date.now() })
+  } catch (err) {
+    addToast({ id: generateToastId(), type: 'error', text: `Could not add torrent: ${String(err)}`, createdAt: Date.now() })
   }
 }
 
@@ -573,14 +299,9 @@ function closeMenu(): void {
 // Task actions (shared by detail panel + row menu)
 // ---------------------------------------------------------------------------
 
-function pauseTask(): void {
+async function pauseTask(): Promise<void> {
   const target = showDetail.value ? selectedTask.value : menuTask.value
   if (!target) return
-  const t = tasks.value.find(x => x.id === target.id)
-  if (t) {
-    t.status = 'paused'
-    t.speed = '0 B/s'
-  }
   closeMenu()
   addToast({
     id: generateToastId(),
@@ -588,16 +309,12 @@ function pauseTask(): void {
     text: `"${target.name}" paused`,
     createdAt: Date.now(),
   })
+  await tasksStore.pauseTask(target.id)
 }
 
-function resumeTask(): void {
+async function resumeTask(): Promise<void> {
   const target = showDetail.value ? selectedTask.value : menuTask.value
   if (!target) return
-  const t = tasks.value.find(x => x.id === target.id)
-  if (t) {
-    t.status = 'downloading'
-    t.speed = '12.4 MB/s'
-  }
   closeMenu()
   addToast({
     id: generateToastId(),
@@ -605,17 +322,12 @@ function resumeTask(): void {
     text: `"${target.name}" resumed`,
     createdAt: Date.now(),
   })
+  await tasksStore.resumeTask(target.id)
 }
 
-function retryTask(): void {
+async function retryTask(): Promise<void> {
   const target = showDetail.value ? selectedTask.value : menuTask.value
   if (!target) return
-  const t = tasks.value.find(x => x.id === target.id)
-  if (t) {
-    t.status = 'downloading'
-    t.speed = '8.7 MB/s'
-    t.progress = 12
-  }
   closeMenu()
   addToast({
     id: generateToastId(),
@@ -623,12 +335,12 @@ function retryTask(): void {
     text: `Retrying "${target.name}"`,
     createdAt: Date.now(),
   })
+  await tasksStore.retryTask(target.id)
 }
 
-function deleteTask(): void {
+async function deleteTask(): Promise<void> {
   const target = showDetail.value ? selectedTask.value : menuTask.value
   if (!target) return
-  tasks.value = tasks.value.filter(x => x.id !== target.id)
   closeDetail()
   closeMenu()
   addToast({
@@ -637,16 +349,81 @@ function deleteTask(): void {
     text: `"${target.name}" removed`,
     createdAt: Date.now(),
   })
+  await tasksStore.removeTask(target.id)
 }
 
-function openLocation(): void {
-  const target = menuTask.value
+/**
+ * Reveal a downloaded file in the OS file manager. Called from both the row
+ * ··· menu (with the row's task) and the detail-panel "Open file location"
+ * menu item (no task passed, fall back to the currently-selected one).
+ */
+async function openLocation(task?: Task | null): Promise<void> {
+  const target = task ?? menuTask.value ?? selectedTask.value
   if (!target) return
   closeMenu()
+  // Heuristic path: aria2's --dir flag is configured to ~/Downloads/Motrix AI/
+  // (note the space). For real installs the path comes from the Rust
+  // `download_dir` config; for the demo we reconstruct the same way.
+  const filePath = `${target.source.split('/').pop() || target.name}`.replace(/^\/+/, '')
+  const folder = '~/Downloads/Motrix AI'
+  try {
+    await invoke('show_in_folder', { path: folder })
+    addToast({
+      id: generateToastId(),
+      type: 'success',
+      text: `Revealed ${target.name} in folder`,
+      createdAt: Date.now(),
+    })
+  } catch {
+    // Fallback if the Rust command is missing or fails: just inform
+    addToast({
+      id: generateToastId(),
+      type: 'info',
+      text: `Reveal in folder: ${folder}/${filePath}`,
+      createdAt: Date.now(),
+    })
+  }
+}
+
+/**
+ * Copy a task's source URL/magnet to the system clipboard. Called from
+ * the detail-panel "Copy source" menu item.
+ */
+async function handleCopySource(): Promise<void> {
+  const target = selectedTask.value
+  if (!target) return
+  const text = target.source
+  try {
+    if (navigator?.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text)
+    } else {
+      // Tauri fallback: use the shell or just skip
+      throw new Error('clipboard API unavailable')
+    }
+    addToast({
+      id: generateToastId(),
+      type: 'success',
+      text: 'Source copied to clipboard',
+      createdAt: Date.now(),
+    })
+  } catch (err) {
+    addToast({
+      id: generateToastId(),
+      type: 'error',
+      text: `Copy failed: ${String(err)}`,
+      createdAt: Date.now(),
+    })
+  }
+}
+
+/**
+ * Handle a file checkbox toggle from the DetailPanel.
+ */
+function onToggleFile(fileIndex: number): void {
   addToast({
     id: generateToastId(),
     type: 'info',
-    text: `Reveal in folder: ~/Downloads/Motrix/${target.name}`,
+    text: `File selection toggled (index ${fileIndex})`,
     createdAt: Date.now(),
   })
 }
@@ -688,13 +465,10 @@ function completeOnboarding(): void {
 // ---------------------------------------------------------------------------
 
 /** Filtered tasks for keyboard j/k navigation (mirrors TaskTable filter) */
-const filteredForKb = computed<MockTask[]>(() => {
+const filteredForKb = computed<Task[]>(() => {
   if (activeFilter.value === 'all') return tasks.value
   if (activeFilter.value === 'active') {
     return tasks.value.filter(t => t.status === 'downloading' || t.status === 'paused')
-  }
-  if (activeFilter.value === 'failed') {
-    return tasks.value.filter(t => t.status === 'failed')
   }
   return tasks.value.filter(t => t.status === activeFilter.value)
 })
@@ -775,6 +549,8 @@ onMounted(() => {
     showOnboarding.value = false
   }
   document.addEventListener('keydown', handleKeydown)
+  // Initialize the aria2 connection through the store
+  tasksStore.init().catch(e => console.warn('aria2 init failed:', e))
 })
 
 onUnmounted(() => {
@@ -825,13 +601,18 @@ onUnmounted(() => {
       @resume="resumeTask"
       @retry="retryTask"
       @delete="deleteTask"
+      @open-location="openLocation"
+      @copy-source="handleCopySource"
+      @toggle-file="onToggleFile"
     />
 
     <!-- Row menu dropdown (when ··· clicked) -->
     <RowMenu
-      v-if="menuTask"
+      v-if="menuTask && menuPosition"
       :show="showMenu"
       :task="menuTask"
+      :x="menuPosition.x"
+      :y="menuPosition.y"
       @close="closeMenu"
       @pause="pauseTask"
       @resume="resumeTask"

@@ -74,7 +74,7 @@ function send(): void {
         aria-label="Attach a file"
         @click="emit('attach')"
       >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
         </svg>
       </button>
@@ -99,7 +99,7 @@ function send(): void {
           <span class="send-label">Sending...</span>
         </span>
         <span v-else class="send-arrow">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M12 19V5M5 12l7-7 7 7" />
           </svg>
         </span>
@@ -110,7 +110,7 @@ function send(): void {
 
 <style scoped>
 .bottom-chat {
-  height: 96px;
+  height: var(--bottom-chat-height, 96px);
   background: var(--bg);
   border-top: 1px solid var(--border);
   display: flex;
@@ -170,6 +170,12 @@ function send(): void {
   transform: scale(0.97);
 }
 
+.chip:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 6px var(--focus-ring-soft);
+}
+
 .chip-kbd {
   font-family: var(--font-mono);
   font-size: 11px;
@@ -213,6 +219,12 @@ function send(): void {
 .chat-attach:hover {
   color: var(--fg);
   background: var(--surface-hover);
+}
+
+.chat-attach:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 6px var(--focus-ring-soft);
 }
 
 .chat-input {
@@ -264,6 +276,12 @@ function send(): void {
 
 .chat-send:not(:disabled):hover {
   background: var(--primary-hover);
+}
+
+.chat-send:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 6px var(--focus-ring-soft);
 }
 
 .chat-send:disabled {

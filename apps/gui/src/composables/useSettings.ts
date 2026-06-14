@@ -171,7 +171,7 @@ const strings: Record<string, Record<Language, string>> = {
   'msg.pathCopied': { en: 'Path copied', zh: '路径已复制' , ja: 'パスをコピーしました', ko: '경로 복사됨', fr: 'Chemin copié' },
   'msg.fileLocation': { en: 'File location', zh: '文件位置' , ja: 'ファイルの場所', ko: '파일 위치', fr: 'Emplacement du fichier' },
   'msg.clipboardReadFailed': { en: 'Cannot read clipboard', zh: '无法读取剪贴板' , ja: 'クリップボード読み取り失敗', ko: '클립보드 읽기 실패', fr: 'Échec de lecture du presse-papiers' },
-  'msg.downloadComplete': { en: '✅ Download complete', zh: '✅ 下载完成' , ja: 'ダウンロード完了', ko: '다운로드 완료', fr: 'Téléchargement terminé' },
+  'msg.downloadComplete': { en: 'Download complete', zh: '下载完成' , ja: 'ダウンロード完了', ko: '다운로드 완료', fr: 'Téléchargement terminé' },
   'msg.organized': { en: 'Organized', zh: '已整理' , ja: '整理しました', ko: '정리됨', fr: 'Organisé' },
   'msg.recognized': { en: 'Recognized', zh: '识别' , ja: '認識しました', ko: '인식됨', fr: 'Reconnu' },
   'msg.auto': { en: 'auto', zh: '自动' , ja: '自動', ko: '자동', fr: 'Auto' },

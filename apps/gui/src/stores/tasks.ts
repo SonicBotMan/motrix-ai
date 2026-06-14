@@ -27,6 +27,7 @@ export interface Task {
   progress: number
   speed: string
   size: string
+  total?: string
   eta: string
   type: TaskType
   filePath?: string
