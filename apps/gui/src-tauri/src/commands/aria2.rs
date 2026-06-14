@@ -223,3 +223,62 @@ pub async fn check_aria2_binary(app: tauri::AppHandle) -> Result<serde_json::Val
         "size": size,
     }))
 }
+
+/// Helper: forward a JSON-RPC call to the local aria2 daemon.
+async fn aria2_rpc(method: &str, params: serde_json::Value) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::new();
+    let body = serde_json::json!({
+        "jsonrpc": "2.0",
+        "id": "motrix-gui",
+        "method": method,
+        "params": params,
+    });
+    let resp = client
+        .post("http://127.0.0.1:6800/jsonrpc")
+        .header("Content-Type", "application/json")
+        .json(&body)
+        .timeout(Duration::from_secs(5))
+        .send()
+        .await
+        .map_err(|e| format!("aria2 RPC failed: {}", e))?;
+    if !resp.status().is_success() {
+        return Err(format!("aria2 RPC returned {}", resp.status()));
+    }
+    let data: serde_json::Value = resp
+        .json()
+        .await
+        .map_err(|e| format!("aria2 RPC parse failed: {}", e))?;
+    if let Some(err) = data.get("error") {
+        return Err(format!("aria2 error: {}", err));
+    }
+    Ok(data.get("result").cloned().unwrap_or(serde_json::Value::Null))
+}
+
+/// Pause all active downloads (aria2.pauseAll).
+#[command]
+pub async fn pause_all() -> Result<String, String> {
+    aria2_rpc("aria2.pauseAll", serde_json::json!([]))
+        .await
+        .map(|_| "Paused all downloads".to_string())
+}
+
+/// Resume all paused downloads (aria2.unpauseAll).
+#[command]
+pub async fn unpause_all() -> Result<String, String> {
+    aria2_rpc("aria2.unpauseAll", serde_json::json!([]))
+        .await
+        .map(|_| "Resumed all downloads".to_string())
+}
+
+/// Add a .torrent file to aria2 by reading the file and base64-encoding it.
+#[command]
+pub async fn add_torrent_file(path: String) -> Result<String, String> {
+    let bytes = std::fs::read(&path)
+        .map_err(|e| format!("Failed to read {}: {}", path, e))?;
+    // aria2.addTorrent expects base64-encoded contents.
+    use base64::Engine as _;
+    let base64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
+    aria2_rpc("aria2.addTorrent", serde_json::json!([base64]))
+        .await
+        .and_then(|v| v.as_str().map(String::from).ok_or_else(|| "aria2 returned non-string gid".to_string()))
+}

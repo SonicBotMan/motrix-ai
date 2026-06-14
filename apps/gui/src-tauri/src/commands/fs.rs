@@ -297,18 +297,39 @@ fn categorize_by_extension(ext: &str) -> String {
     }
 }
 
+/// Expand a leading `~` or `~/` to the user's home directory.
+fn expand_home(path: &str) -> PathBuf {
+    if path == "~" {
+        if let Some(home) = dirs::home_dir() {
+            return home;
+        }
+    }
+    if let Some(rest) = path.strip_prefix("~/") {
+        if let Some(home) = dirs::home_dir() {
+            return home.join(rest);
+        }
+    }
+    if let Some(rest) = path.strip_prefix("~\\") {
+        if let Some(home) = dirs::home_dir() {
+            return home.join(rest);
+        }
+    }
+    PathBuf::from(path)
+}
+
 /// Open a file's containing folder in the system file manager.
 #[command]
 pub async fn show_in_folder(path: String) -> Result<(), String> {
-    let p = PathBuf::from(&path);
+    let p = expand_home(&path);
     if !p.exists() {
-        return Err(format!("File not found: {}", path));
+        return Err(format!("File not found: {}", p.display()));
     }
+    let path_str = p.to_string_lossy().to_string();
 
     #[cfg(target_os = "macos")]
     {
         std::process::Command::new("open")
-            .args(["-R", &path])
+            .args(["-R", &path_str])
             .spawn()
             .map_err(|e| format!("Failed to open Finder: {}", e))?;
     }
@@ -316,7 +337,7 @@ pub async fn show_in_folder(path: String) -> Result<(), String> {
     #[cfg(target_os = "windows")]
     {
         std::process::Command::new("explorer")
-            .args(["/select,", &path])
+            .args(["/select,", &path_str])
             .spawn()
             .map_err(|e| format!("Failed to open Explorer: {}", e))?;
     }
