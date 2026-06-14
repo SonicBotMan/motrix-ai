@@ -3,7 +3,7 @@
 // Exercises syncFile(), testConnection(), syncAll(), and rsync command
 // building with mocked exec.
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { ArchiveSync } from '../archive/sync.js'
 import type { AppConfig, ArchiveTarget } from '../types.js'
 

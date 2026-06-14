@@ -4,7 +4,7 @@
 // Capped at 1000 entries to prevent unbounded growth.
 
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tauri::Manager;
 
 /// A single completed download record.
@@ -25,7 +25,7 @@ pub struct DownloadHistory {
 }
 
 impl DownloadHistory {
-    pub fn new(app_dir: &PathBuf) -> Self {
+    pub fn new(app_dir: &Path) -> Self {
         Self {
             db_path: app_dir.join("history.json"),
         }
