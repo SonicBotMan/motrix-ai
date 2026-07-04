@@ -14,11 +14,9 @@
   <p><strong>「高速下载 极简体验」</strong></p>
 </div>
 
-
 Motrix AI flips the download manager paradigm: instead of manually copying links and
 managing queues, you **tell the AI what you want in natural language**, and it handles
 resource discovery, download scheduling, subtitle matching, and file organization
-
 
 ```
 You: "Download Interstellar 4K with subtitles"
@@ -69,7 +67,7 @@ AI:  Found -> Queued -> Downloaded -> Subtitled -> Organized ✅
 
 - **CLI mode** — `motrix-ai ask "下 XX"` from terminal
 - **MCP Server** — expose download capabilities to AI agents
-- **212 tests** — 202 TypeScript + 10 Rust, 51% coverage
+- **603 tests** — TypeScript (Vitest), 10 Rust (cargo test), ~45% coverage
 - **Structured errors** — typed error hierarchy with cause chaining
 - **Structured logging** — level-filtered logger replacing console.*
 
@@ -174,32 +172,32 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed architecture docum
 
 ## Tech Stack
 
-| Layer | Technology |
-|-------|-----------|
-| **Frontend** | Vue 3 + Pinia + Naive UI + TypeScript |
-| **Backend** | Rust (Tauri 2) |
-| **Download Engine** | aria2 (JSON-RPC, bundled) |
-| **AI** | OpenCode SDK (BYOK: Anthropic/OpenAI/Ollama) |
-| **Database** | SQLite (better-sqlite3) |
-| **Build** | Vite + Cargo + pnpm + Turborepo |
-| **Tests** | Vitest + cargo test |
-| **CI/CD** | GitHub Actions (4 platform matrix) |
+| Layer               | Technology                                   |
+| ------------------- | -------------------------------------------- |
+| **Frontend**        | Vue 3 + Pinia + Naive UI + TypeScript        |
+| **Backend**         | Rust (Tauri 2)                               |
+| **Download Engine** | aria2 (JSON-RPC, bundled)                    |
+| **AI**              | OpenCode SDK (BYOK: Anthropic/OpenAI/Ollama) |
+| **Database**        | SQLite (better-sqlite3)                      |
+| **Build**           | Vite + Cargo + pnpm + Turborepo              |
+| **Tests**           | Vitest + cargo test                          |
+| **CI/CD**           | GitHub Actions (4 platform matrix)           |
 
 ---
 
 ## Project Status
 
-| Metric | Value |
-|--------|-------|
-| **Version** | 1.0.0 |
-| **Tests** | 212 (202 TS + 10 Rust) |
-| **Coverage** | 51% |
-| **ESLint** | 0 errors, 0 warnings |
-| **Platforms** | 4 (macOS ARM64/x64, Windows x64, Linux x64) |
-| **Languages** | 5 (中/英/日/韩/法) |
-| **Core Modules** | 25 |
-| **Composables** | 10 |
-| **Tauri Plugins** | 6 |
+| Metric            | Value                                       |
+| ----------------- | ------------------------------------------- |
+| **Version**       | 1.0.0                                       |
+| **Tests**         | 603 TS + 10 Rust (43 TS files)              |
+| **Coverage**      | ~45% lines (threshold 40%)                  |
+| **ESLint**        | 0 errors, 0 warnings                        |
+| **Platforms**     | 4 (macOS ARM64/x64, Windows x64, Linux x64) |
+| **Languages**     | 5 (中/英/日/韩/法)                          |
+| **Core Modules**  | 25                                          |
+| **Composables**   | 10                                          |
+| **Tauri Plugins** | 6                                           |
 
 ---
 
@@ -207,7 +205,7 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed architecture docum
 
 - ✅ **v0.1.0** — PoC (OpenCode SDK validation)
 - ✅ **v0.2.0** — Alpha (cross-platform CI, system tray, notifications)
-- ✅ **v1.0.0** — Stable release (all features, 212 tests, 5 languages)
+- ✅ **v1.0.0** — Stable release (all features, 603 TS + 10 Rust tests, 5 languages)
 
 ### Future
 

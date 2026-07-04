@@ -81,11 +81,16 @@ const statusInfo = computed(() => {
 const ringColor = computed(() => {
   if (!props.task) return 'var(--border)'
   switch (props.task.status) {
-    case 'downloading': return 'var(--primary)'
-    case 'paused': return 'var(--warning)'
-    case 'completed': return 'var(--accent)'
-    case 'failed': return 'var(--error)'
-    default: return 'var(--border)'
+    case 'downloading':
+      return 'var(--primary)'
+    case 'paused':
+      return 'var(--warning)'
+    case 'completed':
+      return 'var(--accent)'
+    case 'failed':
+      return 'var(--error)'
+    default:
+      return 'var(--border)'
   }
 })
 
@@ -100,11 +105,16 @@ const ringDashoffset = computed(() => {
 const ringCaption = computed(() => {
   if (!props.task) return ''
   switch (props.task.status) {
-    case 'downloading': return `Downloading · ${props.task.eta || '—'} remaining`
-    case 'paused': return 'Paused'
-    case 'completed': return 'Completed'
-    case 'failed': return 'Failed. Retry to resume.'
-    default: return 'Queued'
+    case 'downloading':
+      return `Downloading · ${props.task.eta || '—'} remaining`
+    case 'paused':
+      return 'Paused'
+    case 'completed':
+      return 'Completed'
+    case 'failed':
+      return 'Failed. Retry to resume.'
+    default:
+      return 'Queued'
   }
 })
 
@@ -199,11 +209,7 @@ watch(showMoreMenu, (visible) => {
 
 <template>
   <Teleport to="body">
-    <div
-      v-if="props.show"
-      class="detail-overlay"
-      @click.self="requestClose"
-    >
+    <div v-if="props.show" class="detail-overlay" @click.self="requestClose">
       <div
         ref="panelRef"
         class="detail-panel"
@@ -218,7 +224,16 @@ watch(showMoreMenu, (visible) => {
           <header class="detail-header">
             <div class="detail-header-left">
               <div class="detail-icon" aria-hidden="true">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
                   <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                   <polyline points="7 10 12 15 17 10" />
                   <line x1="12" y1="15" x2="12" y2="3" />
@@ -232,12 +247,10 @@ watch(showMoreMenu, (visible) => {
               </div>
             </div>
             <div class="detail-header-right">
-              <span
-                v-if="statusInfo.label"
-                class="detail-status-chip"
-                :class="statusInfo.cls"
-              >{{ statusInfo.label }}</span>
-              <div class="detail-more-menu-wrap" ref="moreMenuRef">
+              <span v-if="statusInfo.label" class="detail-status-chip" :class="statusInfo.cls">{{
+                statusInfo.label
+              }}</span>
+              <div ref="moreMenuRef" class="detail-more-menu-wrap">
                 <button
                   class="detail-icon-btn detail-more-menu"
                   title="More actions"
@@ -253,28 +266,71 @@ watch(showMoreMenu, (visible) => {
                   </svg>
                 </button>
                 <Transition name="row-menu">
-                  <div
-                    v-if="showMoreMenu"
-                    class="detail-more-dropdown"
-                    role="menu"
-                    aria-label="More actions"
-                  >
-                    <button class="row-menu-item" role="menuitem" type="button" @click.stop="onMoreAction('copySource')">
-                      <svg class="row-menu-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <div v-if="showMoreMenu" class="detail-more-dropdown" role="menu" aria-label="More actions">
+                    <button
+                      class="row-menu-item"
+                      role="menuitem"
+                      type="button"
+                      @click.stop="onMoreAction('copySource')"
+                    >
+                      <svg
+                        class="row-menu-icon"
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        aria-hidden="true"
+                      >
                         <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
                         <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
                       </svg>
                       <span>Copy source</span>
                     </button>
-                    <button class="row-menu-item" role="menuitem" type="button" @click.stop="onMoreAction('openLocation')">
-                      <svg class="row-menu-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <button
+                      class="row-menu-item"
+                      role="menuitem"
+                      type="button"
+                      @click.stop="onMoreAction('openLocation')"
+                    >
+                      <svg
+                        class="row-menu-icon"
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        aria-hidden="true"
+                      >
                         <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
                       </svg>
                       <span>Open file location</span>
                     </button>
                     <div class="row-menu-sep" role="separator" />
-                    <button class="row-menu-item row-menu-item--danger" role="menuitem" type="button" @click.stop="onMoreAction('delete')">
-                      <svg class="row-menu-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <button
+                      class="row-menu-item row-menu-item--danger"
+                      role="menuitem"
+                      type="button"
+                      @click.stop="onMoreAction('delete')"
+                    >
+                      <svg
+                        class="row-menu-icon"
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        aria-hidden="true"
+                      >
                         <polyline points="3 6 5 6 21 6" />
                         <path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
                       </svg>
@@ -290,7 +346,16 @@ watch(showMoreMenu, (visible) => {
                 type="button"
                 @click="requestClose"
               >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  aria-hidden="true"
+                >
                   <line x1="18" y1="6" x2="6" y2="18" />
                   <line x1="6" y1="6" x2="18" y2="18" />
                 </svg>
@@ -322,7 +387,11 @@ watch(showMoreMenu, (visible) => {
 
           <!-- ── Zone 3: Progress ring ────────────────────────────── -->
           <section class="detail-ring" aria-label="Download progress">
-            <svg class="ring-svg" width="120" height="120" viewBox="0 0 120 120"
+            <svg
+              class="ring-svg"
+              width="120"
+              height="120"
+              viewBox="0 0 120 120"
               role="progressbar"
               :aria-valuenow="props.task.progress"
               aria-valuemin="0"
@@ -334,7 +403,10 @@ watch(showMoreMenu, (visible) => {
               <!-- foreground ring (rotate on the <g> so text stays upright) -->
               <g transform="rotate(-90 60 60)">
                 <circle
-                  cx="60" cy="60" r="48" fill="none"
+                  cx="60"
+                  cy="60"
+                  r="48"
+                  fill="none"
                   :stroke="ringColor"
                   stroke-width="4"
                   stroke-linecap="round"
@@ -342,12 +414,9 @@ watch(showMoreMenu, (visible) => {
                   :stroke-dashoffset="ringDashoffset"
                 />
               </g>
-              <text
-                x="60" y="60"
-                text-anchor="middle"
-                dominant-baseline="central"
-                class="ring-text"
-              >{{ props.task.progress }}%</text>
+              <text x="60" y="60" text-anchor="middle" dominant-baseline="central" class="ring-text">
+                {{ props.task.progress }}%
+              </text>
             </svg>
             <p class="ring-caption">{{ ringCaption }}</p>
           </section>
@@ -356,8 +425,21 @@ watch(showMoreMenu, (visible) => {
           <section class="detail-sections">
             <details class="detail-section" open>
               <summary class="detail-summary">
-                <span class="summary-title">Files <span class="summary-count">({{ files.length }})</span></span>
-                <svg class="summary-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <span class="summary-title"
+                  >Files <span class="summary-count">({{ files.length }})</span></span
+                >
+                <svg
+                  class="summary-chevron"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
                   <polyline points="6 9 12 15 18 9" />
                 </svg>
               </summary>
@@ -368,8 +450,14 @@ watch(showMoreMenu, (visible) => {
                     class="file-check"
                     :checked="f.checked !== false"
                     :aria-label="f.name"
-                    @change="emit('toggleFile', { index: i, name: f.name, checked: ($event.target as HTMLInputElement).checked })"
-                  >
+                    @change="
+                      emit('toggleFile', {
+                        index: i,
+                        name: f.name,
+                        checked: ($event.target as HTMLInputElement).checked,
+                      })
+                    "
+                  />
                   <span class="file-name" :title="f.name">{{ f.name }}</span>
                   <span class="file-size">{{ f.size }}</span>
                 </div>
@@ -380,7 +468,18 @@ watch(showMoreMenu, (visible) => {
             <details class="detail-section">
               <summary class="detail-summary">
                 <span class="summary-title">Sources</span>
-                <svg class="summary-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <svg
+                  class="summary-chevron"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
                   <polyline points="6 9 12 15 18 9" />
                 </svg>
               </summary>
@@ -391,8 +490,21 @@ watch(showMoreMenu, (visible) => {
 
             <details class="detail-section" open>
               <summary class="detail-summary">
-                <span class="summary-title">Timeline <span class="summary-count">({{ timeline.length }})</span></span>
-                <svg class="summary-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <span class="summary-title"
+                  >Timeline <span class="summary-count">({{ timeline.length }})</span></span
+                >
+                <svg
+                  class="summary-chevron"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
                   <polyline points="6 9 12 15 18 9" />
                 </svg>
               </summary>
@@ -409,34 +521,21 @@ watch(showMoreMenu, (visible) => {
 
           <!-- ── Zone 5: Sticky footer ────────────────────────────── -->
           <footer class="detail-footer">
-            <button
-              v-if="isPaused"
-              class="footer-btn footer-btn--primary"
-              type="button"
-              @click="onResume"
-            >Resume</button>
+            <button v-if="isPaused" class="footer-btn footer-btn--primary" type="button" @click="onResume">
+              Resume
+            </button>
             <button
               v-else
               class="footer-btn footer-btn--primary"
               type="button"
               :disabled="props.task.status === 'completed'"
               @click="onPause"
-            >Pause</button>
-            <button
-              class="footer-btn footer-btn--ghost"
-              type="button"
-              @click="onRetry"
-            >Retry</button>
-            <button
-              class="footer-btn footer-btn--ghost"
-              type="button"
-              @click="emit('priority')"
-            >Priority</button>
-            <button
-              class="footer-btn footer-btn--danger"
-              type="button"
-              @click="emit('cancel')"
-            >Cancel</button>
+            >
+              Pause
+            </button>
+            <button class="footer-btn footer-btn--ghost" type="button" @click="onRetry">Retry</button>
+            <button class="footer-btn footer-btn--ghost" type="button" @click="emit('priority')">Priority</button>
+            <button class="footer-btn footer-btn--danger" type="button" @click="emit('cancel')">Cancel</button>
           </footer>
         </template>
       </div>
@@ -591,8 +690,9 @@ watch(showMoreMenu, (visible) => {
   border-radius: var(--radius-xs);
   color: var(--fg-tertiary);
   cursor: pointer;
-  transition: background var(--transition-fast) var(--ease-out),
-              color var(--transition-fast) var(--ease-out);
+  transition:
+    background var(--transition-fast) var(--ease-out),
+    color var(--transition-fast) var(--ease-out);
 }
 
 .detail-icon-btn:hover {
@@ -644,8 +744,9 @@ watch(showMoreMenu, (visible) => {
   text-align: left;
   cursor: pointer;
   white-space: nowrap;
-  transition: background var(--transition-fast) var(--ease-out),
-              color var(--transition-fast) var(--ease-out);
+  transition:
+    background var(--transition-fast) var(--ease-out),
+    color var(--transition-fast) var(--ease-out);
 }
 
 .detail-more-dropdown .row-menu-item:hover {
@@ -678,8 +779,9 @@ watch(showMoreMenu, (visible) => {
 /* Enter / leave transition (reuses row-menu transition name) */
 .row-menu-enter-active,
 .row-menu-leave-active {
-  transition: opacity 140ms var(--ease-out),
-              transform 140ms var(--ease-out);
+  transition:
+    opacity 140ms var(--ease-out),
+    transform 140ms var(--ease-out);
 }
 
 .row-menu-enter-from,
@@ -942,9 +1044,10 @@ watch(showMoreMenu, (visible) => {
   border: 1px solid transparent;
   border-radius: var(--radius-xs);
   cursor: pointer;
-  transition: background var(--transition-fast) var(--ease-out),
-              border-color var(--transition-fast) var(--ease-out),
-              color var(--transition-fast) var(--ease-out);
+  transition:
+    background var(--transition-fast) var(--ease-out),
+    border-color var(--transition-fast) var(--ease-out),
+    color var(--transition-fast) var(--ease-out);
 }
 
 .footer-btn:focus-visible {

@@ -73,7 +73,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build native modules
-        run: cd node_modules/.pnpm/better-sqlite3@*/node_modules/better-sqlite3 && npm run build-release || true
+        run: pnpm rebuild better-sqlite3 esbuild
 
       - uses: tauri-apps/tauri-action@v0
         env:
