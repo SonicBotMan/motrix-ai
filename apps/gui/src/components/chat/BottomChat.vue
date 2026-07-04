@@ -53,13 +53,7 @@ function send(): void {
   <div class="bottom-chat">
     <!-- Row 1: quick-action chips -->
     <div class="chat-chips" role="toolbar">
-      <button
-        v-for="(chip, i) in chips"
-        :key="i"
-        type="button"
-        class="chip"
-        @click="emit('quickAction', i)"
-      >
+      <button v-for="(chip, i) in chips" :key="i" type="button" class="chip" @click="emit('quickAction', i)">
         {{ chip.label }}
         <kbd class="chip-kbd">{{ '\u2318' }}{{ i + 1 }}</kbd>
       </button>
@@ -74,8 +68,20 @@ function send(): void {
         aria-label="Attach a file"
         @click="emit('attach')"
       >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+        <svg
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <path
+            d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"
+          />
         </svg>
       </button>
 
@@ -99,7 +105,17 @@ function send(): void {
           <span class="send-label">Sending...</span>
         </span>
         <span v-else class="send-arrow">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
             <path d="M12 19V5M5 12l7-7 7 7" />
           </svg>
         </span>
@@ -301,10 +317,6 @@ function send(): void {
 }
 
 /* Send button in "sending" state uses muted bg */
-.chat-send:disabled .send-content {
-  /* bg is primary-muted when sending */
-}
-
 .chat-send .spinner {
   width: 14px;
   height: 14px;
@@ -312,16 +324,6 @@ function send(): void {
   border-top-color: #fff;
   border-radius: var(--radius-full, 9999px);
   animation: spin 700ms linear infinite;
-}
-
-/* When sending, the send button bg swaps to primary-muted */
-.chat-send:disabled:not(:disabled) {
-  /* no-op — actual swap handled by component state via inline or class */
-}
-
-.chat-send.is-sending {
-  background: var(--primary-muted);
-  color: var(--primary);
 }
 
 /* --- Spinner animation --- */

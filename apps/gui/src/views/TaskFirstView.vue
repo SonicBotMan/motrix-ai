@@ -109,24 +109,30 @@ function dismissToast(id: string): void {
 /**
  * Add a URI (HTTP/HTTPS/FTP/magnet) to the running aria2 daemon via JSON-RPC.
  * aria2.addUri accepts magnet URIs as well as regular HTTP URLs.
+ * Routes through the tasks store so a local placeholder appears in the
+ * table immediately (the store picks up the real aria2 task on next poll).
  * @returns the aria2 GID string on success
  */
-async function aria2AddUri(uri: string): Promise<string> {
-  const resp = await fetch('http://127.0.0.1:6800/jsonrpc', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      jsonrpc: '2.0',
-      id: 'motrix-gui',
-      method: 'aria2.addUri',
-      params: [[uri]],
-    }),
-  })
-  const data = await resp.json()
-  if (data.error) {
-    throw new Error(data.error.message || 'aria2 RPC error')
+async function aria2AddUri(uri: string): Promise<void> {
+  try {
+    await tasksStore.addTask(uri)
+  } catch (e) {
+    // addTask only throws if aria2 is connected AND the RPC fails; fall
+    // back to a raw JSON-RPC call so the user still gets the real error.
+    const data = await fetch('http://127.0.0.1:6800/jsonrpc', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 'motrix-gui',
+        method: 'aria2.addUri',
+        params: [[uri]],
+      }),
+    }).then((r) => r.json())
+    if (data.error) {
+      throw new Error(data.error.message || 'aria2 RPC error', { cause: e })
+    }
   }
-  return data.result as string
 }
 
 /**
@@ -143,11 +149,11 @@ async function handleSendMessage(message: string): Promise<void> {
   if (trimmed.startsWith('magnet:')) {
     addToast({ id: generateToastId(), type: 'info', text: 'Adding magnet link…', createdAt: Date.now() })
     try {
-      const gid = await aria2AddUri(trimmed)
+      await aria2AddUri(trimmed)
       addToast({
         id: generateToastId(),
         type: 'success',
-        text: `Magnet added: ${gid.slice(0, 8)}…`,
+        text: 'Magnet added to queue',
         createdAt: Date.now(),
       })
     } catch (err) {
@@ -160,11 +166,11 @@ async function handleSendMessage(message: string): Promise<void> {
   if (/^(https?|ftp):\/\//i.test(trimmed)) {
     addToast({ id: generateToastId(), type: 'info', text: 'Adding download…', createdAt: Date.now() })
     try {
-      const gid = await aria2AddUri(trimmed)
+      await aria2AddUri(trimmed)
       addToast({
         id: generateToastId(),
         type: 'success',
-        text: `Download added: ${gid.slice(0, 8)}…`,
+        text: 'Download added to queue',
         createdAt: Date.now(),
       })
     } catch (err) {
@@ -629,6 +635,19 @@ function handleKeydown(e: KeyboardEvent): void {
     if (task) openDetail(task)
     return
   }
+
+  // m: open the row ··· menu for the keyboard-selected row
+  if (e.key === 'm' && keyboardIndex.value >= 0 && keyboardIndex.value < filteredForKb.value.length) {
+    e.preventDefault()
+    const task = filteredForKb.value[keyboardIndex.value]
+    if (task) {
+      const row = document.querySelector<HTMLTableRowElement>(`tr[data-task-id="${task.id}"]`)
+      const x = row ? row.getBoundingClientRect().right - 16 : window.innerWidth / 2
+      const y = row ? row.getBoundingClientRect().top + row.getBoundingClientRect().height / 2 : window.innerHeight / 2
+      toggleRowMenu(task.id, { clientX: x, clientY: y } as MouseEvent)
+    }
+    return
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -688,7 +707,6 @@ onUnmounted(() => {
       @resume="resumeTask"
       @retry="retryTask"
       @delete="deleteTask"
-      @cancel="deleteTask"
       @priority="bumpPriority"
       @open-location="openLocation"
       @copy-source="handleCopySource"

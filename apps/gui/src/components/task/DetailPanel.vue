@@ -51,7 +51,6 @@ const emit = defineEmits<{
   openLocation: []
   copySource: []
   toggleFile: [payload: { index: number; name: string; checked: boolean }]
-  cancel: []
   priority: []
 }>()
 
@@ -535,7 +534,6 @@ watch(showMoreMenu, (visible) => {
             </button>
             <button class="footer-btn footer-btn--ghost" type="button" @click="onRetry">Retry</button>
             <button class="footer-btn footer-btn--ghost" type="button" @click="emit('priority')">Priority</button>
-            <button class="footer-btn footer-btn--danger" type="button" @click="emit('cancel')">Cancel</button>
           </footer>
         </template>
       </div>
