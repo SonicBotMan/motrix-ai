@@ -148,36 +148,21 @@ export const useTasksStore = defineStore('tasks', () => {
   // -- actions ------------------------------------------------------------
 
   /**
-   * Initialize the aria2 connection.
-   *
-   * Replicates the startup logic from useAria2's onMounted hook, which does
-   * not fire inside a Pinia setup store. Must be called from a component's
-   * onMounted hook.
+   * Boot the aria2 connection. Delegates to the useAria2 singleton's
+   * `start()` which handles bundled-binary startup, system-binary
+   * fallback, and the polling-loop/connect sequence. Idempotent.
    */
   async function init(): Promise<void> {
-    if (aria2.connected.value || aria2.connecting.value) return
+    await aria2.start()
+  }
 
-    // 1. Try to start the bundled aria2c via Tauri backend
-    try {
-      const { invoke } = await import('@tauri-apps/api/core')
-      const diag = await invoke<{ exists: boolean; binary_path: string }>('check_aria2_binary')
-      if (!diag.exists) {
-        console.error('Bundled aria2c NOT FOUND at:', diag.binary_path)
-      } else {
-        await invoke<string>('start_aria2', { rpcPort: 6800 })
-      }
-    } catch (e) {
-      console.warn('Bundled aria2c failed:', e)
-      // Fallback: try spawning a system aria2c
-      try {
-        await aria2.startAria2()
-      } catch (e2) {
-        console.warn('System aria2c not available either:', e2)
-      }
-    }
-
-    // 2. Connect to aria2 RPC (whether bundled or system)
-    await aria2.connect()
+  /**
+   * Tear down the aria2 connection and stop the bundled daemon.
+   * Call once from the app shell's onUnmounted so we don't leak the
+   * aria2c process when the user quits the app.
+   */
+  async function dispose(): Promise<void> {
+    await aria2.dispose()
   }
 
   /**
@@ -357,6 +342,7 @@ export const useTasksStore = defineStore('tasks', () => {
     onTaskComplete: aria2.onTaskComplete,
     // actions
     init,
+    dispose,
     addTask,
     removeTask,
     pauseTask,

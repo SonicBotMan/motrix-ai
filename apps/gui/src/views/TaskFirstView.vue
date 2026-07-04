@@ -636,19 +636,18 @@ function handleKeydown(e: KeyboardEvent): void {
 // ---------------------------------------------------------------------------
 
 onMounted(() => {
-  // Check onboarding status (first visit)
   try {
     showOnboarding.value = !localStorage.getItem('motrix:onboarded')
   } catch {
     showOnboarding.value = false
   }
   document.addEventListener('keydown', handleKeydown)
-  // Initialize the aria2 connection through the store
   tasksStore.init().catch((e) => console.warn('aria2 init failed:', e))
 })
 
 onUnmounted(() => {
   document.removeEventListener('keydown', handleKeydown)
+  tasksStore.dispose().catch((e) => console.warn('aria2 dispose failed:', e))
 })
 </script>
 
