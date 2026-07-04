@@ -58,6 +58,8 @@ const sharedGlobals = {
   DragEvent: "readonly",
   Event: "readonly",
   HTMLElement: "readonly",  HTMLTextAreaElement: "readonly",  HTMLSelectElement: "readonly",
+  HTMLTableRowElement: "readonly",
+  Element: "readonly",
 }
 
 const sharedRules = {
