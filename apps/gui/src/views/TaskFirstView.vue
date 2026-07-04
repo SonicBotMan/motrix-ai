@@ -444,20 +444,17 @@ async function openLocation(task?: Task | null): Promise<void> {
 
 /**
  * Resolve the configured download directory. Uses the Rust `get_download_path`
- * command when available, otherwise falls back to ~/Downloads/Motrix AI.
- * Returned path is *absolute* (no leading ~).
+ * command when available, otherwise falls back to a relative path. We avoid
+ * guessing a platform-specific home directory because navigator.platform
+ * only tells us Win vs Unix, not the actual user name.
  */
 async function getDownloadDir(): Promise<string> {
   try {
     return await invoke<string>('get_download_path')
   } catch {
-    // Not in Tauri context (e.g. dev sandbox) — best-effort expansion.
-    const home = '/home/user'
-    try {
-      return `${home}/Downloads/Motrix AI`
-    } catch {
-      return `/tmp/Motrix AI`
-    }
+    // Not in Tauri context (e.g. vite dev server). Return a relative path
+    // so show_in_folder's fallback toast is at least non-misleading.
+    return './Downloads/Motrix AI'
   }
 }
 
