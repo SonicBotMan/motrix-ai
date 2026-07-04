@@ -292,6 +292,22 @@ pub async fn unpause_all() -> Result<String, String> {
 pub async fn add_torrent_file(path: String) -> Result<String, String> {
     // File read + base64 encode are CPU/IO-bound; offload so we don't
     // stall the async runtime for large torrents.
+    // Cap at 5 MB — valid .torrent files are well under 1 MB even with
+    // thousands of pieces; larger inputs are almost certainly mistakes or
+    // abuse (memory exhaustion via base64 inflation).
+    const MAX_TORRENT_SIZE: u64 = 5 * 1024 * 1024;
+    let path_for_stat = path.clone();
+    let size = tokio::task::spawn_blocking(move || std::fs::metadata(&path_for_stat).map(|m| m.len()))
+        .await
+        .map_err(|e| format!("Stat join error: {}", e))?
+        .map_err(|e| format!("Failed to stat torrent file: {}", e))?;
+    if size > MAX_TORRENT_SIZE {
+        return Err(format!(
+            "Torrent file too large ({} bytes, max {} bytes)",
+            size, MAX_TORRENT_SIZE
+        ));
+    }
+
     let bytes = tokio::task::spawn_blocking(move || std::fs::read(&path))
         .await
         .map_err(|e| format!("Read join error: {}", e))?

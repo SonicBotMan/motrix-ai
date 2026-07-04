@@ -3,8 +3,55 @@
 // get_download_path, organize_file, show_in_folder.
 
 use super::build_http_client;
-use std::path::PathBuf;
+use std::path::{Component, PathBuf};
 use tauri::command;
+
+/// Sanitize a user/metadata-provided string so it is safe to use as a
+/// single path component. Strips path separators, parent-dir traversal
+/// sequences, null bytes, and leading dots that could escape the base dir
+/// when joined. Returns the cleaned string.
+///
+/// Defence against torrent titles like `../../etc/cron.d/evil` reaching
+/// `organize_file` via external metadata.
+fn sanitize_path_component(s: &str) -> String {
+    let cleaned: String = s
+        .chars()
+        .map(|c| match c {
+            '/' | '\\' | '\0' | ':' | '*' | '?' | '"' | '<' | '>' | '|' => '_',
+            _ => c,
+        })
+        .collect();
+    let trimmed = cleaned.trim_start_matches('.').trim();
+    let stripped = trimmed.replace("..", "_");
+    if stripped.is_empty() {
+        "Unknown".to_string()
+    } else {
+        stripped
+    }
+}
+
+/// Build a path under `base`, asserting the result actually stays under
+/// `base`. Defends against any path-escape attempt that slipped past
+/// `sanitize_path_component` (defence in depth).
+fn safe_join(base: &PathBuf, components: &[&str]) -> Result<PathBuf, String> {
+    let mut out = base.clone();
+    for c in components {
+        let cleaned = sanitize_path_component(c);
+        out.push(&cleaned);
+    }
+    // Canonicalise base if possible, then verify out starts with it.
+    let canon_base = base.canonicalize().unwrap_or_else(|_| base.clone());
+    let parent_out = out.parent().unwrap_or(&out);
+    let canon_parent = parent_out.canonicalize().unwrap_or_else(|_| parent_out.to_path_buf());
+    if !canon_parent.starts_with(&canon_base) {
+        return Err(format!(
+            "Refusing to organize outside download dir: {} not under {}",
+            out.display(),
+            canon_base.display()
+        ));
+    }
+    Ok(out)
+}
 
 /// Save file to disk (Bug 3: wrap blocking I/O in spawn_blocking)
 #[command]
@@ -207,23 +254,26 @@ pub async fn organize_file(
             .unwrap_or_default();
 
         let rtype = resource_type.unwrap_or_else(|| categorize_by_extension(&ext));
-        let quality = quality.unwrap_or_else(|| "other".to_string());
-        let title = title.unwrap_or_else(|| {
+        let quality = sanitize_path_component(&quality.unwrap_or_else(|| "other".to_string()));
+        let title = sanitize_path_component(&title.unwrap_or_else(|| {
             src.file_stem()
                 .map(|n| n.to_string_lossy().to_string())
                 .unwrap_or_else(|| "Unknown".to_string())
-        });
+        }));
 
         let home = dirs::home_dir().ok_or("Cannot find home")?;
         let base_dir = home.join("Downloads").join("Motrix AI");
 
         let (target_dir, new_filename) = match rtype.as_str() {
             "movie" => {
-                let dir = base_dir.join("Movies").join(format!(
-                    "{}{}",
-                    title,
-                    year.map(|y| format!(" ({})", y)).unwrap_or_default()
-                ));
+                let dir = safe_join(
+                    &base_dir,
+                    &["Movies", &format!(
+                        "{}{}",
+                        title,
+                        year.map(|y| format!(" ({})", y)).unwrap_or_default()
+                    )],
+                )?;
                 let fname = format!(
                     "{}{}.{}",
                     title,
@@ -237,19 +287,19 @@ pub async fn organize_file(
                 (dir, fname)
             }
             "tv" => {
-                let dir = base_dir.join("TV").join(&title);
+                let dir = safe_join(&base_dir, &["TV", &title])?;
                 (dir, filename)
             }
             "anime" => {
-                let dir = base_dir.join("Anime").join(&title);
+                let dir = safe_join(&base_dir, &["Anime", &title])?;
                 (dir, filename)
             }
             "music" => {
-                let dir = base_dir.join("Music").join(&title);
+                let dir = safe_join(&base_dir, &["Music", &title])?;
                 (dir, filename)
             }
             "software" => {
-                let dir = base_dir.join("Software").join(&title);
+                let dir = safe_join(&base_dir, &["Software", &title])?;
                 (dir, filename)
             }
             _ => {

@@ -152,7 +152,6 @@ function ensureConfig(opts: Aria2Options = {}): void {
 }
 
 // ---- RPC core ----
-
 const call = async <T>(method: string, ...params: unknown[]): Promise<T> => {
   const id = `motrix-ai-${++rpcId}`
   const actualParams: unknown[] = secretRef.value ? [`token:${secretRef.value}`, ...params] : [...params]
@@ -161,6 +160,7 @@ const call = async <T>(method: string, ...params: unknown[]): Promise<T> => {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ jsonrpc: '2.0', id, method, params: actualParams }),
+    signal: AbortSignal.timeout(10_000),
   })
 
   if (!res.ok) throw new Error(`aria2 RPC error: ${res.status}`)
@@ -168,7 +168,6 @@ const call = async <T>(method: string, ...params: unknown[]): Promise<T> => {
   if (data.error) throw new Error(`aria2 error: ${data.error.message} (${data.error.code})`)
   return data.result as T
 }
-
 // ---- aria2 process management ----
 
 const spawnAria2 = async () => {
