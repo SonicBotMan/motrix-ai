@@ -52,21 +52,36 @@ pub async fn start_aria2(app: tauri::AppHandle, rpc_port: Option<u16>) -> Result
         ));
     }
 
-    // Get download directory
+    // Prepare directories, session file, and log handle on a blocking thread.
+    // These are all sync std::fs operations; running them inline would block
+    // the Tauri async runtime, freezing every other concurrent command.
     let home = dirs::home_dir().ok_or("Cannot find home directory")?;
-    let download_dir = home.join("Downloads").join("Motrix AI");
-    std::fs::create_dir_all(&download_dir)
-        .map_err(|e| format!("Create download dir failed: {}", e))?;
+    let prep = tokio::task::spawn_blocking(move || -> Result<(std::path::PathBuf, std::path::PathBuf, std::fs::File), String> {
+        let download_dir = home.join("Downloads").join("Motrix AI");
+        std::fs::create_dir_all(&download_dir)
+            .map_err(|e| format!("Create download dir failed: {}", e))?;
 
-    // Session file
-    let session_dir = home.join(".motrix-ai");
-    std::fs::create_dir_all(&session_dir)
-        .map_err(|e| format!("Create session dir failed: {}", e))?;
-    let session_file = session_dir.join("aria2.session");
-    if !session_file.exists() {
-        std::fs::write(&session_file, "")
-            .map_err(|e| format!("Create session file failed: {}", e))?;
-    }
+        let session_dir = home.join(".motrix-ai");
+        std::fs::create_dir_all(&session_dir)
+            .map_err(|e| format!("Create session dir failed: {}", e))?;
+        let session_file = session_dir.join("aria2.session");
+        if !session_file.exists() {
+            std::fs::write(&session_file, "")
+                .map_err(|e| format!("Create session file failed: {}", e))?;
+        }
+
+        let log_path = session_dir.join("aria2.log");
+        let log_file = std::fs::File::create(&log_path)
+            .map_err(|e| format!("Failed to create {}: {}", log_path.display(), e))?;
+
+        Ok((download_dir, session_file, log_file))
+    })
+    .await
+    .map_err(|e| format!("Setup task join error: {}", e))??;
+
+    let (download_dir, session_file, log_file) = prep;
+    let session_dir = session_file.parent().map(|p| p.to_path_buf())
+        .unwrap_or_else(|| std::path::PathBuf::from(".motrix-ai"));
 
     // Start aria2c (detached from parent process)
     let mut cmd = std::process::Command::new(&aria2c_path);
@@ -92,11 +107,7 @@ pub async fn start_aria2(app: tauri::AppHandle, rpc_port: Option<u16>) -> Result
         "--auto-save-interval=30",
     ])
     .stdout(std::process::Stdio::null())
-    .stderr(std::process::Stdio::from({
-        let log_file = std::fs::File::create(session_dir.join("aria2.log"))
-            .unwrap_or_else(|_| panic!("cannot create aria2.log"));
-        log_file
-    }));
+    .stderr(std::process::Stdio::from(log_file));
 
     // Detach from parent so process survives when Child handle is dropped
     #[cfg(unix)]
@@ -147,12 +158,18 @@ pub async fn start_aria2(app: tauri::AppHandle, rpc_port: Option<u16>) -> Result
             }
             *global_child = None;
             let log_path = session_dir.join("aria2.log");
-            let log_tail = std::fs::read_to_string(&log_path)
-                .unwrap_or_default()
-                .lines()
-                .last()
-                .unwrap_or("")
-                .to_string();
+            // Read the last log line on a blocking thread so we don't
+            // stall the async runtime on slow disks.
+            let log_tail = tokio::task::spawn_blocking(move || {
+                std::fs::read_to_string(&log_path)
+                    .unwrap_or_default()
+                    .lines()
+                    .last()
+                    .unwrap_or("")
+                    .to_string()
+            })
+            .await
+            .unwrap_or_default();
             Err(format!(
                 "aria2c started but RPC verification failed: {}",
                 log_tail
@@ -203,12 +220,12 @@ pub async fn check_aria2_binary(app: tauri::AppHandle) -> Result<serde_json::Val
         .resource_dir()
         .map_err(|e| format!("Resource dir error: {}", e))?;
     let aria2c_path = resource_path.join("resources").join("bin").join("aria2c");
-    let exists = aria2c_path.exists();
-    let metadata = if exists {
-        std::fs::metadata(&aria2c_path).ok()
-    } else {
-        None
-    };
+    let aria2c_path_for_blocking = aria2c_path.clone();
+    // stat() on a network mount or slow disk blocks; do it on a worker.
+    let metadata = tokio::task::spawn_blocking(move || std::fs::metadata(&aria2c_path_for_blocking).ok())
+        .await
+        .map_err(|e| format!("Stat join error: {}", e))?;
+    let exists = metadata.is_some();
     let executable = metadata
         .as_ref()
         .map(|m| !m.permissions().readonly())
@@ -273,9 +290,12 @@ pub async fn unpause_all() -> Result<String, String> {
 /// Add a .torrent file to aria2 by reading the file and base64-encoding it.
 #[command]
 pub async fn add_torrent_file(path: String) -> Result<String, String> {
-    let bytes = std::fs::read(&path)
-        .map_err(|e| format!("Failed to read {}: {}", path, e))?;
-    // aria2.addTorrent expects base64-encoded contents.
+    // File read + base64 encode are CPU/IO-bound; offload so we don't
+    // stall the async runtime for large torrents.
+    let bytes = tokio::task::spawn_blocking(move || std::fs::read(&path))
+        .await
+        .map_err(|e| format!("Read join error: {}", e))?
+        .map_err(|e| format!("Failed to read torrent file: {}", e))?;
     use base64::Engine as _;
     let base64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
     aria2_rpc("aria2.addTorrent", serde_json::json!([base64]))
