@@ -17,7 +17,8 @@ export function useNotification() {
       const result = await invoke<string>('request_notification_permission')
       permission.value = result as typeof permission.value
       return result === 'granted'
-    } catch {
+    } catch (e) {
+      console.error('Failed to request notification permission:', e)
       return false
     }
   }

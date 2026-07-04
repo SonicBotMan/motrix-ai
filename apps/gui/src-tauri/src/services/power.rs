@@ -47,14 +47,25 @@ pub async fn prevent_sleep() -> Result<String, String> {
 
 /// Re-allow the system to sleep.
 ///
-/// On macOS this kills any lingering `caffeinate` processes. On other
-/// platforms the call is currently a no-op.
+/// On macOS this kills any lingering `caffeinate` processes. On Linux it
+/// kills `systemd-inhibit` blockers spawned by `prevent_sleep`. On Windows
+/// it is currently a no-op (prevent_sleep does nothing either).
 #[command]
 pub async fn allow_sleep() -> Result<String, String> {
     #[cfg(target_os = "macos")]
     {
         let _ = std::process::Command::new("pkill")
             .args(["-f", "caffeinate"])
+            .output();
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        // Kill any systemd-inhibit blockers we spawned. We scope to the
+        // specific --what=idle invocation to avoid clobbering unrelated
+        // inhibitors held by other apps (e.g. PackageKit, media players).
+        let _ = std::process::Command::new("pkill")
+            .args(["-f", "systemd-inhibit.*--what=idle"])
             .output();
     }
 
