@@ -1,0 +1,67 @@
+version: 2
+updates:
+  # npm dependencies (frontend + packages)
+  - package-ecosystem: 'npm'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+      day: 'monday'
+      time: '09:00'
+      timezone: 'Asia/Shanghai'
+    open-pull-requests-limit: 5
+    groups:
+      vue-ecosystem:
+        patterns:
+          - 'vue'
+          - 'vue-router'
+          - 'pinia'
+          - '@vue/*'
+      tauri-ecosystem:
+        patterns:
+          - '@tauri-apps/*'
+          - 'tauri-plugin-*'
+      dev-tooling:
+        patterns:
+          - 'vite'
+          - 'vitest'
+          - 'eslint'
+          - 'eslint-*'
+          - '@typescript-eslint/*'
+          - 'prettier'
+          - 'turbo'
+          - 'typescript'
+          - 'vue-tsc'
+    commit-message:
+      prefix: 'deps(npm)'
+      include: 'scope'
+    labels:
+      - 'dependencies'
+      - 'npm'
+
+  # Rust dependencies (Tauri backend)
+  - package-ecosystem: 'cargo'
+    directory: '/apps/gui/src-tauri'
+    schedule:
+      interval: 'weekly'
+      day: 'monday'
+      time: '09:00'
+      timezone: 'Asia/Shanghai'
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: 'deps(cargo)'
+      include: 'scope'
+    labels:
+      - 'dependencies'
+      - 'cargo'
+
+  # GitHub Actions
+  - package-ecosystem: 'github-actions'
+    directory: '/'
+    schedule:
+      interval: 'monthly'
+    commit-message:
+      prefix: 'deps(ci)'
+      include: 'scope'
+    labels:
+      - 'dependencies'
+      - 'github-actions'
