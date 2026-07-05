@@ -492,13 +492,35 @@ async function handleCopySource(): Promise<void> {
 /**
  * Handle a file checkbox toggle from the DetailPanel.
  */
-function onToggleFile(payload: { name: string; checked: boolean }): void {
+const fileSelection = ref<Map<number, boolean>>(new Map())
+
+function onToggleFile(payload: { index: number; name: string; checked: boolean }): void {
+  fileSelection.value.set(payload.index, payload.checked)
   addToast({
     id: generateToastId(),
     type: 'info',
     text: `${payload.checked ? 'Selected' : 'Deselected'}: ${payload.name}`,
     createdAt: Date.now(),
   })
+  void applyFileSelectionToAria2()
+}
+
+async function applyFileSelectionToAria2(): Promise<void> {
+  const target = selectedTask.value
+  if (!target?.gid) return
+  try {
+    const selected = Array.from(fileSelection.value.entries())
+      .filter(([, checked]) => checked)
+      .map(([index]) => index + 1)
+      .join(',')
+    if (selected) {
+      await tasksStore.bumpPriority(target.id).catch(() => {})
+      const { useAria2 } = await import('@/composables/useAria2')
+      await useAria2().changeOption(target.gid, { 'select-file': selected })
+    }
+  } catch (e) {
+    console.warn('File selection apply failed:', e)
+  }
 }
 
 /**

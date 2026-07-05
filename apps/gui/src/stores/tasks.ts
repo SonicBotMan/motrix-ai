@@ -37,6 +37,12 @@ export interface Task {
 // Helpers
 // ---------------------------------------------------------------------------
 
+/** Check if a filename looks like a video file based on extension. */
+function isVideoFile(filename: string): boolean {
+  const ext = filename.split('.').pop()?.toLowerCase() || ''
+  return ['mkv', 'mp4', 'avi', 'mov', 'wmv', 'flv', 'ts', 'm4v'].includes(ext)
+}
+
 /** Map an aria2 status string to our UI task status */
 function mapAria2Status(status: string): TaskStatus {
   switch (status) {
@@ -154,6 +160,67 @@ export const useTasksStore = defineStore('tasks', () => {
    */
   async function init(): Promise<void> {
     await aria2.start()
+    registerPostDownloadPipeline()
+  }
+
+  /**
+   * Post-download pipeline: notification + file organize + subtitle search.
+   * Registered once on init() so every view benefits automatically.
+   * Previously this lived only in MainView (/legacy), meaning the default
+   * TaskFirstView (/) had zero post-download feedback.
+   */
+  function registerPostDownloadPipeline(): void {
+    aria2.onTaskComplete(async (task) => {
+      const filename = task.files?.[0]?.path?.split('/').pop() || task.bittorrent?.info?.name || task.gid
+      const filePath = task.files?.[0]?.path
+
+      // 1. Desktop notification
+      try {
+        const { isPermissionGranted, requestPermission, sendNotification } =
+          await import('@tauri-apps/plugin-notification')
+        let granted = await isPermissionGranted()
+        if (!granted) granted = (await requestPermission()) === 'granted'
+        if (granted) sendNotification({ title: 'Download complete', body: filename })
+      } catch (e) {
+        console.warn('Notification failed:', e)
+      }
+
+      // 2. Auto-organize (categorize + rename + move to Movies/TV/etc)
+      if (filePath) {
+        try {
+          const { invoke } = await import('@tauri-apps/api/core')
+          await invoke<string>('organize_file', {
+            filePath,
+            title: undefined,
+            year: undefined,
+            quality: undefined,
+            resourceType: undefined,
+          })
+        } catch (e) {
+          console.warn('Auto-organize failed:', e)
+        }
+      }
+
+      // 3. Auto-search subtitles for video files
+      if (filePath && isVideoFile(filename)) {
+        try {
+          const autoSub = localStorage.getItem('motrix-ai:auto-search-subtitles')
+          if (autoSub !== 'false') {
+            const apiKey = localStorage.getItem('motrix-ai:opensubtitles-api-key') || ''
+            if (apiKey) {
+              const { invoke } = await import('@tauri-apps/api/core')
+              await invoke('opensubtitles_search', {
+                apiKey,
+                query: filename.replace(/\.[^.]+$/, ''),
+                languages: undefined,
+              })
+            }
+          }
+        } catch (e) {
+          console.warn('Subtitle search failed:', e)
+        }
+      }
+    })
   }
 
   /**
