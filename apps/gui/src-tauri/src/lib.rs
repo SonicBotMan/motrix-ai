@@ -88,6 +88,7 @@ pub fn run() {
             commands::request_notification_permission,
             commands::send_notification,
             commands::http_api::start_http_api,
+            commands::http_api::stop_http_api,
             commands::http_api::handle_download_request,
             commands::protocol::handle_deep_link,
             history::get_download_history,
