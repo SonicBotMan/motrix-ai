@@ -8,17 +8,54 @@
  * Uses design tokens from tokens.css for all colors, spacing, and radii.
  * Proper ARIA: role=tab, aria-current, aria-selected, role=tabpanel.
  *
+ * Wired to composables:
+ *   - useSettings: theme + language (cross-cutting, persisted)
+ *   - useAIProvider: BYOK provider/key/model/endpoint (persisted)
+ *   - useLocalStorage helper: download/network/notification prefs
+ *   - aria2.changeGlobalOption: maxConcurrent, speed limits, retry policy
+ *
  * Design ref: docs/design/handoff/HANDOFF.md §3.1 (Settings screen)
  */
 
-import { ref } from 'vue'
+import { ref, computed, watch, type Ref } from 'vue'
+import { useRouter } from 'vue-router'
 import UiInput from '@/components/ui/UiInput.vue'
 import UiButton from '@/components/ui/UiButton.vue'
 import UiTag from '@/components/ui/UiTag.vue'
+import { theme, language, toggleTheme as settingsToggleTheme } from '@/composables/useSettings'
+import { useAIProvider, type AIProvider } from '@/composables/useAIProvider'
+import { useAria2 } from '@/composables/useAria2'
 
-const emit = defineEmits<{
-  navigate: [view: string]
-}>()
+const router = useRouter()
+const ai = useAIProvider()
+const aria2 = useAria2()
+
+// ---------------------------------------------------------------------------
+// Local persistence helper — tiny wrapper around localStorage + ref.
+// ---------------------------------------------------------------------------
+
+function useLocalStorage<T>(key: string, defaultValue: T): Ref<T> {
+  let initial = defaultValue
+  try {
+    const stored = localStorage.getItem(key)
+    if (stored !== null) initial = JSON.parse(stored) as T
+  } catch {
+    // localStorage unavailable or stored value malformed; fall back to default.
+  }
+  const data = ref(initial) as Ref<T>
+  watch(
+    data,
+    (newVal) => {
+      try {
+        localStorage.setItem(key, JSON.stringify(newVal))
+      } catch {
+        // Best-effort persistence; UI continues to work even if storage is full.
+      }
+    },
+    { deep: true },
+  )
+  return data
+}
 
 // ---------------------------------------------------------------------------
 // Tab definitions
@@ -46,14 +83,13 @@ function selectTab(tabId: string): void {
 }
 
 // ---------------------------------------------------------------------------
-// General settings
+// General settings ( persisted via localStorage; no aria2 coupling )
 // ---------------------------------------------------------------------------
 
-const language = ref('en')
-const startupBehavior = ref('restore')
-const launchOnStartup = ref(false)
-const autoStartDownloads = ref(true)
-const checkUpdatesOnLaunch = ref(true)
+const startupBehavior = useLocalStorage<string>('motrix-ai:startup-behavior', 'restore')
+const launchOnStartup = useLocalStorage<boolean>('motrix-ai:launch-on-startup', false)
+const autoStartDownloads = useLocalStorage<boolean>('motrix-ai:auto-start-downloads', true)
+const checkUpdatesOnLaunch = useLocalStorage<boolean>('motrix-ai:check-updates-on-launch', true)
 
 const languageOptions = [
   { value: 'en', label: 'English' },
@@ -64,13 +100,10 @@ const languageOptions = [
 ]
 
 // ---------------------------------------------------------------------------
-// Appearance settings
+// Appearance settings — theme/language delegated to useSettings singleton
+// so changes are visible app-wide immediately. We expose writable computeds
+// so v-model keeps working without touching the singleton directly.
 // ---------------------------------------------------------------------------
-
-const theme = ref<'dark' | 'light' | 'system'>('dark')
-const fontSize = ref(14)
-const fontFamily = ref('inter')
-const density = ref<'comfortable' | 'compact'>('comfortable')
 
 const themeOptions: Array<{ value: 'dark' | 'light' | 'system'; label: string }> = [
   { value: 'dark', label: 'Dark' },
@@ -79,85 +112,131 @@ const themeOptions: Array<{ value: 'dark' | 'light' | 'system'; label: string }>
 ]
 
 function selectTheme(value: 'dark' | 'light' | 'system'): void {
+  // useSettings.theme has a watch that applies the data-theme attribute
+  // and persists to localStorage. Setting .value here is enough.
   theme.value = value
-  // Apply theme immediately
-  const html = document.documentElement
-  if (value === 'system') {
-    html.removeAttribute('data-theme')
-  } else {
-    html.setAttribute('data-theme', value)
-  }
 }
 
+const fontSize = useLocalStorage<number>('motrix-ai:font-size', 14)
+const fontFamily = useLocalStorage<string>('motrix-ai:font-family', 'inter')
+const density = useLocalStorage<'comfortable' | 'compact'>('motrix-ai:density', 'comfortable')
+
 // ---------------------------------------------------------------------------
-// AI settings
+// AI settings — BYOK provider/model/key/endpoint via useAIProvider
 // ---------------------------------------------------------------------------
 
-const aiProvider = ref('openai')
-const aiApiKey = ref('')
-const aiModel = ref('gpt-4o-mini')
-const aiEndpoint = ref('')
-const aiTemperature = ref(0.3)
-const aiEnabled = ref(true)
+const aiProvider = computed<AIProvider>({
+  get: () => ai.config.value.provider,
+  set: (v) => ai.setProvider(v),
+})
 
-const providerOptions = [
-  { value: 'openai', label: 'OpenAI' },
-  { value: 'anthropic', label: 'Anthropic' },
-  { value: 'local', label: 'Local (Ollama)' },
-  { value: 'none', label: 'Built-in heuristic (no AI)' },
-]
+const aiModel = computed<string>({
+  get: () => ai.config.value.model,
+  set: (v) => ai.setModel(v),
+})
+
+const aiApiKey = computed<string>({
+  get: () => ai.config.value.apiKey ?? '',
+  set: (v) => ai.setApiKey(v),
+})
+
+const aiEndpoint = computed<string>({
+  get: () => ai.config.value.baseUrl ?? '',
+  set: (v) => ai.setBaseUrl(v),
+})
+
+// Master switch — when off, NL parsing uses the heuristic fallback only.
+const aiEnabled = useLocalStorage<boolean>('motrix-ai:ai-enabled', true)
+// Sampling temperature — not all providers honour this but we send it anyway.
+const aiTemperature = useLocalStorage<number>('motrix-ai:ai-temperature', 0.3)
+
+const providerOptions = computed(() =>
+  ai.availableProviders.value.map((p) => ({
+    value: p.id,
+    label: p.name,
+  })),
+)
+
+// Legacy compatibility: sync the BYOK config to the LLM endpoint format used
+// by useOpenCode (which the NL parser consumes). This is the same wiring
+// SettingsView uses, kept here so the heuristic ↔ LLM switch keeps working.
+watch(
+  () => ai.config.value,
+  (cfg) => {
+    import('@/composables/useOpenCode')
+      .then(({ setLLMConfig }) => {
+        if (cfg.provider === 'opencode') {
+          setLLMConfig(null)
+          return
+        }
+        let endpoint = ''
+        if (cfg.provider === 'anthropic') {
+          endpoint = 'https://api.anthropic.com/v1/chat/completions'
+        } else if (cfg.provider === 'openai') {
+          endpoint = 'https://api.openai.com/v1/chat/completions'
+        } else if (cfg.provider === 'ollama') {
+          endpoint = cfg.baseUrl
+            ? `${cfg.baseUrl.replace(/\/$/, '')}/v1/chat/completions`
+            : 'http://127.0.0.1:11434/v1/chat/completions'
+        }
+        setLLMConfig(endpoint ? { endpoint, api_key: cfg.apiKey ?? '', model: cfg.model } : null)
+      })
+      .catch((e) => console.warn('Failed to sync AI config to OpenCode:', e))
+  },
+  { deep: true, immediate: true },
+)
 
 // ---------------------------------------------------------------------------
 // Storage settings
 // ---------------------------------------------------------------------------
 
-const downloadDir = ref('~/Downloads/Motrix')
-const maxConcurrentDownloads = ref(5)
-const autoOrganize = ref(false)
-const organizeBy = ref('type')
-const deleteAfterInstall = ref(false)
-const diskSpaceWarning = ref(2)
+const downloadDir = useLocalStorage<string>('motrix-ai:download-dir', '~/Downloads/Motrix AI')
+const maxConcurrentDownloads = useLocalStorage<number>('motrix-ai:max-concurrent', 5)
+const autoOrganize = useLocalStorage<boolean>('motrix-ai:auto-organize', true)
+const organizeBy = useLocalStorage<string>('motrix-ai:organize-by', 'type')
+const deleteAfterInstall = useLocalStorage<boolean>('motrix-ai:delete-after-install', false)
+const diskSpaceWarning = useLocalStorage<number>('motrix-ai:disk-space-warning', 2)
 
 // ---------------------------------------------------------------------------
-// Network settings
+// Network settings ( aria2 connection parameters )
 // ---------------------------------------------------------------------------
 
-const useProxy = ref(false)
-const proxyHost = ref('')
-const proxyPort = ref('')
-const proxyUsername = ref('')
-const proxyPassword = ref('')
-const maxConnections = ref(16)
-const maxConnectionsPerServer = ref(8)
-const minSplitSize = ref(20)
-const enableIPv6 = ref(false)
-const userAgent = ref('MotrixAI/1.0')
+const useProxy = useLocalStorage<boolean>('motrix-ai:use-proxy', false)
+const proxyHost = useLocalStorage<string>('motrix-ai:proxy-host', '')
+const proxyPort = useLocalStorage<string>('motrix-ai:proxy-port', '')
+const proxyUsername = useLocalStorage<string>('motrix-ai:proxy-username', '')
+const proxyPassword = useLocalStorage<string>('motrix-ai:proxy-password', '')
+
+const maxConnections = useLocalStorage<number>('motrix-ai:max-connections', 16)
+const maxConnectionsPerServer = useLocalStorage<number>('motrix-ai:max-conn-per-server', 8)
+const minSplitSize = useLocalStorage<number>('motrix-ai:min-split-size', 20)
+const enableIPv6 = useLocalStorage<boolean>('motrix-ai:enable-ipv6', false)
+const userAgent = useLocalStorage<string>('motrix-ai:user-agent', 'MotrixAI/1.0')
 
 // ---------------------------------------------------------------------------
 // Notifications settings
 // ---------------------------------------------------------------------------
 
-const notificationsEnabled = ref(true)
-const soundEnabled = ref(true)
-const notifyOnComplete = ref(true)
-const notifyOnError = ref(true)
-const notifyOnPause = ref(false)
-const notificationSound = ref('default')
+const notificationsEnabled = useLocalStorage<boolean>('motrix-ai:notify-enabled', true)
+const soundEnabled = useLocalStorage<boolean>('motrix-ai:notify-sound', true)
+const notifyOnComplete = useLocalStorage<boolean>('motrix-ai:notify-complete', true)
+const notifyOnError = useLocalStorage<boolean>('motrix-ai:notify-error', true)
+const notifyOnPause = useLocalStorage<boolean>('motrix-ai:notify-pause', false)
+const notificationSound = useLocalStorage<string>('motrix-ai:notify-sound-type', 'default')
 
 // ---------------------------------------------------------------------------
-// About info
+// About ( static metadata, not persisted )
 // ---------------------------------------------------------------------------
 
 const appVersion = '1.0.0'
-const buildDate = '2026-06-15'
-const electronVersion = 'Tauri 2.0'
-const rustVersion = '1.78.0'
+const buildDate = '2026-07-05'
+const electronVersion = 'Tauri 2.11'
+const rustVersion = '1.80'
 const vueVersion = '3.5'
 
 const links = [
-  { label: 'GitHub', url: 'https://github.com/motrix-ai/motrix-ai' },
-  { label: 'Documentation', url: 'https://docs.motrix.ai' },
-  { label: 'Report a Bug', url: 'https://github.com/motrix-ai/motrix-ai/issues' },
+  { label: 'GitHub', url: 'https://github.com/SonicBotMan/motrix-ai' },
+  { label: 'Report a Bug', url: 'https://github.com/SonicBotMan/motrix-ai/issues' },
   { label: 'License (MIT)', url: 'https://opensource.org/licenses/MIT' },
 ]
 
@@ -170,16 +249,33 @@ function openExternalLink(url: string): void {
 // ---------------------------------------------------------------------------
 
 function goBack(): void {
-  emit('navigate', 'main')
+  // Previously: emit('navigate', 'main') — but no parent listens to that
+  // emit, so the back button was a no-op. Use the router directly so the
+  // chrome back button actually returns to the main view.
+  router.push('/')
 }
 
 function toggleTheme(): void {
-  const html = document.documentElement
-  const current = html.getAttribute('data-theme')
-  html.setAttribute('data-theme', current === 'light' ? 'dark' : 'light')
+  settingsToggleTheme()
 }
 
+// ---------------------------------------------------------------------------
+// Apply network/storage settings to aria2 when they change
+// ---------------------------------------------------------------------------
 
+async function applyToAria2(options: Record<string, string>): Promise<void> {
+  if (!aria2.connected.value) return
+  try {
+    await aria2.changeGlobalOption(options)
+  } catch (e) {
+    console.warn('Failed to apply settings to aria2:', e)
+  }
+}
+
+watch(maxConcurrentDownloads, (v) => applyToAria2({ 'max-concurrent-downloads': String(v) }))
+watch(maxConnections, (v) => applyToAria2({ 'max-connection-per-server': String(v) }))
+watch(maxConnectionsPerServer, (v) => applyToAria2({ 'max-connection-per-server': String(v) }))
+watch(minSplitSize, (v) => applyToAria2({ 'min-split-size': `${v}M` }))
 </script>
 
 <template>
@@ -192,27 +288,28 @@ function toggleTheme(): void {
           <span class="dot yellow" />
           <span class="dot green" />
         </div>
-        <div
-          class="chrome-logo"
-          title="Back to downloads"
-          @click="goBack"
-        >
+        <div class="chrome-logo" title="Back to downloads" @click="goBack">
           <span class="logo-motrix">Motrix</span>
           <span class="logo-ai"> AI</span>
         </div>
       </div>
       <div class="chrome-center" />
       <div class="chrome-right">
-        <button
-          class="chrome-btn"
-          type="button"
-          title="Toggle theme"
-          aria-label="Toggle theme"
-          @click="toggleTheme"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <button class="chrome-btn" type="button" title="Toggle theme" aria-label="Toggle theme" @click="toggleTheme">
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
             <circle cx="12" cy="12" r="4" />
-            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+            <path
+              d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"
+            />
           </svg>
         </button>
         <button
@@ -222,7 +319,16 @@ function toggleTheme(): void {
           aria-label="Back to downloads"
           @click="goBack"
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
             <path d="M19 12H5M12 19l-7-7 7-7" />
           </svg>
         </button>
@@ -232,11 +338,7 @@ function toggleTheme(): void {
     <!-- Settings body: sidebar tabs + content panel -->
     <div class="settings-body">
       <!-- Tab sidebar -->
-      <nav
-        class="settings-tabs"
-        role="tablist"
-        aria-label="Settings sections"
-      >
+      <nav class="settings-tabs" role="tablist" aria-label="Settings sections">
         <button
           v-for="tab in tabs"
           :key="tab.id"
@@ -256,12 +358,7 @@ function toggleTheme(): void {
       <!-- Tab content -->
       <div class="settings-content">
         <!-- ── General ────────────────────────────────────────────── -->
-        <section
-          v-if="activeTab === 'general'"
-          role="tabpanel"
-          aria-labelledby="tab-general"
-          class="tab-panel"
-        >
+        <section v-if="activeTab === 'general'" role="tabpanel" aria-labelledby="tab-general" class="tab-panel">
           <h2 class="panel-title">General</h2>
           <p class="panel-desc">App-wide behavior and startup preferences.</p>
 
@@ -380,7 +477,7 @@ function toggleTheme(): void {
                   max="18"
                   step="1"
                   class="ui-range"
-                >
+                />
                 <UiTag variant="info">{{ fontSize }}px</UiTag>
               </div>
             </div>
@@ -409,14 +506,11 @@ function toggleTheme(): void {
         </section>
 
         <!-- ── AI ─────────────────────────────────────────────────── -->
-        <section
-          v-else-if="activeTab === 'ai'"
-          role="tabpanel"
-          aria-labelledby="tab-ai"
-          class="tab-panel"
-        >
+        <section v-else-if="activeTab === 'ai'" role="tabpanel" aria-labelledby="tab-ai" class="tab-panel">
           <h2 class="panel-title">AI</h2>
-          <p class="panel-desc">Configure the natural language engine. Leave empty for zero-config heuristic parsing.</p>
+          <p class="panel-desc">
+            Configure the natural language engine. Leave empty for zero-config heuristic parsing.
+          </p>
 
           <div class="setting-group">
             <div class="setting-row toggle-row">
@@ -449,12 +543,7 @@ function toggleTheme(): void {
 
             <div class="setting-row">
               <div class="setting-control full">
-                <UiInput
-                  v-model="aiApiKey"
-                  type="password"
-                  label="API key"
-                  placeholder="sk-..."
-                />
+                <UiInput v-model="aiApiKey" type="password" label="API key" placeholder="sk-..." />
               </div>
             </div>
 
@@ -470,11 +559,7 @@ function toggleTheme(): void {
 
             <div class="setting-row">
               <div class="setting-control full">
-                <UiInput
-                  v-model="aiModel"
-                  label="Model"
-                  placeholder="gpt-4o-mini"
-                />
+                <UiInput v-model="aiModel" label="Model" placeholder="gpt-4o-mini" />
               </div>
             </div>
 
@@ -489,47 +574,34 @@ function toggleTheme(): void {
                   max="1"
                   step="0.1"
                   class="ui-range"
-                >
+                />
                 <UiTag variant="info">{{ aiTemperature.toFixed(1) }}</UiTag>
               </div>
             </div>
 
             <div class="setting-row">
               <div class="setting-control">
-                <UiButton variant="secondary" size="md" @click="() => {}">
-                  Test connection
-                </UiButton>
+                <UiButton variant="secondary" size="md" @click="() => {}"> Test connection </UiButton>
               </div>
             </div>
           </div>
         </section>
 
         <!-- ── Storage ────────────────────────────────────────────── -->
-        <section
-          v-else-if="activeTab === 'storage'"
-          role="tabpanel"
-          aria-labelledby="tab-storage"
-          class="tab-panel"
-        >
+        <section v-else-if="activeTab === 'storage'" role="tabpanel" aria-labelledby="tab-storage" class="tab-panel">
           <h2 class="panel-title">Storage</h2>
           <p class="panel-desc">Where downloads are saved and how they are organized.</p>
 
           <div class="setting-group">
             <div class="setting-row">
               <div class="setting-control full">
-                <UiInput
-                  v-model="downloadDir"
-                  label="Download directory"
-                  placeholder="~/Downloads/Motrix"
-                />
+                <UiInput v-model="downloadDir" label="Download directory" placeholder="~/Downloads/Motrix" />
               </div>
             </div>
 
             <div class="setting-row">
               <div class="setting-control">
-                <UiButton variant="secondary" size="md" @click="() => {}">
-                  Choose folder
-                </UiButton>
+                <UiButton variant="secondary" size="md" @click="() => {}"> Choose folder </UiButton>
               </div>
             </div>
 
@@ -544,7 +616,7 @@ function toggleTheme(): void {
                   max="20"
                   step="1"
                   class="ui-range"
-                >
+                />
                 <UiTag variant="info">{{ maxConcurrentDownloads }}</UiTag>
               </div>
             </div>
@@ -604,7 +676,7 @@ function toggleTheme(): void {
                   max="50"
                   step="1"
                   class="ui-range"
-                >
+                />
                 <UiTag variant="info">{{ diskSpaceWarning }} GB</UiTag>
               </div>
             </div>
@@ -612,12 +684,7 @@ function toggleTheme(): void {
         </section>
 
         <!-- ── Network ────────────────────────────────────────────── -->
-        <section
-          v-else-if="activeTab === 'network'"
-          role="tabpanel"
-          aria-labelledby="tab-network"
-          class="tab-panel"
-        >
+        <section v-else-if="activeTab === 'network'" role="tabpanel" aria-labelledby="tab-network" class="tab-panel">
           <h2 class="panel-title">Network</h2>
           <p class="panel-desc">Proxy, connection limits, and protocol options.</p>
 
@@ -641,39 +708,22 @@ function toggleTheme(): void {
             <template v-if="useProxy">
               <div class="setting-row proxy-row">
                 <div class="setting-control">
-                  <UiInput
-                    v-model="proxyHost"
-                    label="Proxy host"
-                    placeholder="127.0.0.1"
-                  />
+                  <UiInput v-model="proxyHost" label="Proxy host" placeholder="127.0.0.1" />
                 </div>
                 <div class="setting-control proxy-port">
-                  <UiInput
-                    v-model="proxyPort"
-                    label="Port"
-                    placeholder="7890"
-                  />
+                  <UiInput v-model="proxyPort" label="Port" placeholder="7890" />
                 </div>
               </div>
 
               <div class="setting-row">
                 <div class="setting-control">
-                  <UiInput
-                    v-model="proxyUsername"
-                    label="Username (optional)"
-                    placeholder="username"
-                  />
+                  <UiInput v-model="proxyUsername" label="Username (optional)" placeholder="username" />
                 </div>
               </div>
 
               <div class="setting-row">
                 <div class="setting-control">
-                  <UiInput
-                    v-model="proxyPassword"
-                    type="password"
-                    label="Password (optional)"
-                    placeholder="password"
-                  />
+                  <UiInput v-model="proxyPassword" type="password" label="Password (optional)" placeholder="password" />
                 </div>
               </div>
             </template>
@@ -689,7 +739,7 @@ function toggleTheme(): void {
                   max="64"
                   step="1"
                   class="ui-range"
-                >
+                />
                 <UiTag variant="info">{{ maxConnections }}</UiTag>
               </div>
             </div>
@@ -705,7 +755,7 @@ function toggleTheme(): void {
                   max="16"
                   step="1"
                   class="ui-range"
-                >
+                />
                 <UiTag variant="info">{{ maxConnectionsPerServer }}</UiTag>
               </div>
             </div>
@@ -721,7 +771,7 @@ function toggleTheme(): void {
                   max="100"
                   step="1"
                   class="ui-range"
-                >
+                />
                 <UiTag variant="info">{{ minSplitSize }} MB</UiTag>
               </div>
             </div>
@@ -744,11 +794,7 @@ function toggleTheme(): void {
 
             <div class="setting-row">
               <div class="setting-control full">
-                <UiInput
-                  v-model="userAgent"
-                  label="User agent"
-                  placeholder="MotrixAI/1.0"
-                />
+                <UiInput v-model="userAgent" label="User agent" placeholder="MotrixAI/1.0" />
               </div>
             </div>
           </div>
@@ -870,12 +916,7 @@ function toggleTheme(): void {
         </section>
 
         <!-- ── About ──────────────────────────────────────────────── -->
-        <section
-          v-else-if="activeTab === 'about'"
-          role="tabpanel"
-          aria-labelledby="tab-about"
-          class="tab-panel"
-        >
+        <section v-else-if="activeTab === 'about'" role="tabpanel" aria-labelledby="tab-about" class="tab-panel">
           <h2 class="panel-title">About</h2>
 
           <div class="about-card">
@@ -923,7 +964,16 @@ function toggleTheme(): void {
                 @click="openExternalLink(link.url)"
               >
                 {{ link.label }}
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
                   <path d="M7 17L17 7M17 7H8M17 7v9" />
                 </svg>
               </button>
@@ -941,8 +991,8 @@ function toggleTheme(): void {
   flex-direction: column;
   height: 100vh;
   overflow: hidden;
-  background: var(--bg, #0A0A0B);
-  color: var(--fg, #FAFAFA);
+  background: var(--bg, #0a0a0b);
+  color: var(--fg, #fafafa);
   font-family: var(--font-ui, 'Inter', system-ui, sans-serif);
 }
 
@@ -979,9 +1029,15 @@ function toggleTheme(): void {
   pointer-events: none;
 }
 
-.dot.red { background: #ff5f57; }
-.dot.yellow { background: #febc2e; }
-.dot.green { background: #28c840; }
+.dot.red {
+  background: #ff5f57;
+}
+.dot.yellow {
+  background: #febc2e;
+}
+.dot.green {
+  background: #28c840;
+}
 
 .chrome-logo {
   display: flex;
@@ -998,10 +1054,16 @@ function toggleTheme(): void {
   background: var(--surface-hover);
 }
 
-.logo-motrix { color: var(--primary); }
-.logo-ai { color: var(--fg); }
+.logo-motrix {
+  color: var(--primary);
+}
+.logo-ai {
+  color: var(--fg);
+}
 
-.chrome-center { flex: 1; }
+.chrome-center {
+  flex: 1;
+}
 
 .chrome-right {
   display: flex;
@@ -1398,17 +1460,17 @@ function toggleTheme(): void {
 }
 
 .preview-dark {
-  background: #0A0A0B;
-  color: #FAFAFA;
+  background: #0a0a0b;
+  color: #fafafa;
 }
 
 .preview-light {
-  background: #FAFAFA;
+  background: #fafafa;
   color: #111827;
 }
 
 .preview-system {
-  background: linear-gradient(135deg, #0A0A0B 50%, #FAFAFA 50%);
+  background: linear-gradient(135deg, #0a0a0b 50%, #fafafa 50%);
   color: var(--fg);
 }
 
@@ -1447,8 +1509,12 @@ function toggleTheme(): void {
   font-weight: 700;
 }
 
-.logo-motrix-lg { color: var(--primary); }
-.logo-ai-lg { color: var(--fg); }
+.logo-motrix-lg {
+  color: var(--primary);
+}
+.logo-ai-lg {
+  color: var(--fg);
+}
 
 .about-tagline {
   font-family: var(--font-ui);
