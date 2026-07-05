@@ -4,10 +4,13 @@ use super::aria2_add_uri;
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::command;
+use tokio::sync::watch;
 
 const DEFAULT_PORT: u16 = 18900;
 
 static SERVER_RUNNING: AtomicBool = AtomicBool::new(false);
+
+static SHUTDOWN_TX: std::sync::OnceLock<watch::Sender<bool>> = std::sync::OnceLock::new();
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DownloadRequest {
@@ -25,6 +28,9 @@ pub async fn start_http_api(port: Option<u16>) -> Result<String, String> {
         return Ok(url);
     }
 
+    let (shutdown_tx, mut shutdown_rx) = watch::channel(false);
+    let _ = SHUTDOWN_TX.set(shutdown_tx);
+
     let bind_addr = format!("127.0.0.1:{}", port);
     let listener = tokio::net::TcpListener::bind(&bind_addr)
         .await
@@ -33,15 +39,23 @@ pub async fn start_http_api(port: Option<u16>) -> Result<String, String> {
     tokio::spawn(async move {
         log::info!("HTTP API listening on {}", bind_addr);
         loop {
-            match listener.accept().await {
-                Ok((mut stream, _)) => {
-                    tokio::spawn(async move {
-                        let _ = handle_connection(&mut stream).await;
-                    });
-                }
-                Err(e) => {
-                    log::warn!("HTTP API accept error: {}", e);
+            tokio::select! {
+                _ = shutdown_rx.changed() => {
+                    log::info!("HTTP API shutting down");
                     break;
+                }
+                result = listener.accept() => {
+                    match result {
+                        Ok((mut stream, _)) => {
+                            tokio::spawn(async move {
+                                let _ = handle_connection(&mut stream).await;
+                            });
+                        }
+                        Err(e) => {
+                            log::warn!("HTTP API accept error: {}", e);
+                            break;
+                        }
+                    }
                 }
             }
         }
@@ -49,6 +63,16 @@ pub async fn start_http_api(port: Option<u16>) -> Result<String, String> {
     });
 
     Ok(url)
+}
+
+/// Stop the HTTP API server gracefully. In-flight connections finish;
+/// the accept loop stops accepting new ones.
+#[command]
+pub async fn stop_http_api() -> Result<String, String> {
+    if let Some(tx) = SHUTDOWN_TX.get() {
+        let _ = tx.send(true);
+    }
+    Ok("HTTP API stopped".to_string())
 }
 
 async fn handle_connection(stream: &mut tokio::net::TcpStream) -> Result<(), String> {
@@ -125,4 +149,67 @@ fn err_body(msg: &str) -> String {
 #[command]
 pub async fn handle_download_request(request: DownloadRequest) -> Result<String, String> {
     aria2_add_uri(&request.url).await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_err_body_escapes_quotes() {
+        let body = err_body(r#"she said "hi""#);
+        assert!(body.contains(r#"\"hi\""#));
+        assert!(body.starts_with("{\"status\":\"error\""));
+    }
+
+    #[tokio::test]
+    async fn test_route_options_returns_204() {
+        let (status, body) = route_request("OPTIONS /api/download HTTP/1.1\r\n\r\n").await;
+        assert_eq!(status, 204);
+        assert!(body.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_route_get_health() {
+        let (status, body) = route_request("GET / HTTP/1.1\r\n\r\n").await;
+        assert_eq!(status, 200);
+        assert!(body.contains("motrix-ai-http-api"));
+    }
+
+    #[tokio::test]
+    async fn test_route_post_invalid_json() {
+        let req = "POST /api/download HTTP/1.1\r\nContent-Type: application/json\r\n\r\n{bad}";
+        let (status, body) = route_request(req).await;
+        assert_eq!(status, 400);
+        assert!(body.contains("invalid JSON"));
+    }
+
+    #[tokio::test]
+    async fn test_route_post_empty_body() {
+        let req = "POST /api/download HTTP/1.1\r\n\r\n";
+        let (status, _) = route_request(req).await;
+        assert_eq!(status, 400);
+    }
+
+    #[tokio::test]
+    async fn test_route_unknown_path_404() {
+        let (status, _) = route_request("DELETE / HTTP/1.1\r\n\r\n").await;
+        assert_eq!(status, 404);
+    }
+
+    #[test]
+    fn test_download_request_deserialize() {
+        let json = r#"{"url":"https://example.com/file.zip","title":"My File"}"#;
+        let req: DownloadRequest = serde_json::from_str(json).unwrap();
+        assert_eq!(req.url, "https://example.com/file.zip");
+        assert_eq!(req.title.as_deref(), Some("My File"));
+    }
+
+    #[test]
+    fn test_download_request_deserialize_no_title() {
+        let json = r#"{"url":"magnet:?xt=urn:btih:abc123"}"#;
+        let req: DownloadRequest = serde_json::from_str(json).unwrap();
+        assert_eq!(req.url, "magnet:?xt=urn:btih:abc123");
+        assert!(req.title.is_none());
+    }
 }
