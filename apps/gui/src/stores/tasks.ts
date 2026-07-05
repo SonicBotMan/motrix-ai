@@ -33,6 +33,14 @@ export interface Task {
   filePath?: string
 }
 
+/** Intent metadata associated with a download for file organization */
+export interface DownloadIntentMeta {
+  title?: string
+  year?: number
+  quality?: string
+  resourceType?: string
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -126,6 +134,9 @@ export const useTasksStore = defineStore('tasks', () => {
   /** Auto-incrementing id generator for local tasks */
   let nextLocalId = Date.now()
 
+  /** GID → intent metadata mapping, so organize_file gets proper title/quality */
+  const intentByGid = new Map<string, DownloadIntentMeta>()
+
   // -- getters ------------------------------------------------------------
 
   /**
@@ -185,17 +196,19 @@ export const useTasksStore = defineStore('tasks', () => {
         console.warn('Notification failed:', e)
       }
 
-      // 2. Auto-organize (categorize + rename + move to Movies/TV/etc)
+      // 2. Auto-organize with intent metadata if available
       if (filePath) {
         try {
+          const meta = intentByGid.get(task.gid) || {}
           const { invoke } = await import('@tauri-apps/api/core')
           await invoke<string>('organize_file', {
             filePath,
-            title: undefined,
-            year: undefined,
-            quality: undefined,
-            resourceType: undefined,
+            title: meta.title,
+            year: meta.year,
+            quality: meta.quality,
+            resourceType: meta.resourceType,
           })
+          intentByGid.delete(task.gid)
         } catch (e) {
           console.warn('Auto-organize failed:', e)
         }
@@ -240,9 +253,10 @@ export const useTasksStore = defineStore('tasks', () => {
    * @param url - HTTP(S) URL or magnet URI
    * @param name - Optional display name override
    */
-  async function addTask(url: string, name?: string): Promise<void> {
+  async function addTask(url: string, name?: string, intent?: DownloadIntentMeta): Promise<void> {
     if (aria2.connected.value) {
-      await aria2.addUri(url)
+      const gid = await aria2.addUri(url)
+      if (intent && gid) intentByGid.set(gid, intent)
       return
     }
     // Fallback: create a local task so the user sees immediate feedback
