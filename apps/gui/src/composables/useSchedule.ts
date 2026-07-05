@@ -71,6 +71,25 @@ export function useSchedule(initialRules: ScheduleRule[] = []) {
   const nextCheck = ref<Date | null>(null)
 
   let timer: ReturnType<typeof setInterval> | null = null
+  let lastAppliedLimit: string | null = null
+
+  async function applyRuleToAria2(rule: ScheduleRule | null): Promise<void> {
+    const limitStr = rule ? String(rule.speed_limit) : '0'
+    if (limitStr === lastAppliedLimit) return
+    lastAppliedLimit = limitStr
+    try {
+      const { useAria2 } = await import('@/composables/useAria2')
+      const aria2 = useAria2()
+      if (aria2.connected.value) {
+        await aria2.changeGlobalOption({
+          'max-overall-download-limit': limitStr === '0' ? '0' : `${Number(limitStr) / 1024}K`,
+          'max-concurrent-downloads': rule ? String(rule.max_concurrent) : '5',
+        })
+      }
+    } catch (e) {
+      console.warn('Schedule apply failed:', e)
+    }
+  }
 
   /** Find the first rule whose window contains the given `HH:mm`. */
   function getCurrentRule(): ScheduleRule | null {
@@ -93,6 +112,7 @@ export function useSchedule(initialRules: ScheduleRule[] = []) {
   function check(): void {
     currentRule.value = getCurrentRule()
     nextCheck.value = getNextCheck()
+    void applyRuleToAria2(currentRule.value)
   }
 
   /** Begin checking every {@link CHECK_INTERVAL_MS}; runs one check immediately. */

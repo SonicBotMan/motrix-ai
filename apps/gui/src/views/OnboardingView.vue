@@ -13,6 +13,13 @@ const nextStep = () => {
   if (step.value < 3) {
     step.value++
   } else {
+    try {
+      localStorage.setItem('motrix-ai:download-dir', downloadDir.value)
+      localStorage.setItem('motrix-ai:language', uiLanguage.value)
+      localStorage.setItem('motrix:onboarded', 'true')
+    } catch {
+      // localStorage may be unavailable in sandboxed contexts
+    }
     router.push('/')
   }
 }
@@ -64,12 +71,13 @@ const prevStep = () => {
         <div class="form-group">
           <label>Language</label>
           <NSelect
-v-model:value="uiLanguage"
+            v-model:value="uiLanguage"
             :options="[
-            { label: 'English', value: 'en' },
-            { label: '中文', value: 'zh' },
-            { label: '日本語', value: 'ja' },
-          ]" />
+              { label: 'English', value: 'en' },
+              { label: '中文', value: 'zh' },
+              { label: '日本語', value: 'ja' },
+            ]"
+          />
         </div>
       </div>
 

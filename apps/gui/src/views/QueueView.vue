@@ -3,11 +3,20 @@ import { ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { NButton, NIcon, NCheckbox, NEmpty, NSpin } from 'naive-ui'
 import {
-  ArrowBackOutline, PauseOutline,
-  PlayOutline, RefreshOutline, FolderOpenOutline,
-  MusicalNotesOutline, DocumentTextOutline, ArchiveOutline,
-  VideocamOutline, TrashOutline, ArrowUpOutline, ArrowDownOutline,
-  SearchOutline, CloseOutline,
+  ArrowBackOutline,
+  PauseOutline,
+  PlayOutline,
+  RefreshOutline,
+  FolderOpenOutline,
+  MusicalNotesOutline,
+  DocumentTextOutline,
+  ArchiveOutline,
+  VideocamOutline,
+  TrashOutline,
+  ArrowUpOutline,
+  ArrowDownOutline,
+  SearchOutline,
+  CloseOutline,
 } from '@vicons/ionicons5'
 import { useAria2Manager, type DownloadItem } from '@/composables/useAria2Manager'
 import { useAria2, type TaskStatus } from '@/composables/useAria2'
@@ -64,12 +73,12 @@ function aria2FilterMatch(status: TaskStatus): boolean {
 
 // ---- Formatted task list ----
 const filteredTasks = computed(() => {
-  let items = manager.downloads.value.filter(t => aria2FilterMatch(t.status))
+  let items = manager.downloads.value.filter((t) => aria2FilterMatch(t.status))
 
   // Search filter
   if (searchQuery.value.trim()) {
     const q = searchQuery.value.toLowerCase().trim()
-    items = items.filter(t => t.name.toLowerCase().includes(q))
+    items = items.filter((t) => t.name.toLowerCase().includes(q))
   }
 
   // Sort
@@ -89,13 +98,11 @@ const filteredTasks = computed(() => {
 // ---- Stats ----
 const stats = computed(() => {
   const all = manager.downloads.value
-  const active = all.filter(t => t.status === 'active').length
-  const completed = all.filter(t => t.status === 'complete').length
-  const failed = all.filter(t => t.status === 'error' || t.status === 'removed').length
+  const active = all.filter((t) => t.status === 'active').length
+  const completed = all.filter((t) => t.status === 'complete').length
+  const failed = all.filter((t) => t.status === 'error' || t.status === 'removed').length
 
-  const totalSpeed = all
-    .filter(t => t.status === 'active')
-    .reduce((sum, t) => sum + t.downloadSpeed, 0)
+  const totalSpeed = all.filter((t) => t.status === 'active').reduce((sum, t) => sum + t.downloadSpeed, 0)
 
   return { total: all.length, active, completed, failed, totalSpeed }
 })
@@ -141,19 +148,26 @@ function getSource(item: DownloadItem): string {
 
 function getProgressColor(status: string): string {
   switch (status) {
-    case 'active': return '#3B82F6'
-    case 'complete': return '#10B981'
-    case 'paused': return '#F59E0B'
-    case 'waiting': return '#94A3B8'
-    case 'error': case 'removed': return '#EF4444'
-    default: return '#3B82F6'
+    case 'active':
+      return '#3B82F6'
+    case 'complete':
+      return '#10B981'
+    case 'paused':
+      return '#F59E0B'
+    case 'waiting':
+      return '#94A3B8'
+    case 'error':
+    case 'removed':
+      return '#EF4444'
+    default:
+      return '#3B82F6'
   }
 }
 
 // ---- Selection ----
 const allSelected = computed(() => {
   if (filteredTasks.value.length === 0) return false
-  return filteredTasks.value.every(t => selectedGids.value.has(t.gid))
+  return filteredTasks.value.every((t) => selectedGids.value.has(t.gid))
 })
 
 function toggleSelectAll() {
@@ -181,15 +195,47 @@ watch(activeFilter, () => {
 
 // ---- Actions ----
 async function handlePause(gid: string) {
-  try { await manager.pauseDownload(gid) } catch (e) { console.error(e) }
+  try {
+    await manager.pauseDownload(gid)
+  } catch (e) {
+    console.error(e)
+  }
 }
 
 async function handleResume(gid: string) {
-  try { await manager.resumeDownload(gid) } catch (e) { console.error(e) }
+  try {
+    await manager.resumeDownload(gid)
+  } catch (e) {
+    console.error(e)
+  }
 }
 
 async function handleRemove(gid: string) {
-  try { await manager.cancelDownload(gid) } catch (e) { console.error(e) }
+  try {
+    await manager.cancelDownload(gid)
+  } catch (e) {
+    console.error(e)
+  }
+}
+
+async function handleOpenFolder(task: DownloadItem) {
+  try {
+    const { invoke } = await import('@tauri-apps/api/core')
+    const filePath = task.dir ? `${task.dir}/${task.name}` : task.name
+    await invoke('show_in_folder', { path: filePath })
+  } catch (e) {
+    console.error('Failed to open folder:', e)
+  }
+}
+
+async function handleReconnect() {
+  try {
+    const { useTasksStore } = await import('@/stores/tasks')
+    const store = useTasksStore()
+    await store.init()
+  } catch (e) {
+    console.error('Reconnect failed:', e)
+  }
 }
 
 async function handleRetry(item: DownloadItem) {
@@ -199,47 +245,81 @@ async function handleRetry(item: DownloadItem) {
       await manager.cancelDownload(item.gid)
       await manager.addDownload(uri, { dir: item.dir })
     }
-  } catch (e) { console.error(e) }
+  } catch (e) {
+    console.error(e)
+  }
 }
 
 async function handlePauseAll() {
-  try { await manager.pauseAllDownloads() } catch (e) { console.error(e) }
+  try {
+    await manager.pauseAllDownloads()
+  } catch (e) {
+    console.error(e)
+  }
 }
 
 async function handleResumeAll() {
-  try { await manager.resumeAllDownloads() } catch (e) { console.error(e) }
+  try {
+    await manager.resumeAllDownloads()
+  } catch (e) {
+    console.error(e)
+  }
 }
 
 async function handleClearCompleted() {
-  try { await manager.clearCompleted() } catch (e) { console.error(e) }
+  try {
+    await manager.clearCompleted()
+  } catch (e) {
+    console.error(e)
+  }
 }
 
 async function handleMoveUp(gid: string, steps = 1) {
-  try { await manager.moveDownloadUp(gid, steps) } catch (e) { console.error(e) }
+  try {
+    await manager.moveDownloadUp(gid, steps)
+  } catch (e) {
+    console.error(e)
+  }
 }
 
 async function handleMoveDown(gid: string, steps = 1) {
-  try { await manager.moveDownloadDown(gid, steps) } catch (e) { console.error(e) }
+  try {
+    await manager.moveDownloadDown(gid, steps)
+  } catch (e) {
+    console.error(e)
+  }
 }
 
 // ---- Bulk actions ----
 async function handleBulkPause() {
   for (const gid of selectedGids.value) {
-    try { await manager.pauseDownload(gid) } catch (e) { console.error(e) }
+    try {
+      await manager.pauseDownload(gid)
+    } catch (e) {
+      console.error(e)
+    }
   }
   selectedGids.value.clear()
 }
 
 async function handleBulkResume() {
   for (const gid of selectedGids.value) {
-    try { await manager.resumeDownload(gid) } catch (e) { console.error(e) }
+    try {
+      await manager.resumeDownload(gid)
+    } catch (e) {
+      console.error(e)
+    }
   }
   selectedGids.value.clear()
 }
 
 async function handleBulkRemove() {
   for (const gid of selectedGids.value) {
-    try { await manager.cancelDownload(gid) } catch (e) { console.error(e) }
+    try {
+      await manager.cancelDownload(gid)
+    } catch (e) {
+      console.error(e)
+    }
   }
   selectedGids.value.clear()
 }
@@ -279,8 +359,8 @@ function onDragOver(e: DragEvent) {
 async function onDrop(targetGid: string) {
   if (!draggedGid || draggedGid === targetGid) return
   const items = filteredTasks.value
-  const fromIdx = items.findIndex(t => t.gid === draggedGid)
-  const toIdx = items.findIndex(t => t.gid === targetGid)
+  const fromIdx = items.findIndex((t) => t.gid === draggedGid)
+  const toIdx = items.findIndex((t) => t.gid === targetGid)
   if (fromIdx < 0 || toIdx < 0) return
 
   if (fromIdx < toIdx) {
@@ -315,11 +395,19 @@ function toModalStatus(s: TaskStatus): 'downloading' | 'completed' | 'paused' | 
     <header class="chrome">
       <div class="chrome-left">
         <div class="chrome-logo">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="logo-icon">
-            <path d="M12 2a10 10 0 1 0 10 10h-10Z"/>
-            <path d="M12 12 2.93 5.4"/>
-            <path d="M12 12 8.15 18.6"/>
-            <path d="M12 12h10"/>
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            class="logo-icon"
+          >
+            <path d="M12 2a10 10 0 1 0 10 10h-10Z" />
+            <path d="M12 12 2.93 5.4" />
+            <path d="M12 12 8.15 18.6" />
+            <path d="M12 12h10" />
           </svg>
           <span><span class="accent">Download</span> Queue</span>
         </div>
@@ -327,7 +415,9 @@ function toModalStatus(s: TaskStatus): 'downloading' | 'completed' | 'paused' | 
       <div class="chrome-center"></div>
       <div class="chrome-right">
         <NButton quaternary size="small" @click="router.push('/')">
-          <template #icon><NIcon><ArrowBackOutline /></NIcon></template>
+          <template #icon
+            ><NIcon><ArrowBackOutline /></NIcon
+          ></template>
           Back to Chat
         </NButton>
       </div>
@@ -360,21 +450,46 @@ function toModalStatus(s: TaskStatus): 'downloading' | 'completed' | 'paused' | 
     <!-- Filters -->
     <div class="filter-bar">
       <div class="filter-tabs">
-        <NButton :type="activeFilter === 'all' ? 'primary' : 'default'" size="tiny" quaternary @click="activeFilter = 'all'">All</NButton>
-        <NButton :type="activeFilter === 'active' ? 'primary' : 'default'" size="tiny" quaternary @click="activeFilter = 'active'">Active</NButton>
-        <NButton :type="activeFilter === 'paused' ? 'primary' : 'default'" size="tiny" quaternary @click="activeFilter = 'paused'">Paused</NButton>
-        <NButton :type="activeFilter === 'complete' ? 'primary' : 'default'" size="tiny" quaternary @click="activeFilter = 'complete'">Completed</NButton>
-        <NButton :type="activeFilter === 'error' ? 'primary' : 'default'" size="tiny" quaternary @click="activeFilter = 'error'">Failed</NButton>
+        <NButton
+          :type="activeFilter === 'all' ? 'primary' : 'default'"
+          size="tiny"
+          quaternary
+          @click="activeFilter = 'all'"
+          >All</NButton
+        >
+        <NButton
+          :type="activeFilter === 'active' ? 'primary' : 'default'"
+          size="tiny"
+          quaternary
+          @click="activeFilter = 'active'"
+          >Active</NButton
+        >
+        <NButton
+          :type="activeFilter === 'paused' ? 'primary' : 'default'"
+          size="tiny"
+          quaternary
+          @click="activeFilter = 'paused'"
+          >Paused</NButton
+        >
+        <NButton
+          :type="activeFilter === 'complete' ? 'primary' : 'default'"
+          size="tiny"
+          quaternary
+          @click="activeFilter = 'complete'"
+          >Completed</NButton
+        >
+        <NButton
+          :type="activeFilter === 'error' ? 'primary' : 'default'"
+          size="tiny"
+          quaternary
+          @click="activeFilter = 'error'"
+          >Failed</NButton
+        >
       </div>
       <div class="filter-actions">
         <div class="search-box">
           <NIcon size="14"><SearchOutline /></NIcon>
-          <input
-            v-model="searchQuery"
-            type="text"
-            placeholder="Search tasks..."
-            class="search-input"
-          />
+          <input v-model="searchQuery" type="text" placeholder="Search tasks..." class="search-input" />
           <button v-if="searchQuery" class="search-clear" @click="searchQuery = ''">
             <NIcon size="12"><CloseOutline /></NIcon>
           </button>
@@ -389,15 +504,21 @@ function toModalStatus(s: TaskStatus): 'downloading' | 'completed' | 'paused' | 
     <div v-if="selectedGids.size > 0" class="bulk-bar">
       <span class="bulk-count">{{ selectedGids.size }} selected</span>
       <NButton size="tiny" type="primary" quaternary @click="handleBulkResume">
-        <template #icon><NIcon><PlayOutline /></NIcon></template>
+        <template #icon
+          ><NIcon><PlayOutline /></NIcon
+        ></template>
         Resume
       </NButton>
       <NButton size="tiny" quaternary @click="handleBulkPause">
-        <template #icon><NIcon><PauseOutline /></NIcon></template>
+        <template #icon
+          ><NIcon><PauseOutline /></NIcon
+        ></template>
         Pause
       </NButton>
       <NButton size="tiny" type="error" quaternary @click="handleBulkRemove">
-        <template #icon><NIcon><TrashOutline /></NIcon></template>
+        <template #icon
+          ><NIcon><TrashOutline /></NIcon
+        ></template>
         Remove
       </NButton>
       <NButton size="tiny" quaternary @click="selectedGids.clear()">Cancel</NButton>
@@ -415,12 +536,20 @@ function toModalStatus(s: TaskStatus): 'downloading' | 'completed' | 'paused' | 
         <thead>
           <tr>
             <th class="col-check"><NCheckbox :checked="allSelected" @update:checked="toggleSelectAll" /></th>
-            <th class="col-name sortable" @click="toggleSort('name')">NAME {{ sortKey === 'name' ? (sortAsc ? '↑' : '↓') : '' }}</th>
+            <th class="col-name sortable" @click="toggleSort('name')">
+              NAME {{ sortKey === 'name' ? (sortAsc ? '↑' : '↓') : '' }}
+            </th>
             <th class="col-source">SOURCE</th>
-            <th class="col-status sortable" @click="toggleSort('status')">STATUS {{ sortKey === 'status' ? (sortAsc ? '↑' : '↓') : '' }}</th>
+            <th class="col-status sortable" @click="toggleSort('status')">
+              STATUS {{ sortKey === 'status' ? (sortAsc ? '↑' : '↓') : '' }}
+            </th>
             <th class="col-progress">PROGRESS</th>
-            <th class="col-speed sortable" @click="toggleSort('speed')">SPEED {{ sortKey === 'speed' ? (sortAsc ? '↑' : '↓') : '' }}</th>
-            <th class="col-size sortable" @click="toggleSort('size')">SIZE {{ sortKey === 'size' ? (sortAsc ? '↑' : '↓') : '' }}</th>
+            <th class="col-speed sortable" @click="toggleSort('speed')">
+              SPEED {{ sortKey === 'speed' ? (sortAsc ? '↑' : '↓') : '' }}
+            </th>
+            <th class="col-size sortable" @click="toggleSort('size')">
+              SIZE {{ sortKey === 'size' ? (sortAsc ? '↑' : '↓') : '' }}
+            </th>
             <th class="col-eta">ETA</th>
             <th class="col-actions"></th>
           </tr>
@@ -476,25 +605,59 @@ function toModalStatus(s: TaskStatus): 'downloading' | 'completed' | 'paused' | 
             <td class="col-actions" @click.stop>
               <div class="action-btns">
                 <NButton v-if="task.status === 'active'" size="tiny" quaternary @click="handlePause(task.gid)">
-                  <template #icon><NIcon><PauseOutline /></NIcon></template>
+                  <template #icon
+                    ><NIcon><PauseOutline /></NIcon
+                  ></template>
                 </NButton>
-                <NButton v-if="task.status === 'paused' || task.status === 'waiting'" size="tiny" quaternary @click="handleResume(task.gid)">
-                  <template #icon><NIcon><PlayOutline /></NIcon></template>
+                <NButton
+                  v-if="task.status === 'paused' || task.status === 'waiting'"
+                  size="tiny"
+                  quaternary
+                  @click="handleResume(task.gid)"
+                >
+                  <template #icon
+                    ><NIcon><PlayOutline /></NIcon
+                  ></template>
                 </NButton>
-                <NButton v-if="task.status === 'error' || task.status === 'removed'" size="tiny" quaternary @click="handleRetry(task)">
-                  <template #icon><NIcon><RefreshOutline /></NIcon></template>
+                <NButton
+                  v-if="task.status === 'error' || task.status === 'removed'"
+                  size="tiny"
+                  quaternary
+                  @click="handleRetry(task)"
+                >
+                  <template #icon
+                    ><NIcon><RefreshOutline /></NIcon
+                  ></template>
                 </NButton>
-                <NButton v-if="task.status === 'complete'" size="tiny" quaternary>
-                  <template #icon><NIcon><FolderOpenOutline /></NIcon></template>
+                <NButton v-if="task.status === 'complete'" size="tiny" quaternary @click="handleOpenFolder(task)">
+                  <template #icon
+                    ><NIcon><FolderOpenOutline /></NIcon
+                  ></template>
                 </NButton>
-                <NButton v-if="task.status === 'waiting' || task.status === 'paused'" size="tiny" quaternary @click="handleMoveUp(task.gid)">
-                  <template #icon><NIcon><ArrowUpOutline /></NIcon></template>
+                <NButton
+                  v-if="task.status === 'waiting' || task.status === 'paused'"
+                  size="tiny"
+                  quaternary
+                  @click="handleMoveUp(task.gid)"
+                >
+                  <template #icon
+                    ><NIcon><ArrowUpOutline /></NIcon
+                  ></template>
                 </NButton>
-                <NButton v-if="task.status === 'waiting' || task.status === 'paused'" size="tiny" quaternary @click="handleMoveDown(task.gid)">
-                  <template #icon><NIcon><ArrowDownOutline /></NIcon></template>
+                <NButton
+                  v-if="task.status === 'waiting' || task.status === 'paused'"
+                  size="tiny"
+                  quaternary
+                  @click="handleMoveDown(task.gid)"
+                >
+                  <template #icon
+                    ><NIcon><ArrowDownOutline /></NIcon
+                  ></template>
                 </NButton>
                 <NButton size="tiny" quaternary type="error" @click="handleRemove(task.gid)">
-                  <template #icon><NIcon><TrashOutline /></NIcon></template>
+                  <template #icon
+                    ><NIcon><TrashOutline /></NIcon
+                  ></template>
                 </NButton>
               </div>
             </td>
@@ -519,24 +682,31 @@ function toModalStatus(s: TaskStatus): 'downloading' | 'completed' | 'paused' | 
       <div class="bottom-right">
         <span :class="['connection-dot', manager.connected.value ? 'connected' : 'disconnected']"></span>
         <span class="connection-text">{{ manager.connected.value ? 'aria2 connected' : 'aria2 disconnected' }}</span>
+        <NButton v-if="!manager.connected.value" size="tiny" type="primary" quaternary @click="handleReconnect"
+          >Reconnect</NButton
+        >
       </div>
     </div>
 
     <!-- Task Detail Modal -->
     <TaskDetailModal
       :visible="detailVisible"
-      :task="detailTask ? {
-        id: 0,
-        name: detailTask.name,
-        source: getSource(detailTask),
-        status: toModalStatus(detailTask.status),
-        progress: detailTask.progress,
-        speed: detailTask.status === 'active' ? formatSpeed(detailTask.downloadSpeed) : '—',
-        size: formatSize(detailTask.completedBytes, detailTask.totalBytes),
-        eta: formatETA(detailTask),
-        type: mapCategoryToType(detailTask.category),
-        filePath: detailTask.dir,
-      } : null"
+      :task="
+        detailTask
+          ? {
+              id: 0,
+              name: detailTask.name,
+              source: getSource(detailTask),
+              status: toModalStatus(detailTask.status),
+              progress: detailTask.progress,
+              speed: detailTask.status === 'active' ? formatSpeed(detailTask.downloadSpeed) : '—',
+              size: formatSize(detailTask.completedBytes, detailTask.totalBytes),
+              eta: formatETA(detailTask),
+              type: mapCategoryToType(detailTask.category),
+              filePath: detailTask.dir,
+            }
+          : null
+      "
       @close="closeDetail"
       @pause="detailTask && handlePause(detailTask.gid)"
       @resume="detailTask && handleResume(detailTask.gid)"
@@ -757,15 +927,33 @@ function toModalStatus(s: TaskStatus): 'downloading' | 'completed' | 'paused' | 
   background: var(--primary-muted);
 }
 
-.col-check { width: 40px; }
-.col-name { width: 25%; }
-.col-source { width: 15%; }
-.col-status { width: 9%; }
-.col-progress { width: 16%; }
-.col-speed { width: 10%; }
-.col-size { width: 12%; }
-.col-eta { width: 7%; }
-.col-actions { width: 8%; }
+.col-check {
+  width: 40px;
+}
+.col-name {
+  width: 25%;
+}
+.col-source {
+  width: 15%;
+}
+.col-status {
+  width: 9%;
+}
+.col-progress {
+  width: 16%;
+}
+.col-speed {
+  width: 10%;
+}
+.col-size {
+  width: 12%;
+}
+.col-eta {
+  width: 7%;
+}
+.col-actions {
+  width: 8%;
+}
 
 .task-name-cell {
   display: flex;
@@ -783,12 +971,30 @@ function toModalStatus(s: TaskStatus): 'downloading' | 'completed' | 'paused' | 
   justify-content: center;
 }
 
-.task-name-icon.video { background: var(--primary-muted); color: var(--primary); }
-.task-name-icon.document { background: var(--accent-muted); color: var(--accent); }
-.task-name-icon.archive { background: var(--warning-muted); color: var(--warning); }
-.task-name-icon.software { background: var(--warning-muted); color: var(--warning); }
-.task-name-icon.image { background: var(--accent-muted); color: var(--accent); }
-.task-name-icon.other { background: var(--accent-muted); color: var(--accent); }
+.task-name-icon.video {
+  background: var(--primary-muted);
+  color: var(--primary);
+}
+.task-name-icon.document {
+  background: var(--accent-muted);
+  color: var(--accent);
+}
+.task-name-icon.archive {
+  background: var(--warning-muted);
+  color: var(--warning);
+}
+.task-name-icon.software {
+  background: var(--warning-muted);
+  color: var(--warning);
+}
+.task-name-icon.image {
+  background: var(--accent-muted);
+  color: var(--accent);
+}
+.task-name-icon.other {
+  background: var(--accent-muted);
+  color: var(--accent);
+}
 
 .task-name-text {
   font-weight: 500;
@@ -859,7 +1065,7 @@ function toModalStatus(s: TaskStatus): 'downloading' | 'completed' | 'paused' | 
   height: 100%;
   border-radius: 2px;
   transition: width 0.3s ease;
-  background: #3B82F6;
+  background: #3b82f6;
 }
 
 .task-progress-text {
@@ -932,11 +1138,11 @@ function toModalStatus(s: TaskStatus): 'downloading' | 'completed' | 'paused' | 
 }
 
 .connection-dot.connected {
-  background: #10B981;
+  background: #10b981;
 }
 
 .connection-dot.disconnected {
-  background: #EF4444;
+  background: #ef4444;
 }
 
 .connection-text {
