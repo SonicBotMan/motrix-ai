@@ -3,7 +3,7 @@
 // get_download_path, organize_file, show_in_folder.
 
 use super::build_http_client;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tauri::command;
 
 /// Sanitize a user/metadata-provided string so it is safe to use as a
@@ -33,7 +33,7 @@ fn sanitize_path_component(s: &str) -> String {
 /// Build a path under `base`, asserting the result actually stays under
 /// `base`. Defends against any path-escape attempt that slipped past
 /// `sanitize_path_component` (defence in depth).
-fn safe_join(base: &PathBuf, components: &[&str]) -> Result<PathBuf, String> {
+fn safe_join(base: &Path, components: &[&str]) -> Result<PathBuf, String> {
     let mut out = base.clone();
     for c in components {
         let cleaned = sanitize_path_component(c);
