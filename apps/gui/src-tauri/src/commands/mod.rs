@@ -6,7 +6,6 @@ pub mod config;
 pub mod fs;
 pub mod http_api;
 pub mod intent;
-pub mod protocol;
 pub mod search;
 
 use serde::{Deserialize, Serialize};

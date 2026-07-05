@@ -1,6 +1,7 @@
 // tray.rs — System tray icon, context menu, and click handlers.
 // Extracted from lib.rs for maintainability.
 
+use crate::services::power;
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
@@ -38,6 +39,12 @@ pub fn create_tray<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
                 }
             }
             "quit" => {
+                // Release the power inhibitor synchronously before exit.
+                // app.exit(0) terminates the tokio runtime immediately, so
+                // an async allow_sleep() call would never complete. Linux's
+                // systemd-inhibit child would otherwise linger as a zombie
+                // holding an idle-sleep lock until the next reboot.
+                power::release_inhibitor_blocking();
                 app.exit(0);
             }
             _ => {}

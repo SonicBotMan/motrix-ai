@@ -2,8 +2,12 @@
 // Handles CORS-free proxying to Btdig, Mikan, 1337x, Nyaa, TorrentGalaxy.
 
 use super::{build_http_client, SearchResponse, SearchResult};
+use std::sync::Arc;
 use std::sync::LazyLock;
+use std::time::Duration;
 use tauri::command;
+use tokio::sync::Semaphore;
+use tokio::task::JoinSet;
 
 // ---------------------------------------------------------------------------
 // Pre-compiled regexes (Bug 6)
@@ -45,6 +49,12 @@ static X1337_LEECHER_RE: LazyLock<regex::Regex> =
     LazyLock::new(|| regex::Regex::new(r#"<td[^>]*class="leeches?"[^>]*>(\d+)</td>"#).unwrap());
 static X1337_SIZE_RE: LazyLock<regex::Regex> =
     LazyLock::new(|| regex::Regex::new(r#"<td[^>]*class="size"[^>]*>([\s\S]*?)</td>"#).unwrap());
+// Detail-page magnet regex — 1337x puts the magnet link inside a dropdown
+// block on the torrent's detail page (e.g. /torrent/12345/). Format:
+//   <a href="magnet:?xt=urn:btih:<40-hex>&dn=...&tr=...">
+static X1337_DETAIL_MAGNET_RE: LazyLock<regex::Regex> = LazyLock::new(|| {
+    regex::Regex::new(r#"href="(magnet:\?xt=urn:btih:[a-fA-F0-9]{40}[^"]*)""#).unwrap()
+});
 
 // Nyaa
 static NYAA_ROW_RE: LazyLock<regex::Regex> = LazyLock::new(|| {
@@ -146,7 +156,7 @@ pub async fn search_proxy(
     let results = match source.as_str() {
         "btdig" => parse_btdig_results(&html),
         "mikan" => parse_mikan_results(&html),
-        "1337x" => parse_1337x_results(&html),
+        "1337x" => parse_1337x_results(&client, &html).await,
         "nyaa" => parse_nyaa_results(&html),
         "torrentgalaxy" => parse_torrentgalaxy_results(&html),
         _ => Vec::new(),
@@ -267,11 +277,68 @@ fn parse_mikan_results(xml: &str) -> Vec<SearchResult> {
 }
 
 /// Parse 1337x HTML search results.
-/// 1337x search results page lists torrents with links to detail pages.
-/// Magnet links are only on detail pages, so the magnet field contains the
-/// detail-page URL as a placeholder.
-fn parse_1337x_results(html: &str) -> Vec<SearchResult> {
+///
+/// 1337x search results pages list torrents with links to detail pages but
+/// do NOT include magnet links. The magnet link only appears on each
+/// torrent's detail page (e.g. `/torrent/12345/Title-720p/`).
+///
+/// This function:
+///   1. Parses the search page into a list of intermediate entries.
+///   2. Concurrently fetches each entry's detail page to resolve the magnet
+///      link, with a `Semaphore(3)` cap to avoid being rate-limited.
+///   3. Drops any entry whose detail page can't be fetched or whose magnet
+///      link can't be parsed — better to return fewer usable results than
+///      many unusable detail-URLs masquerading as magnets.
+async fn parse_1337x_results(client: &reqwest::Client, html: &str) -> Vec<SearchResult> {
+    let entries = extract_1337x_search_entries(html);
+    if entries.is_empty() {
+        return Vec::new();
+    }
+
+    let semaphore = Arc::new(Semaphore::new(3));
+    let client = Arc::new(client.clone());
+
+    let mut set: JoinSet<(X1337Entry, Option<String>)> = JoinSet::new();
+    for entry in entries {
+        let sem = semaphore.clone();
+        let client = client.clone();
+        set.spawn(async move {
+            let magnet = fetch_1337x_magnet(&client, &sem, &entry.detail_url).await;
+            (entry, magnet)
+        });
+    }
+
     let mut results = Vec::new();
+    while let Some(res) = set.join_next().await {
+        if let Ok((entry, Some(magnet))) = res {
+            results.push(SearchResult {
+                title: entry.title,
+                magnet,
+                size: entry.size,
+                seeders: entry.seeders,
+                leechers: entry.leechers,
+                source: "1337x".to_string(),
+                quality: entry.quality,
+            });
+        }
+    }
+    results
+}
+
+/// Intermediate entry produced by parsing the 1337x search-results page.
+struct X1337Entry {
+    detail_url: String,
+    title: String,
+    seeders: u32,
+    leechers: u32,
+    size: u64,
+    quality: Option<String>,
+}
+
+/// Walk the 1337x search-results HTML and produce one [`X1337Entry`] per row
+/// that has a parseable title and detail-page link. Pure parsing — no network I/O.
+fn extract_1337x_search_entries(html: &str) -> Vec<X1337Entry> {
+    let mut entries = Vec::new();
 
     for row_caps in X1337_ROW_RE.captures_iter(html) {
         let row = &row_caps[1];
@@ -284,7 +351,6 @@ fn parse_1337x_results(html: &str) -> Vec<SearchResult> {
         let detail_path = &link_caps[1];
         let raw_title = &link_caps[2];
         let title = STRIP_TAGS_RE.replace_all(raw_title, "").trim().to_string();
-
         if title.is_empty() {
             continue;
         }
@@ -308,20 +374,57 @@ fn parse_1337x_results(html: &str) -> Vec<SearchResult> {
             .unwrap_or(0);
 
         let quality = detect_quality(&title);
-        let magnet = format!("https://1337x.to{}", detail_path);
 
-        results.push(SearchResult {
+        entries.push(X1337Entry {
+            detail_url: format!("https://1337x.to{}", detail_path),
             title,
-            magnet,
-            size,
             seeders,
             leechers,
-            source: "1337x".to_string(),
+            size,
             quality,
         });
     }
 
-    results
+    entries
+}
+
+/// Fetch a single 1337x detail page and extract its magnet link.
+///
+/// Returns `None` when:
+///   * the semaphore can't be acquired (shouldn't happen normally),
+///   * the request times out (5s cap, avoids hanging the whole search),
+///   * the response status is not 2xx,
+///   * the page body doesn't contain a recognisable magnet link.
+async fn fetch_1337x_magnet(
+    client: &reqwest::Client,
+    semaphore: &Semaphore,
+    detail_url: &str,
+) -> Option<String> {
+    let _permit = semaphore.acquire().await.ok()?;
+
+    let response = tokio::time::timeout(
+        Duration::from_secs(5),
+        client
+            .get(detail_url)
+            .header(
+                "Accept",
+                "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            )
+            .header("Accept-Language", "en-US,en;q=0.5")
+            .send(),
+    )
+    .await
+    .ok()?;
+
+    let response = response.ok()?;
+    if !response.status().is_success() {
+        return None;
+    }
+
+    let html = response.text().await.ok()?;
+    X1337_DETAIL_MAGNET_RE
+        .captures(&html)
+        .map(|c| c[1].to_string())
 }
 
 /// Parse Nyaa.si HTML search results.
@@ -523,5 +626,108 @@ mod tests {
     #[test]
     fn test_detect_quality_other() {
         assert_eq!(detect_quality("Movie.DVDRip"), None);
+    }
+
+    #[test]
+    fn extract_1337x_entries_parses_well_formed_row() {
+        let html = r#"
+        <table>
+          <tr>
+            <td><a href="/torrent/12345/Inception-2010-1080p/">Inception (2010) [1080p]</a></td>
+            <td class="seeds">120</td>
+            <td class="leeches">12</td>
+            <td class="size">2.5 GB</td>
+          </tr>
+        </table>"#;
+        let entries = extract_1337x_search_entries(html);
+        assert_eq!(entries.len(), 1);
+        let e = &entries[0];
+        assert_eq!(
+            e.detail_url,
+            "https://1337x.to/torrent/12345/Inception-2010-1080p/"
+        );
+        assert_eq!(e.title, "Inception (2010) [1080p]");
+        assert_eq!(e.seeders, 120);
+        assert_eq!(e.leechers, 12);
+        assert_eq!(e.size, 2_684_354_560);
+        assert_eq!(e.quality, Some("1080p".to_string()));
+    }
+
+    #[test]
+    fn extract_1337x_entries_skips_row_without_title_link() {
+        let html = r#"
+        <table>
+          <tr><td>no link here</td></tr>
+          <tr><td><a href="/torrent/1/Real-One/">Real One</a></td>
+              <td class="seeds">5</td><td class="leeches">1</td>
+              <td class="size">100 MB</td></tr>
+        </table>"#;
+        let entries = extract_1337x_search_entries(html);
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].title, "Real One");
+    }
+
+    #[test]
+    fn extract_1337x_entries_skips_empty_title() {
+        let html = r#"
+        <table>
+          <tr><td><a href="/torrent/2/x/">   </a></td></tr>
+          <tr><td><a href="/torrent/3/Good/">Good</a></td></tr>
+        </table>"#;
+        let entries = extract_1337x_search_entries(html);
+        assert_eq!(entries.len(), 1);
+    }
+
+    #[test]
+    fn extract_1337x_entries_returns_empty_for_unrelated_html() {
+        let entries = extract_1337x_search_entries("<html><body>nothing</body></html>");
+        assert!(entries.is_empty());
+    }
+
+    #[test]
+    fn x1337_detail_magnet_regex_matches_standard_magnet() {
+        let html = r#"<a href="magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567&dn=Test">download</a>"#;
+        let caps = X1337_DETAIL_MAGNET_RE.captures(html);
+        assert!(caps.is_some(), "regex should match a valid 40-hex magnet");
+        let m = caps.unwrap();
+        assert!(m[1].starts_with("magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567"));
+        assert!(m[1].contains("&dn=Test"));
+    }
+
+    #[test]
+    fn x1337_detail_magnet_regex_matches_32_char_base32_hash() {
+        // Base32 info-hash variant (aria2 also accepts these).
+        // The regex strictly requires 40 hex chars; base32 magnets are rejected.
+        // (If 1337x ever serves base32 magnets we'll need to loosen the regex,
+        // but every observed 1337x detail page uses 40-hex.)
+        let html =
+            r#"<a href="magnet:?xt=urn:btih:ABCDEFGHIJKLMNOPQRSTUVWXYZ234567&dn=Base32">x</a>"#;
+        assert!(X1337_DETAIL_MAGNET_RE.captures(html).is_none());
+    }
+
+    #[test]
+    fn x1337_detail_magnet_regex_rejects_short_hash() {
+        let html = r#"<a href="magnet:?xt=urn:btih:abcd&dn=Short">x</a>"#;
+        assert!(X1337_DETAIL_MAGNET_RE.captures(html).is_none());
+    }
+
+    #[test]
+    fn x1337_detail_magnet_regex_rejects_non_magnet_href() {
+        let html = r#"<a href="https://example.com/not-a-magnet">x</a>"#;
+        assert!(X1337_DETAIL_MAGNET_RE.captures(html).is_none());
+    }
+
+    #[test]
+    fn x1337_detail_magnet_regex_finds_magnet_in_full_detail_page_snippet() {
+        let html = r#"
+        <div class="dropdown">
+          <button>Magnet</button>
+          <ul>
+            <li><a href="magnet:?xt=urn:btih:abcdef0123456789abcdef0123456789abcdef01&dn=Movie.2020&tr=udp%3A%2F%2Ftracker.example.com%3A1337">Magnet Download</a></li>
+          </ul>
+        </div>"#;
+        let caps = X1337_DETAIL_MAGNET_RE.captures(html);
+        assert!(caps.is_some());
+        assert!(caps.unwrap()[1].contains("dn=Movie.2020"));
     }
 }
