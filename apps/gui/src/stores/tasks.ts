@@ -2,6 +2,12 @@
 // Pinia store for download task management.
 // Integrates with useAria2 for real aria2 RPC tasks, with graceful
 // fallback to a local in-memory task list when aria2 is not connected.
+//
+// Post-download pipeline (registered once on init):
+//   aria2 task → status='complete' → trigger:
+//     1. Desktop notification (send_notification)
+//     2. File organize (organize_file with intent metadata)
+//     3. Subtitle search (lazy load useSubtitle, only for video + need_subtitle)
 
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
@@ -33,6 +39,38 @@ export interface Task {
   filePath?: string
 }
 
+/**
+ * Metadata describing the user's intent when they added a download.
+ *
+ * Captured at `addTask()` time and looked up by GID when the download
+ * completes, so the post-download pipeline can name files correctly
+ * (`Movie.Title.2010.1080p.mkv` instead of `abc123.tmp`) and decide
+ * whether to search for subtitles.
+ */
+export interface DownloadIntentMeta {
+  /** Clean human-readable title (e.g. "Inception"). */
+  title: string
+  /** Release year if known. */
+  year?: number | null
+  /** Quality bucket: "4K" | "1080p" | "720p" | "other". */
+  quality?: string
+  /** Resource type: "movie" | "tv" | "anime" | "music" | "software" | "other". */
+  resourceType?: string
+  /** True if the user asked for subtitles (e.g. "中字" / "subtitle" in input). */
+  needSubtitle?: boolean
+}
+
+// ---------------------------------------------------------------------------
+// Module-level state (outside the store so it survives HMR / re-init)
+// ---------------------------------------------------------------------------
+
+/**
+ * Map of in-flight aria2 GID → the intent metadata captured when the
+ * download was added. Entries are removed once the post-download pipeline
+ * finishes (success or failure) so memory does not grow unbounded.
+ */
+const intentByGid = new Map<string, DownloadIntentMeta>()
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -40,12 +78,20 @@ export interface Task {
 /** Map an aria2 status string to our UI task status */
 function mapAria2Status(status: string): TaskStatus {
   switch (status) {
-    case 'active': return 'downloading'
-    case 'complete': return 'completed'
-    case 'paused': return 'paused'
-    case 'error': return 'failed'
-    case 'waiting': return 'pending'
-    default: return 'pending'
+    case 'active':
+      return 'downloading'
+    case 'complete':
+      return 'completed'
+    case 'paused':
+      return 'paused'
+    case 'error':
+      return 'failed'
+    case 'waiting':
+      return 'pending'
+    case 'removed':
+      return 'failed'
+    default:
+      return 'pending'
   }
 }
 
@@ -65,9 +111,7 @@ function fromAria2Status(s: Aria2Status, idx: number): Task {
   const completed = Number(s.completedLength) || 0
   const progress = total > 0 ? Math.round((completed / total) * 100) : 0
   const speed = Number(s.downloadSpeed) || 0
-  const filename = s.files?.[0]?.path?.split('/').pop()
-    || s.bittorrent?.info?.name
-    || `Task ${s.gid}`
+  const filename = s.files?.[0]?.path?.split('/').pop() || s.bittorrent?.info?.name || `Task ${s.gid}`
 
   return {
     id: idx + 1,
@@ -84,6 +128,14 @@ function fromAria2Status(s: Aria2Status, idx: number): Task {
   }
 }
 
+/** True if the file extension looks like a video format we can find subtitles for. */
+const VIDEO_EXTS = new Set(['mkv', 'mp4', 'avi', 'mov', 'wmv', 'flv', 'ts', 'm4v'])
+function isVideoPath(filePath: string | undefined): boolean {
+  if (!filePath) return false
+  const ext = filePath.split('.').pop()?.toLowerCase() || ''
+  return VIDEO_EXTS.has(ext)
+}
+
 // ---------------------------------------------------------------------------
 // Store
 // ---------------------------------------------------------------------------
@@ -97,26 +149,21 @@ function fromAria2Status(s: Aria2Status, idx: number): Task {
  */
 export const useTasksStore = defineStore('tasks', () => {
   // -- aria2 integration --------------------------------------------------
-  // useAria2 is instantiated once; its onMounted/onUnmounted hooks are
-  // no-ops inside a Pinia setup store so we expose an explicit init().
   const aria2 = useAria2()
 
   // -- local fallback state ----------------------------------------------
-  /** Tasks created while aria2 is disconnected */
   const localTasks = ref<Task[]>([])
-
-  /** Current UI filter: 'all' | 'downloading' | 'completed' | 'failed' */
   const activeFilter = ref<string>('all')
-
-  /** Auto-incrementing id generator for local tasks */
   let nextLocalId = Date.now()
 
-  // -- getters ------------------------------------------------------------
+  // -- pipeline registration guard ---------------------------------------
+  // `onTaskComplete` listener must only be registered once per process;
+  // otherwise repeated init()/dispose() cycles would stack listeners and
+  // fire the pipeline N times for the same task.
+  let pipelineRegistered = false
 
-  /**
-   * Merged view of all tasks.
-   * Uses mapped aria2 tasks when available, otherwise the local list.
-   */
+  // -- getters -----------------------------------------------------------
+
   const tasks = computed<Task[]>(() => {
     if (aria2.connected.value && aria2.tasks.value.length > 0) {
       return aria2.tasks.value.map((s, i) => fromAria2Status(s, i))
@@ -124,69 +171,150 @@ export const useTasksStore = defineStore('tasks', () => {
     return localTasks.value
   })
 
-  /** Tasks filtered by the active filter */
   const filteredTasks = computed<Task[]>(() => {
     if (activeFilter.value === 'all') return tasks.value
-    return tasks.value.filter(t => t.status === activeFilter.value)
+    return tasks.value.filter((t) => t.status === activeFilter.value)
   })
 
-  /** Number of tasks currently downloading */
-  const activeCount = computed<number>(() =>
-    tasks.value.filter(t => t.status === 'downloading').length,
-  )
+  const activeCount = computed<number>(() => tasks.value.filter((t) => t.status === 'downloading').length)
 
-  /** Number of completed tasks */
-  const completedCount = computed<number>(() =>
-    tasks.value.filter(t => t.status === 'completed').length,
-  )
+  const completedCount = computed<number>(() => tasks.value.filter((t) => t.status === 'completed').length)
 
-  // -- actions ------------------------------------------------------------
+  // -- actions -----------------------------------------------------------
 
   /**
-   * Initialize the aria2 connection.
+   * Initialize the aria2 connection and register the post-download pipeline.
    *
-   * Replicates the startup logic from useAria2's onMounted hook, which does
-   * not fire inside a Pinia setup store. Must be called from a component's
-   * onMounted hook.
+   * Safe to call multiple times — the pipeline listener is only registered
+   * on the first call, and subsequent calls skip aria2 startup if already
+   * connected.
    */
   async function init(): Promise<void> {
-    if (aria2.connected.value || aria2.connecting.value) return
+    if (aria2.connected.value || aria2.connecting.value) {
+      registerPipeline()
+      return
+    }
 
-    // 1. Try to start the bundled aria2c via Tauri backend
     try {
-      const { invoke } = await import("@tauri-apps/api/core")
-      const diag = await invoke<{ exists: boolean; binary_path: string }>("check_aria2_binary")
+      const { invoke } = await import('@tauri-apps/api/core')
+      const diag = await invoke<{ exists: boolean; binary_path: string }>('check_aria2_binary')
       if (!diag.exists) {
-        console.error("Bundled aria2c NOT FOUND at:", diag.binary_path)
+        console.error('Bundled aria2c NOT FOUND at:', diag.binary_path)
       } else {
-        await invoke<string>("start_aria2", { rpcPort: 6800 })
-        console.warn("Bundled aria2c started")
+        await invoke<string>('start_aria2', { rpcPort: 6800 })
       }
     } catch (e) {
-      console.warn("Bundled aria2c failed:", e)
-      // Fallback: try spawning a system aria2c
+      console.warn('Bundled aria2c failed:', e)
       try {
         await aria2.startAria2()
       } catch (_) {
-        console.warn("System aria2c not available either")
+        console.warn('System aria2c not available either')
       }
     }
 
-    // 2. Connect to aria2 RPC (whether bundled or system)
     await aria2.connect()
+    registerPipeline()
+  }
+
+  /**
+   * Register the post-download pipeline on the aria2 singleton.
+   *
+   * Idempotent — checks the `pipelineRegistered` flag so repeated `init()`
+   * calls do not stack listeners.
+   */
+  function registerPipeline(): void {
+    if (pipelineRegistered) return
+    aria2.onTaskComplete(async (task: Aria2Status) => {
+      const intent = intentByGid.get(task.gid)
+      try {
+        await runPostDownloadPipeline(task, intent)
+      } catch (e) {
+        console.error('[tasks] Post-download pipeline failed:', e)
+      } finally {
+        intentByGid.delete(task.gid)
+      }
+    })
+    pipelineRegistered = true
+  }
+
+  /**
+   * Run the post-download pipeline for a single completed task.
+   *
+   * Each stage is independently try/caught so a failure in one (e.g.
+   * subtitle API down) does not skip later stages or break the next
+   * completion event.
+   */
+  async function runPostDownloadPipeline(task: Aria2Status, intent: DownloadIntentMeta | undefined): Promise<void> {
+    const filePath = task.files?.[0]?.path
+    const filename = filePath?.split('/').pop() || task.gid
+
+    // 1. Desktop notification
+    try {
+      const { invoke } = await import('@tauri-apps/api/core')
+      await invoke('send_notification', {
+        title: 'Download complete',
+        body: intent?.title ? `${intent.title} — ${filename}` : filename,
+      })
+    } catch (e) {
+      console.warn('[tasks] Notification failed:', e)
+    }
+
+    // 2. Organize file using intent metadata (rename + relocate)
+    if (filePath && intent) {
+      try {
+        const { invoke } = await import('@tauri-apps/api/core')
+        await invoke<string>('organize_file', {
+          filePath,
+          title: intent.title,
+          year: intent.year ?? null,
+          quality: intent.quality ?? null,
+          resourceType: intent.resourceType ?? null,
+        })
+      } catch (e) {
+        console.warn('[tasks] File organize failed:', e)
+      }
+    }
+
+    // 3. Subtitle search (video + need_subtitle flag + API key configured)
+    if (intent?.needSubtitle && isVideoPath(filePath)) {
+      try {
+        const { useSubtitle, hasApiKey } = await import('@/composables/useSubtitle')
+        if (!hasApiKey()) {
+          console.warn('[tasks] Skipping subtitle search: no OpenSubtitles API key configured')
+        } else {
+          const subtitle = useSubtitle()
+          const query = intent.title
+          await subtitle.searchSubtitles(query)
+          const best = subtitle.getBestSubtitle()
+          if (best) {
+            console.warn(`[tasks] Subtitle found: ${best.fileName}`)
+          } else {
+            console.warn('[tasks] No matching subtitle found')
+          }
+        }
+      } catch (e) {
+        console.warn('[tasks] Subtitle search failed:', e)
+      }
+    }
   }
 
   /**
    * Add a download by URL or magnet link.
-   * Delegates to aria2.addUri when connected, otherwise appends a local
-   * placeholder task.
+   *
+   * When `intent` is provided, the metadata is captured in `intentByGid`
+   * keyed by the returned aria2 GID. When the download completes, the
+   * post-download pipeline uses this metadata to name and organize the file.
    *
    * @param url - HTTP(S) URL or magnet URI
-   * @param name - Optional display name override
+   * @param name - Optional display name override (used for local fallback only)
+   * @param intent - Optional intent metadata for post-download processing
    */
-  async function addTask(url: string, name?: string): Promise<void> {
+  async function addTask(url: string, name?: string, intent?: DownloadIntentMeta): Promise<void> {
     if (aria2.connected.value) {
-      await aria2.addUri(url)
+      const gid = await aria2.addUri(url)
+      if (intent && gid) {
+        intentByGid.set(gid, intent)
+      }
       return
     }
     // Fallback: create a local task so the user sees immediate feedback
@@ -203,30 +331,26 @@ export const useTasksStore = defineStore('tasks', () => {
     })
   }
 
-  /**
-   * Remove a task by id.
-   * Calls aria2.remove for real tasks, otherwise removes from local list.
-   */
+  /** Remove a task by id. */
   async function removeTask(taskId: number): Promise<void> {
-    const task = tasks.value.find(t => t.id === taskId)
+    const task = tasks.value.find((t) => t.id === taskId)
     if (!task) return
 
     if (task.gid && aria2.connected.value) {
       try {
         await aria2.remove(task.gid)
+        intentByGid.delete(task.gid)
       } catch (e) {
         console.error('Failed to remove task via aria2:', e)
       }
     } else {
-      localTasks.value = localTasks.value.filter(t => t.id !== taskId)
+      localTasks.value = localTasks.value.filter((t) => t.id !== taskId)
     }
   }
 
-  /**
-   * Pause a downloading task.
-   */
+  /** Pause a downloading task. */
   async function pauseTask(taskId: number): Promise<void> {
-    const task = tasks.value.find(t => t.id === taskId)
+    const task = tasks.value.find((t) => t.id === taskId)
     if (!task) return
 
     if (task.gid && aria2.connected.value) {
@@ -236,7 +360,7 @@ export const useTasksStore = defineStore('tasks', () => {
         console.error('Failed to pause task via aria2:', e)
       }
     } else {
-      const local = localTasks.value.find(t => t.id === taskId)
+      const local = localTasks.value.find((t) => t.id === taskId)
       if (local) {
         local.status = 'paused'
         local.speed = '—'
@@ -245,11 +369,9 @@ export const useTasksStore = defineStore('tasks', () => {
     }
   }
 
-  /**
-   * Resume a paused task.
-   */
+  /** Resume a paused task. */
   async function resumeTask(taskId: number): Promise<void> {
-    const task = tasks.value.find(t => t.id === taskId)
+    const task = tasks.value.find((t) => t.id === taskId)
     if (!task) return
 
     if (task.gid && aria2.connected.value) {
@@ -259,7 +381,7 @@ export const useTasksStore = defineStore('tasks', () => {
         console.error('Failed to resume task via aria2:', e)
       }
     } else {
-      const local = localTasks.value.find(t => t.id === taskId)
+      const local = localTasks.value.find((t) => t.id === taskId)
       if (local) {
         local.status = 'downloading'
         local.speed = '—'
@@ -268,40 +390,60 @@ export const useTasksStore = defineStore('tasks', () => {
     }
   }
 
-  /**
-   * Retry a failed task.
-   *
-   * For real aria2 tasks the old download is removed and the source URI is
-   * re-submitted so aria2 starts fresh. For local placeholder tasks the
-   * status is simply reset.
-   */
+  /** Retry a failed task by removing it and re-submitting the source URL. */
   async function retryTask(taskId: number): Promise<void> {
-    const task = tasks.value.find(t => t.id === taskId)
+    const task = tasks.value.find((t) => t.id === taskId)
     if (!task) return
 
     if (task.gid && aria2.connected.value) {
       try {
         await aria2.remove(task.gid)
-        await aria2.addUri(task.source)
+        // Preserve intent across retry so the post-download pipeline still fires.
+        const intent = intentByGid.get(task.gid)
+        intentByGid.delete(task.gid)
+        const newGid = await aria2.addUri(task.source)
+        if (intent && newGid) {
+          intentByGid.set(newGid, intent)
+        }
       } catch (e) {
-        console.error("Failed to retry task via aria2:", e)
+        console.error('Failed to retry task via aria2:', e)
       }
     } else {
-      const local = localTasks.value.find(t => t.id === taskId)
+      const local = localTasks.value.find((t) => t.id === taskId)
       if (local) {
-        local.status = "downloading"
+        local.status = 'downloading'
         local.progress = 0
-        local.speed = "—"
-        local.eta = "计算中..."
+        local.speed = '—'
+        local.eta = '计算中...'
       }
     }
   }
 
   /**
-   * Remove all completed tasks from the local list and purge aria2 results.
+   * Bump a task's priority in the aria2 queue by moving it to the top.
+   *
+   * Uses `aria2.changePosition(gid, 0, POS_SET)` — a real RPC method —
+   * instead of the unregistered `aria2_change_option` command that
+   * TaskFirstView previously called and silently swallowed.
+   *
+   * Returns true on success so callers can show accurate UI feedback.
    */
+  async function bumpPriority(taskId: number): Promise<boolean> {
+    const task = tasks.value.find((t) => t.id === taskId)
+    if (!task) return false
+    if (!task.gid || !aria2.connected.value) return false
+    try {
+      await aria2.moveToTop(task.gid)
+      return true
+    } catch (e) {
+      console.error('Failed to bump priority via aria2:', e)
+      return false
+    }
+  }
+
+  /** Remove all completed tasks from the local list and purge aria2 results. */
   async function clearCompleted(): Promise<void> {
-    localTasks.value = localTasks.value.filter(t => t.status !== 'completed')
+    localTasks.value = localTasks.value.filter((t) => t.status !== 'completed')
 
     if (aria2.connected.value) {
       try {
@@ -312,12 +454,15 @@ export const useTasksStore = defineStore('tasks', () => {
     }
   }
 
-  /**
-   * Set the active filter for the task list.
-   * @param filter - 'all' | 'downloading' | 'completed' | 'paused' | 'failed'
-   */
+  /** Set the active filter for the task list. */
   function setFilter(filter: string): void {
     activeFilter.value = filter
+  }
+
+  /** Test-only: clear the pipeline guard so a fresh init() re-registers. */
+  function _resetPipelineForTests(): void {
+    pipelineRegistered = false
+    intentByGid.clear()
   }
 
   return {
@@ -344,7 +489,10 @@ export const useTasksStore = defineStore('tasks', () => {
     pauseTask,
     resumeTask,
     retryTask,
+    bumpPriority,
     clearCompleted,
     setFilter,
+    // test helpers (not for production use)
+    _resetPipelineForTests,
   }
 })
