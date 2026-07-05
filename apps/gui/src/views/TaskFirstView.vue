@@ -28,7 +28,9 @@ import RowMenu from '@/components/task/RowMenu.vue'
 import BottomChat from '@/components/chat/BottomChat.vue'
 import ToastStack, { type Toast } from '@/components/toast/ToastStack.vue'
 import OnboardingCard from '@/components/onboarding/OnboardingCard.vue'
+import SearchResultsModal from '@/components/SearchResultsModal.vue'
 import { useTasksStore, type Task } from '@/stores/tasks'
+import type { SearchResult } from '@/composables/useSearch'
 
 const tasksStore = useTasksStore()
 
@@ -56,6 +58,11 @@ const menuPosition = ref<{ x: number; y: number } | null>(null)
 const toasts = ref<Toast[]>([])
 const showOnboarding = ref(false)
 const keyboardIndex = ref(-1)
+
+const showSearchResults = ref(false)
+const searchResults = ref<SearchResult[]>([])
+const searching = ref(false)
+const searchQuery = ref('')
 
 // ---------------------------------------------------------------------------
 // Toast system (docs/design/handoff/02-components.md §5)
@@ -179,28 +186,64 @@ async function handleSendMessage(message: string): Promise<void> {
     return
   }
 
-  // --- Natural language → parse intent ---
-  addToast({ id: generateToastId(), type: 'info', text: `Recognising: "${trimmed}"…`, createdAt: Date.now() })
+  // --- Natural language → parse intent → search → show results ---
+  addToast({ id: generateToastId(), type: 'info', text: `Searching: "${trimmed}"…`, createdAt: Date.now() })
   try {
-    const intent = await invoke<{ title?: string; resource_type?: string; search_keywords?: string[] }>(
-      'parse_nl_intent',
-      { input: trimmed, llmConfig: null },
-    )
-    const title = intent.title || trimmed
-    const rtype = intent.resource_type || 'unknown'
-    addToast({
-      id: generateToastId(),
-      type: 'success',
-      text: `Found: "${title}" (${rtype}). Paste a URL or magnet to download.`,
-      createdAt: Date.now(),
-    })
+    const intent = await invoke<{
+      title: string
+      resource_type: string
+      search_keywords: string[]
+      quality: string
+    }>('parse_nl_intent', { input: trimmed, llmConfig: null })
+
+    searchQuery.value = intent.search_keywords[0] || intent.title
+    searching.value = true
+    showSearchResults.value = true
+    searchResults.value = []
+
+    try {
+      const response = await invoke<{ results: SearchResult[]; total: number; source: string }>('search_proxy', {
+        query: searchQuery.value,
+        source: 'btdig',
+        page: 0,
+      })
+      searchResults.value = response.results || []
+      if (searchResults.value.length === 0) {
+        addToast({
+          id: generateToastId(),
+          type: 'info',
+          text: `No results for "${intent.title}"`,
+          createdAt: Date.now(),
+        })
+        showSearchResults.value = false
+      }
+    } catch (searchErr) {
+      addToast({
+        id: generateToastId(),
+        type: 'error',
+        text: `Search failed: ${String(searchErr).slice(0, 60)}`,
+        createdAt: Date.now(),
+      })
+      showSearchResults.value = false
+    } finally {
+      searching.value = false
+    }
   } catch {
     addToast({
       id: generateToastId(),
       type: 'info',
-      text: `Hint: try pasting a magnet link or HTTP URL`,
+      text: 'Hint: paste a magnet link or HTTP URL to download directly',
       createdAt: Date.now(),
     })
+  }
+}
+
+function handleSelectSearchResult(result: SearchResult): void {
+  showSearchResults.value = false
+  if (result.magnet) {
+    handleSendMessage(result.magnet)
+  } else {
+    addToast({ id: generateToastId(), type: 'error', text: 'No magnet link for this result', createdAt: Date.now() })
   }
 }
 
@@ -514,7 +557,6 @@ async function applyFileSelectionToAria2(): Promise<void> {
       .map(([index]) => index + 1)
       .join(',')
     if (selected) {
-      await tasksStore.bumpPriority(target.id).catch(() => {})
       const { useAria2 } = await import('@/composables/useAria2')
       await useAria2().changeOption(target.gid, { 'select-file': selected })
     }
@@ -697,6 +739,7 @@ onUnmounted(() => {
       @go-home="goHome"
       @toggle-theme="toggleTheme"
       @open-settings="openSettings"
+      @open-queue="router.push('/queue')"
     />
 
     <!-- Main content: task table (remaining space) -->
@@ -749,6 +792,15 @@ onUnmounted(() => {
 
     <!-- Onboarding card (first visit) -->
     <OnboardingCard v-if="showOnboarding" :show="showOnboarding" @complete="completeOnboarding" />
+
+    <SearchResultsModal
+      :visible="showSearchResults"
+      :results="searchResults"
+      :searching="searching"
+      :query="searchQuery"
+      @close="showSearchResults = false"
+      @select="handleSelectSearchResult"
+    />
   </div>
 </template>
 

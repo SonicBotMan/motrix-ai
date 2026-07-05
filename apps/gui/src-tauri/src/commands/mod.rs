@@ -80,3 +80,42 @@ pub(crate) fn build_http_client() -> Result<reqwest::Client, String> {
         .build()
         .map_err(|e| format!("Client build failed: {}", e))
 }
+
+/// Forward a download URL to the local aria2 daemon via JSON-RPC addUri.
+/// Shared by the HTTP API server (browser extension bridge) and the deep
+/// link handler (magnet:// protocol) so behaviour stays consistent.
+pub(crate) async fn aria2_add_uri(url: &str) -> Result<String, String> {
+    let client = build_http_client()?;
+    let body = serde_json::json!({
+        "jsonrpc": "2.0",
+        "id": "motrix-internal",
+        "method": "aria2.addUri",
+        "params": [[url]],
+    });
+    let resp = client
+        .post("http://127.0.0.1:6800/jsonrpc")
+        .header("Content-Type", "application/json")
+        .json(&body)
+        .timeout(Duration::from_secs(10))
+        .send()
+        .await
+        .map_err(|e| format!("aria2 RPC: {}", e))?;
+
+    let data: serde_json::Value = resp
+        .json()
+        .await
+        .map_err(|e| format!("aria2 parse: {}", e))?;
+
+    data.get("result")
+        .and_then(|v| v.as_str())
+        .map(String::from)
+        .ok_or_else(|| {
+            format!(
+                "aria2 error: {}",
+                data.get("error")
+                    .and_then(|e| e.get("message"))
+                    .and_then(|m| m.as_str())
+                    .unwrap_or("unknown")
+            )
+        })
+}
