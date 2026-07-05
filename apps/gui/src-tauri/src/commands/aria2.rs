@@ -152,15 +152,17 @@ pub async fn start_aria2(app: tauri::AppHandle, rpc_port: Option<u16>) -> Result
             Ok(rpc_url)
         }
         _ => {
-            let mut global_child = ARIA2_CHILD
-                .lock()
-                .map_err(|e| format!("Lock error: {}", e))?;
-            if let Some(p) = *global_child {
-                let _ = std::process::Command::new("kill")
-                    .args(["-9", &p.to_string()])
-                    .output();
+            {
+                let mut global_child = ARIA2_CHILD
+                    .lock()
+                    .map_err(|e| format!("Lock error: {}", e))?;
+                if let Some(p) = *global_child {
+                    let _ = std::process::Command::new("kill")
+                        .args(["-9", &p.to_string()])
+                        .output();
+                }
+                *global_child = None;
             }
-            *global_child = None;
             let log_path = session_dir.join("aria2.log");
             // Read the last log line on a blocking thread so we don't
             // stall the async runtime on slow disks.
