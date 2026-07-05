@@ -81,7 +81,7 @@ function addToast(toast: Toast): void {
   toasts.value.push(toast)
   // Prune oldest done toasts if exceeding stack max
   while (toasts.value.length > TOAST_STACK_MAX) {
-    const oldestDone = toasts.value.findIndex(t => !t.exiting)
+    const oldestDone = toasts.value.findIndex((t) => !t.exiting)
     if (oldestDone !== -1) {
       toasts.value.splice(oldestDone, 1)
     } else {
@@ -93,11 +93,11 @@ function addToast(toast: Toast): void {
 }
 
 function dismissToast(id: string): void {
-  const idx = toasts.value.findIndex(t => t.id === id)
+  const idx = toasts.value.findIndex((t) => t.id === id)
   if (idx === -1) return
   toasts.value[idx].exiting = true
   setTimeout(() => {
-    const i = toasts.value.findIndex(t => t.id === id)
+    const i = toasts.value.findIndex((t) => t.id === id)
     if (i !== -1) toasts.value.splice(i, 1)
   }, TOAST_EXIT_DELAY)
 }
@@ -109,24 +109,30 @@ function dismissToast(id: string): void {
 /**
  * Add a URI (HTTP/HTTPS/FTP/magnet) to the running aria2 daemon via JSON-RPC.
  * aria2.addUri accepts magnet URIs as well as regular HTTP URLs.
+ * Routes through the tasks store so a local placeholder appears in the
+ * table immediately (the store picks up the real aria2 task on next poll).
  * @returns the aria2 GID string on success
  */
-async function aria2AddUri(uri: string): Promise<string> {
-  const resp = await fetch('http://127.0.0.1:6800/jsonrpc', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      jsonrpc: '2.0',
-      id: 'motrix-gui',
-      method: 'aria2.addUri',
-      params: [[uri]],
-    }),
-  })
-  const data = await resp.json()
-  if (data.error) {
-    throw new Error(data.error.message || 'aria2 RPC error')
+async function aria2AddUri(uri: string): Promise<void> {
+  try {
+    await tasksStore.addTask(uri)
+  } catch (e) {
+    // addTask only throws if aria2 is connected AND the RPC fails; fall
+    // back to a raw JSON-RPC call so the user still gets the real error.
+    const data = await fetch('http://127.0.0.1:6800/jsonrpc', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 'motrix-gui',
+        method: 'aria2.addUri',
+        params: [[uri]],
+      }),
+    }).then((r) => r.json())
+    if (data.error) {
+      throw new Error(data.error.message || 'aria2 RPC error', { cause: e })
+    }
   }
-  return data.result as string
 }
 
 /**
@@ -143,8 +149,13 @@ async function handleSendMessage(message: string): Promise<void> {
   if (trimmed.startsWith('magnet:')) {
     addToast({ id: generateToastId(), type: 'info', text: 'Adding magnet link…', createdAt: Date.now() })
     try {
-      const gid = await aria2AddUri(trimmed)
-      addToast({ id: generateToastId(), type: 'success', text: `Magnet added: ${gid.slice(0, 8)}…`, createdAt: Date.now() })
+      await aria2AddUri(trimmed)
+      addToast({
+        id: generateToastId(),
+        type: 'success',
+        text: 'Magnet added to queue',
+        createdAt: Date.now(),
+      })
     } catch (err) {
       addToast({ id: generateToastId(), type: 'error', text: `Add failed: ${String(err)}`, createdAt: Date.now() })
     }
@@ -155,8 +166,13 @@ async function handleSendMessage(message: string): Promise<void> {
   if (/^(https?|ftp):\/\//i.test(trimmed)) {
     addToast({ id: generateToastId(), type: 'info', text: 'Adding download…', createdAt: Date.now() })
     try {
-      const gid = await aria2AddUri(trimmed)
-      addToast({ id: generateToastId(), type: 'success', text: `Download added: ${gid.slice(0, 8)}…`, createdAt: Date.now() })
+      await aria2AddUri(trimmed)
+      addToast({
+        id: generateToastId(),
+        type: 'success',
+        text: 'Download added to queue',
+        createdAt: Date.now(),
+      })
     } catch (err) {
       addToast({ id: generateToastId(), type: 'error', text: `Add failed: ${String(err)}`, createdAt: Date.now() })
     }
@@ -211,7 +227,12 @@ function handleQuickAction(index: number): void {
       addToast({ id: generateToastId(), type: 'info', text: 'Showing completed downloads', createdAt: Date.now() })
       return
     case 4: // Add magnet URL → focus the bottom chat input
-      addToast({ id: generateToastId(), type: 'info', text: 'Paste a magnet or URL in the input below', createdAt: Date.now() })
+      addToast({
+        id: generateToastId(),
+        type: 'info',
+        text: 'Paste a magnet or URL in the input below',
+        createdAt: Date.now(),
+      })
       return
   }
 }
@@ -241,7 +262,12 @@ async function handleAttach(): Promise<void> {
       selected = result
     }
   } catch (err) {
-    addToast({ id: generateToastId(), type: 'error', text: `Could not open file: ${String(err)}`, createdAt: Date.now() })
+    addToast({
+      id: generateToastId(),
+      type: 'error',
+      text: `Could not open file: ${String(err)}`,
+      createdAt: Date.now(),
+    })
     return
   }
   if (!selected) return
@@ -251,9 +277,19 @@ async function handleAttach(): Promise<void> {
 
   try {
     const gid = await invoke<string>('add_torrent_file', { path: selected })
-    addToast({ id: generateToastId(), type: 'success', text: `Torrent added: ${String(gid).slice(0, 8)}`, createdAt: Date.now() })
+    addToast({
+      id: generateToastId(),
+      type: 'success',
+      text: `Torrent added: ${String(gid).slice(0, 8)}`,
+      createdAt: Date.now(),
+    })
   } catch (err) {
-    addToast({ id: generateToastId(), type: 'error', text: `Could not add torrent: ${String(err)}`, createdAt: Date.now() })
+    addToast({
+      id: generateToastId(),
+      type: 'error',
+      text: `Could not add torrent: ${String(err)}`,
+      createdAt: Date.now(),
+    })
   }
 }
 
@@ -280,7 +316,7 @@ function toggleRowMenu(taskId: number, event: MouseEvent): void {
   if (showMenu.value && menuTask.value?.id === taskId) {
     closeMenu()
   } else {
-    const task = tasks.value.find(t => t.id === taskId)
+    const task = tasks.value.find((t) => t.id === taskId)
     if (task) {
       menuTask.value = task
       menuPosition.value = { x: event.clientX, y: event.clientY }
@@ -356,32 +392,69 @@ async function deleteTask(): Promise<void> {
  * Reveal a downloaded file in the OS file manager. Called from both the row
  * ··· menu (with the row's task) and the detail-panel "Open file location"
  * menu item (no task passed, fall back to the currently-selected one).
+ *
+ * The path is built from the task's actual `filePath` (aria2-reported) when
+ * available, falling back to `<download_dir>/<source_filename>`. We pass
+ * the *file* path (not just the folder) because macOS `open -R` reveals a
+ * specific file in Finder; passing a folder would only open the folder.
  */
 async function openLocation(task?: Task | null): Promise<void> {
   const target = task ?? menuTask.value ?? selectedTask.value
   if (!target) return
   closeMenu()
-  // Heuristic path: aria2's --dir flag is configured to ~/Downloads/Motrix AI/
-  // (note the space). For real installs the path comes from the Rust
-  // `download_dir` config; for the demo we reconstruct the same way.
-  const filePath = `${target.source.split('/').pop() || target.name}`.replace(/^\/+/, '')
-  const folder = '~/Downloads/Motrix AI'
+
+  // Prefer aria2's reported file path; otherwise reconstruct from source.
+  // `filePath` on a Task is the absolute path aria2 wrote (set in
+  // fromAria2Status). If it's missing (e.g. magnet-only), we fall back.
+  const downloadDir = await getDownloadDir()
+  const fileSegment = target.filePath?.split('/').pop() || target.source.split('/').pop() || target.name
+  // Collapse leading slashes; preserve extension if any
+  const cleanSegment = fileSegment.replace(/^\/+/, '')
+  const absolutePath = target.filePath || `${downloadDir}/${cleanSegment}`
+
   try {
-    await invoke('show_in_folder', { path: folder })
+    await invoke('show_in_folder', { path: absolutePath })
     addToast({
       id: generateToastId(),
       type: 'success',
       text: `Revealed ${target.name} in folder`,
       createdAt: Date.now(),
     })
+  } catch (err) {
+    // Fallback if the Rust command is missing or the file doesn't exist yet:
+    // try revealing the parent folder, then fall back to a toast.
+    try {
+      await invoke('show_in_folder', { path: downloadDir })
+      addToast({
+        id: generateToastId(),
+        type: 'info',
+        text: `Opened download folder for ${target.name}`,
+        createdAt: Date.now(),
+      })
+    } catch {
+      addToast({
+        id: generateToastId(),
+        type: 'info',
+        text: `Reveal in folder: ${absolutePath} (${String(err).slice(0, 60)})`,
+        createdAt: Date.now(),
+      })
+    }
+  }
+}
+
+/**
+ * Resolve the configured download directory. Uses the Rust `get_download_path`
+ * command when available, otherwise falls back to a relative path. We avoid
+ * guessing a platform-specific home directory because navigator.platform
+ * only tells us Win vs Unix, not the actual user name.
+ */
+async function getDownloadDir(): Promise<string> {
+  try {
+    return await invoke<string>('get_download_path')
   } catch {
-    // Fallback if the Rust command is missing or fails: just inform
-    addToast({
-      id: generateToastId(),
-      type: 'info',
-      text: `Reveal in folder: ${folder}/${filePath}`,
-      createdAt: Date.now(),
-    })
+    // Not in Tauri context (e.g. vite dev server). Return a relative path
+    // so show_in_folder's fallback toast is at least non-misleading.
+    return './Downloads/Motrix AI'
   }
 }
 
@@ -429,16 +502,25 @@ function onToggleFile(payload: { name: string; checked: boolean }): void {
 }
 
 /**
- * Bump a task's priority in aria2 (changeOption with priority=high).
- * The store marks the task locally so the UI re-renders immediately.
+ * Bump a task's priority in aria2 by calling `aria2.changeOption` JSON-RPC
+ * with `priority=pri-high` via the tasks store. The store is connected to
+ * the live aria2 daemon and surfaces real RPC errors instead of swallowing
+ * them. Returns true on success so the caller can show the right toast.
  */
 async function bumpPriority(): Promise<void> {
   const target = selectedTask.value
   if (!target) return
+  if (!target.gid) {
+    addToast({
+      id: generateToastId(),
+      type: 'info',
+      text: `Local task — nothing to prioritize`,
+      createdAt: Date.now(),
+    })
+    return
+  }
   try {
-    if (target.gid) {
-      await invoke('aria2_change_option', { gid: target.gid, key: 'priority', value: 'high' }).catch(() => {})
-    }
+    await tasksStore.bumpPriority(target.id)
     addToast({
       id: generateToastId(),
       type: 'success',
@@ -495,9 +577,9 @@ function completeOnboarding(): void {
 const filteredForKb = computed<Task[]>(() => {
   if (activeFilter.value === 'all') return tasks.value
   if (activeFilter.value === 'active') {
-    return tasks.value.filter(t => t.status === 'downloading' || t.status === 'paused')
+    return tasks.value.filter((t) => t.status === 'downloading' || t.status === 'paused')
   }
-  return tasks.value.filter(t => t.status === activeFilter.value)
+  return tasks.value.filter((t) => t.status === activeFilter.value)
 })
 
 function handleKeydown(e: KeyboardEvent): void {
@@ -510,11 +592,7 @@ function handleKeydown(e: KeyboardEvent): void {
 
   // Don't interfere with text input fields
   const target = e.target as HTMLElement
-  if (
-    target.tagName === 'INPUT' ||
-    target.tagName === 'TEXTAREA' ||
-    target.isContentEditable
-  ) return
+  if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return
 
   // Esc: close detail panel or row menu
   if (e.key === 'Escape') {
@@ -534,10 +612,7 @@ function handleKeydown(e: KeyboardEvent): void {
     e.preventDefault()
     const len = filteredForKb.value.length
     if (len === 0) return
-    keyboardIndex.value =
-      keyboardIndex.value < 0 || keyboardIndex.value >= len - 1
-        ? 0
-        : keyboardIndex.value + 1
+    keyboardIndex.value = keyboardIndex.value < 0 || keyboardIndex.value >= len - 1 ? 0 : keyboardIndex.value + 1
     return
   }
 
@@ -546,20 +621,28 @@ function handleKeydown(e: KeyboardEvent): void {
     e.preventDefault()
     const len = filteredForKb.value.length
     if (len === 0) return
-    keyboardIndex.value =
-      keyboardIndex.value <= 0 ? len - 1 : keyboardIndex.value - 1
+    keyboardIndex.value = keyboardIndex.value <= 0 ? len - 1 : keyboardIndex.value - 1
     return
   }
 
   // Enter: open detail for the keyboard-selected row
-  if (
-    e.key === 'Enter' &&
-    keyboardIndex.value >= 0 &&
-    keyboardIndex.value < filteredForKb.value.length
-  ) {
+  if (e.key === 'Enter' && keyboardIndex.value >= 0 && keyboardIndex.value < filteredForKb.value.length) {
     e.preventDefault()
     const task = filteredForKb.value[keyboardIndex.value]
     if (task) openDetail(task)
+    return
+  }
+
+  // m: open the row ··· menu for the keyboard-selected row
+  if (e.key === 'm' && keyboardIndex.value >= 0 && keyboardIndex.value < filteredForKb.value.length) {
+    e.preventDefault()
+    const task = filteredForKb.value[keyboardIndex.value]
+    if (task) {
+      const row = document.querySelector<HTMLTableRowElement>(`tr[data-task-id="${task.id}"]`)
+      const x = row ? row.getBoundingClientRect().right - 16 : window.innerWidth / 2
+      const y = row ? row.getBoundingClientRect().top + row.getBoundingClientRect().height / 2 : window.innerHeight / 2
+      toggleRowMenu(task.id, { clientX: x, clientY: y } as MouseEvent)
+    }
     return
   }
 }
@@ -569,19 +652,18 @@ function handleKeydown(e: KeyboardEvent): void {
 // ---------------------------------------------------------------------------
 
 onMounted(() => {
-  // Check onboarding status (first visit)
   try {
     showOnboarding.value = !localStorage.getItem('motrix:onboarded')
   } catch {
     showOnboarding.value = false
   }
   document.addEventListener('keydown', handleKeydown)
-  // Initialize the aria2 connection through the store
-  tasksStore.init().catch(e => console.warn('aria2 init failed:', e))
+  tasksStore.init().catch((e) => console.warn('aria2 init failed:', e))
 })
 
 onUnmounted(() => {
   document.removeEventListener('keydown', handleKeydown)
+  tasksStore.dispose().catch((e) => console.warn('aria2 dispose failed:', e))
 })
 </script>
 
@@ -600,6 +682,7 @@ onUnmounted(() => {
       <TaskTable
         :tasks="tasks"
         :active-filter="activeFilter"
+        :keyboard-index="keyboardIndex"
         @update:filter="activeFilter = $event"
         @toggle-menu="toggleRowMenu"
         @open-detail="openDetail"
@@ -607,17 +690,10 @@ onUnmounted(() => {
     </main>
 
     <!-- Bottom chat input (96px, sticky bottom) -->
-    <BottomChat
-      @send="handleSendMessage"
-      @quick-action="handleQuickAction"
-      @attach="handleAttach"
-    />
+    <BottomChat @send="handleSendMessage" @quick-action="handleQuickAction" @attach="handleAttach" />
 
     <!-- Toast stack (floating above bottom chat) -->
-    <ToastStack
-      :toasts="toasts"
-      @dismiss="dismissToast"
-    />
+    <ToastStack :toasts="toasts" @dismiss="dismissToast" />
 
     <!-- Detail panel overlay (when task clicked) -->
     <DetailPanel
@@ -628,7 +704,6 @@ onUnmounted(() => {
       @resume="resumeTask"
       @retry="retryTask"
       @delete="deleteTask"
-      @cancel="deleteTask"
       @priority="bumpPriority"
       @open-location="openLocation"
       @copy-source="handleCopySource"
@@ -651,11 +726,7 @@ onUnmounted(() => {
     />
 
     <!-- Onboarding card (first visit) -->
-    <OnboardingCard
-      v-if="showOnboarding"
-      :show="showOnboarding"
-      @complete="completeOnboarding"
-    />
+    <OnboardingCard v-if="showOnboarding" :show="showOnboarding" @complete="completeOnboarding" />
   </div>
 </template>
 
@@ -665,8 +736,8 @@ onUnmounted(() => {
   flex-direction: column;
   height: 100vh;
   overflow: hidden;
-  background: var(--bg, #0A0A0B);
-  color: var(--fg, #FAFAFA);
+  background: var(--bg, #0a0a0b);
+  color: var(--fg, #fafafa);
   font-family: var(--font-ui, 'Inter', system-ui, sans-serif);
   position: relative;
 }

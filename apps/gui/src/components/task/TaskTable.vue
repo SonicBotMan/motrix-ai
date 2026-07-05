@@ -25,15 +25,18 @@
  * Design ref: docs/design/handoff/02-components.md §3
  */
 
-import { computed, ref } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import type { Task, TaskStatus, TaskType } from '@/stores/tasks'
 
 interface Props {
   tasks: Task[]
   activeFilter: string
+  keyboardIndex?: number
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  keyboardIndex: -1,
+})
 
 const emit = defineEmits<{
   openDetail: [task: Task]
@@ -41,7 +44,7 @@ const emit = defineEmits<{
   'update:filter': [filter: string]
 }>()
 
-// --- Filter tabs ---
+// --- Filter tabs (spec: All / Active / Paused / Completed) ---
 
 interface FilterTab {
   label: string
@@ -51,25 +54,53 @@ interface FilterTab {
 const filterTabs: FilterTab[] = [
   { label: 'All', value: 'all' },
   { label: 'Active', value: 'active' },
-  { label: 'Completed', value: 'completed' },
   { label: 'Paused', value: 'paused' },
+  { label: 'Completed', value: 'completed' },
 ]
 
 // --- State ---
 
-const selectedRowIndex = ref<number>(-1)
 const flashingRowId = ref<number | null>(null)
 /** Track which row's context menu is currently open */
 const openMenuId = ref<number | null>(null)
+/** Refs onto each rendered row so we can scrollIntoView on j/k navigation */
+const rowRefs = ref<Array<HTMLTableRowElement | null>>([])
+
+const setRowRef = (el: Element | null | undefined, i: number) => {
+  rowRefs.value[i] = (el as HTMLTableRowElement | null) ?? null
+}
+
+// --- Filter change ---
+
+function setFilter(value: string): void {
+  emit('update:filter', value)
+}
+
+// --- Keyboard-index visual feedback (BUG-2 fix) ---
+// When the parent's keyboardIndex changes, scroll the row into view so the
+// user sees which row j/k has selected even on long lists.
+
+watch(
+  () => props.keyboardIndex,
+  (idx) => {
+    if (idx < 0) return
+    void nextTick(() => {
+      const row = rowRefs.value[idx]
+      if (row && typeof row.scrollIntoView === 'function') {
+        row.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+      }
+    })
+  },
+)
 
 // --- Computed ---
 
 const filteredTasks = computed<Task[]>(() => {
   if (props.activeFilter === 'all') return props.tasks
   if (props.activeFilter === 'active') {
-    return props.tasks.filter(t => t.status === 'downloading' || t.status === 'paused')
+    return props.tasks.filter((t) => t.status === 'downloading' || t.status === 'paused')
   }
-  return props.tasks.filter(t => {
+  return props.tasks.filter((t) => {
     // Map 'paused' UI status
     if (props.activeFilter === 'paused') return t.status === 'paused'
     return t.status === props.activeFilter
@@ -81,7 +112,6 @@ const filteredTasks = computed<Task[]>(() => {
 interface EmptyState {
   heading: string
   sub: string
-  cta?: string
 }
 
 const emptyState = computed<EmptyState>(() => {
@@ -90,7 +120,6 @@ const emptyState = computed<EmptyState>(() => {
       return {
         heading: 'No downloads yet',
         sub: 'Add a magnet link, HTTP URL, or YouTube link to get started.',
-        cta: 'Try a sample task',
       }
     case 'active':
       return {
@@ -120,12 +149,18 @@ const emptyState = computed<EmptyState>(() => {
 /** Truncate source URLs for display */
 function formatSource(source: string): string {
   if (!source) return ''
-  // Shorten long URLs: keep protocol + domain + last path segment
-  if (source.startsWith('magnet:')) return 'magnet:?xt=urn:btih:...'
+  if (source.startsWith('magnet:')) {
+    // Extract the btih infohash so each magnet task shows a unique,
+    // recognizable value rather than a fake placeholder.
+    const match = source.match(/xt=urn:btih:([a-zA-Z0-9]+)/i)
+    return match ? `magnet:${match[1].slice(0, 12)}…` : 'magnet:?'
+  }
+  if (source.startsWith('torrent://')) {
+    return source.replace('torrent://', 'torrent: ')
+  }
   try {
     const url = new URL(source)
-    const domain = url.hostname.replace('www.', '')
-    return domain
+    return url.hostname.replace('www.', '')
   } catch {
     return source
   }
@@ -175,13 +210,6 @@ function handleRowClick(task: Task): void {
   }, 180)
 }
 
-// --- Filter change ---
-
-function setFilter(value: string): void {
-  emit('update:filter', value)
-  selectedRowIndex.value = -1
-}
-
 /** Toggle the row context menu and track open state for aria-expanded */
 function handleMenuToggle(taskId: number, event: MouseEvent): void {
   if (openMenuId.value === taskId) {
@@ -229,10 +257,11 @@ function handleMenuToggle(taskId: number, event: MouseEvent): void {
         <tr
           v-for="(task, i) in filteredTasks"
           :key="task.id"
+          :ref="(el) => setRowRef(el as Element | null, i)"
           :data-task-id="task.id"
           :style="{ '--row-i': i }"
           :class="{
-            selected: selectedRowIndex === i,
+            selected: keyboardIndex === i,
             'row-flash': flashingRowId === task.id,
           }"
           @click="handleRowClick(task)"
@@ -240,7 +269,18 @@ function handleMenuToggle(taskId: number, event: MouseEvent): void {
           <!-- Name -->
           <td class="col-name">
             <div class="col-name-inner">
-              <svg class="task-type-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <svg
+                class="task-type-icon"
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
                 <path :d="typeIconPaths[task.type]" />
               </svg>
               <span class="task-name-text">{{ task.name }}</span>
@@ -275,7 +315,9 @@ function handleMenuToggle(taskId: number, event: MouseEvent): void {
           <td class="col-speed">{{ task.status === 'downloading' ? task.speed : '\u00B7' }}</td>
 
           <!-- Size -->
-          <td class="col-size">{{ task.size }}<template v-if="task.total"> / {{ task.total }}</template></td>
+          <td class="col-size">
+            {{ task.size }}<template v-if="task.total"> / {{ task.total }}</template>
+          </td>
 
           <!-- ETA -->
           <td class="col-eta">{{ task.eta || '\u2014' }}</td>
@@ -389,14 +431,30 @@ function handleMenuToggle(taskId: number, event: MouseEvent): void {
 }
 
 /* Column widths: 28% | 16% | 8% | 17% | 8% | 11% | 7% | 5% */
-.task-table .col-name { width: 28%; }
-.task-table .col-source { width: 16%; }
-.task-table .col-status { width: 8%; }
-.task-table .col-progress { width: 17%; }
-.task-table .col-speed { width: 8%; }
-.task-table .col-size { width: 11%; }
-.task-table .col-eta { width: 7%; }
-.task-table .col-actions { width: 5%; }
+.task-table .col-name {
+  width: 28%;
+}
+.task-table .col-source {
+  width: 16%;
+}
+.task-table .col-status {
+  width: 8%;
+}
+.task-table .col-progress {
+  width: 17%;
+}
+.task-table .col-speed {
+  width: 8%;
+}
+.task-table .col-size {
+  width: 11%;
+}
+.task-table .col-eta {
+  width: 7%;
+}
+.task-table .col-actions {
+  width: 5%;
+}
 
 /* --- Table body rows --- */
 
@@ -410,8 +468,14 @@ function handleMenuToggle(taskId: number, event: MouseEvent): void {
 }
 
 @keyframes rowReveal {
-  from { opacity: 0; transform: translateY(6px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .task-table tbody tr:hover {
@@ -562,10 +626,13 @@ function handleMenuToggle(taskId: number, event: MouseEvent): void {
 }
 
 .task-progress-fill.downloading {
-  background: linear-gradient(90deg,
-    var(--primary) 0%, var(--primary) 40%,
+  background: linear-gradient(
+    90deg,
+    var(--primary) 0%,
+    var(--primary) 40%,
     var(--primary-hover) 50%,
-    var(--primary) 60%, var(--primary) 100%
+    var(--primary) 60%,
+    var(--primary) 100%
   );
   background-size: 200% 100%;
   animation: shimmer 2s linear infinite;
@@ -581,8 +648,12 @@ function handleMenuToggle(taskId: number, event: MouseEvent): void {
 }
 
 @keyframes shimmer {
-  0%   { background-position: -200% 0; }
-  100% { background-position:  200% 0; }
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
 }
 
 .task-progress-fill.paused {

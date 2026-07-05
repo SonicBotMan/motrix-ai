@@ -40,12 +40,20 @@ export interface Task {
 /** Map an aria2 status string to our UI task status */
 function mapAria2Status(status: string): TaskStatus {
   switch (status) {
-    case 'active': return 'downloading'
-    case 'complete': return 'completed'
-    case 'paused': return 'paused'
-    case 'error': return 'failed'
-    case 'waiting': return 'pending'
-    default: return 'pending'
+    case 'active':
+      return 'downloading'
+    case 'complete':
+      return 'completed'
+    case 'paused':
+      return 'paused'
+    case 'error':
+      return 'failed'
+    case 'waiting':
+      return 'pending'
+    case 'removed':
+      return 'failed'
+    default:
+      return 'pending'
   }
 }
 
@@ -65,15 +73,16 @@ function fromAria2Status(s: Aria2Status, idx: number): Task {
   const completed = Number(s.completedLength) || 0
   const progress = total > 0 ? Math.round((completed / total) * 100) : 0
   const speed = Number(s.downloadSpeed) || 0
-  const filename = s.files?.[0]?.path?.split('/').pop()
-    || s.bittorrent?.info?.name
-    || `Task ${s.gid}`
+  const filename = s.files?.[0]?.path?.split('/').pop() || s.bittorrent?.info?.name || `Task ${s.gid}`
 
   return {
     id: idx + 1,
     gid: s.gid,
     name: filename,
-    source: s.files?.[0]?.uris?.[0]?.uri || 'magnet:?xt=urn:btih:...',
+    // For BitTorrent-only tasks (no web seeds), files[0].uris is empty —
+    // fall back to the torrent info name so "Copy source" doesn't dupe a
+    // fake magnet across all torrent tasks.
+    source: s.files?.[0]?.uris?.[0]?.uri || (s.bittorrent?.info?.name ? `torrent://${s.bittorrent.info.name}` : ''),
     status: mapAria2Status(s.status),
     progress,
     speed: speed > 0 ? `${(speed / 1024 / 1024).toFixed(1)} MB/s` : '—',
@@ -127,53 +136,33 @@ export const useTasksStore = defineStore('tasks', () => {
   /** Tasks filtered by the active filter */
   const filteredTasks = computed<Task[]>(() => {
     if (activeFilter.value === 'all') return tasks.value
-    return tasks.value.filter(t => t.status === activeFilter.value)
+    return tasks.value.filter((t) => t.status === activeFilter.value)
   })
 
   /** Number of tasks currently downloading */
-  const activeCount = computed<number>(() =>
-    tasks.value.filter(t => t.status === 'downloading').length,
-  )
+  const activeCount = computed<number>(() => tasks.value.filter((t) => t.status === 'downloading').length)
 
   /** Number of completed tasks */
-  const completedCount = computed<number>(() =>
-    tasks.value.filter(t => t.status === 'completed').length,
-  )
+  const completedCount = computed<number>(() => tasks.value.filter((t) => t.status === 'completed').length)
 
   // -- actions ------------------------------------------------------------
 
   /**
-   * Initialize the aria2 connection.
-   *
-   * Replicates the startup logic from useAria2's onMounted hook, which does
-   * not fire inside a Pinia setup store. Must be called from a component's
-   * onMounted hook.
+   * Boot the aria2 connection. Delegates to the useAria2 singleton's
+   * `start()` which handles bundled-binary startup, system-binary
+   * fallback, and the polling-loop/connect sequence. Idempotent.
    */
   async function init(): Promise<void> {
-    if (aria2.connected.value || aria2.connecting.value) return
+    await aria2.start()
+  }
 
-    // 1. Try to start the bundled aria2c via Tauri backend
-    try {
-      const { invoke } = await import("@tauri-apps/api/core")
-      const diag = await invoke<{ exists: boolean; binary_path: string }>("check_aria2_binary")
-      if (!diag.exists) {
-        console.error("Bundled aria2c NOT FOUND at:", diag.binary_path)
-      } else {
-        await invoke<string>("start_aria2", { rpcPort: 6800 })
-        console.warn("Bundled aria2c started")
-      }
-    } catch (e) {
-      console.warn("Bundled aria2c failed:", e)
-      // Fallback: try spawning a system aria2c
-      try {
-        await aria2.startAria2()
-      } catch (_) {
-        console.warn("System aria2c not available either")
-      }
-    }
-
-    // 2. Connect to aria2 RPC (whether bundled or system)
-    await aria2.connect()
+  /**
+   * Tear down the aria2 connection and stop the bundled daemon.
+   * Call once from the app shell's onUnmounted so we don't leak the
+   * aria2c process when the user quits the app.
+   */
+  async function dispose(): Promise<void> {
+    await aria2.dispose()
   }
 
   /**
@@ -208,7 +197,7 @@ export const useTasksStore = defineStore('tasks', () => {
    * Calls aria2.remove for real tasks, otherwise removes from local list.
    */
   async function removeTask(taskId: number): Promise<void> {
-    const task = tasks.value.find(t => t.id === taskId)
+    const task = tasks.value.find((t) => t.id === taskId)
     if (!task) return
 
     if (task.gid && aria2.connected.value) {
@@ -218,7 +207,7 @@ export const useTasksStore = defineStore('tasks', () => {
         console.error('Failed to remove task via aria2:', e)
       }
     } else {
-      localTasks.value = localTasks.value.filter(t => t.id !== taskId)
+      localTasks.value = localTasks.value.filter((t) => t.id !== taskId)
     }
   }
 
@@ -226,7 +215,7 @@ export const useTasksStore = defineStore('tasks', () => {
    * Pause a downloading task.
    */
   async function pauseTask(taskId: number): Promise<void> {
-    const task = tasks.value.find(t => t.id === taskId)
+    const task = tasks.value.find((t) => t.id === taskId)
     if (!task) return
 
     if (task.gid && aria2.connected.value) {
@@ -236,7 +225,7 @@ export const useTasksStore = defineStore('tasks', () => {
         console.error('Failed to pause task via aria2:', e)
       }
     } else {
-      const local = localTasks.value.find(t => t.id === taskId)
+      const local = localTasks.value.find((t) => t.id === taskId)
       if (local) {
         local.status = 'paused'
         local.speed = '—'
@@ -249,7 +238,7 @@ export const useTasksStore = defineStore('tasks', () => {
    * Resume a paused task.
    */
   async function resumeTask(taskId: number): Promise<void> {
-    const task = tasks.value.find(t => t.id === taskId)
+    const task = tasks.value.find((t) => t.id === taskId)
     if (!task) return
 
     if (task.gid && aria2.connected.value) {
@@ -259,7 +248,7 @@ export const useTasksStore = defineStore('tasks', () => {
         console.error('Failed to resume task via aria2:', e)
       }
     } else {
-      const local = localTasks.value.find(t => t.id === taskId)
+      const local = localTasks.value.find((t) => t.id === taskId)
       if (local) {
         local.status = 'downloading'
         local.speed = '—'
@@ -276,7 +265,7 @@ export const useTasksStore = defineStore('tasks', () => {
    * status is simply reset.
    */
   async function retryTask(taskId: number): Promise<void> {
-    const task = tasks.value.find(t => t.id === taskId)
+    const task = tasks.value.find((t) => t.id === taskId)
     if (!task) return
 
     if (task.gid && aria2.connected.value) {
@@ -284,15 +273,15 @@ export const useTasksStore = defineStore('tasks', () => {
         await aria2.remove(task.gid)
         await aria2.addUri(task.source)
       } catch (e) {
-        console.error("Failed to retry task via aria2:", e)
+        console.error('Failed to retry task via aria2:', e)
       }
     } else {
-      const local = localTasks.value.find(t => t.id === taskId)
+      const local = localTasks.value.find((t) => t.id === taskId)
       if (local) {
-        local.status = "downloading"
+        local.status = 'downloading'
         local.progress = 0
-        local.speed = "—"
-        local.eta = "计算中..."
+        local.speed = '—'
+        local.eta = '计算中...'
       }
     }
   }
@@ -301,7 +290,7 @@ export const useTasksStore = defineStore('tasks', () => {
    * Remove all completed tasks from the local list and purge aria2 results.
    */
   async function clearCompleted(): Promise<void> {
-    localTasks.value = localTasks.value.filter(t => t.status !== 'completed')
+    localTasks.value = localTasks.value.filter((t) => t.status !== 'completed')
 
     if (aria2.connected.value) {
       try {
@@ -310,6 +299,20 @@ export const useTasksStore = defineStore('tasks', () => {
         console.error('Failed to clear completed aria2 tasks:', e)
       }
     }
+  }
+
+  /**
+   * Bump a task's priority in aria2 by setting `priority=pri-high`.
+   * No-op for local placeholder tasks (no gid).
+   */
+  async function bumpPriority(taskId: number): Promise<void> {
+    const task = tasks.value.find((t) => t.id === taskId)
+    if (!task) return
+    if (!task.gid || !aria2.connected.value) {
+      throw new Error('Task is not connected to aria2')
+    }
+    // aria2's `priority` option accepts: pri-low, pri-normal, pri-high.
+    await aria2.changeOption(task.gid, { priority: 'pri-high' })
   }
 
   /**
@@ -339,11 +342,13 @@ export const useTasksStore = defineStore('tasks', () => {
     onTaskComplete: aria2.onTaskComplete,
     // actions
     init,
+    dispose,
     addTask,
     removeTask,
     pauseTask,
     resumeTask,
     retryTask,
+    bumpPriority,
     clearCompleted,
     setFilter,
   }

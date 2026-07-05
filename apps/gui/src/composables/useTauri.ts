@@ -4,16 +4,20 @@
 import { ref, onMounted } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 
+declare global {
+  interface Window {
+    __TAURI__?: unknown
+    __TAURI_INTERNALS__?: unknown
+  }
+}
+
 export function useTauri() {
   const downloadPath = ref<string>('')
   const isTauri = ref(false)
 
-  /**
-   * Check if running in Tauri environment.
-   */
   const checkTauri = () => {
-    // @ts-ignore
-    isTauri.value = typeof window.__TAURI__ !== 'undefined'
+    isTauri.value =
+      typeof window !== 'undefined' && (window.__TAURI__ !== undefined || window.__TAURI_INTERNALS__ !== undefined)
   }
 
   /**
