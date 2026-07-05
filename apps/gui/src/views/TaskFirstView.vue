@@ -21,6 +21,7 @@ import { useRouter } from 'vue-router'
 import { invoke } from '@tauri-apps/api/core'
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import { theme, toggleTheme as settingsToggleTheme } from '@/composables/useSettings'
+import { useSearch, type SearchResult } from '@/composables/useSearch'
 import ChromeBar from '@/components/chrome/ChromeBar.vue'
 import TaskTable from '@/components/task/TaskTable.vue'
 import DetailPanel from '@/components/task/DetailPanel.vue'
@@ -28,9 +29,15 @@ import RowMenu from '@/components/task/RowMenu.vue'
 import BottomChat from '@/components/chat/BottomChat.vue'
 import ToastStack, { type Toast } from '@/components/toast/ToastStack.vue'
 import OnboardingCard from '@/components/onboarding/OnboardingCard.vue'
-import { useTasksStore, type Task } from '@/stores/tasks'
+import SearchResultsModal from '@/components/SearchResultsModal.vue'
+import { useTasksStore, type Task, type DownloadIntentMeta } from '@/stores/tasks'
 
 const tasksStore = useTasksStore()
+
+// Search composable — drives the NL → search → results modal flow.
+// Captured at view scope so the SearchResultsModal can bind to its reactive
+// state and the select-handler can close the modal after a pick.
+const { searchResults, searching, searchResources } = useSearch()
 
 // ---------------------------------------------------------------------------
 // Task list comes from the Pinia store (aria2-backed with local fallback)
@@ -57,6 +64,14 @@ const toasts = ref<Toast[]>([])
 const showOnboarding = ref(false)
 const keyboardIndex = ref(-1)
 
+// Search modal state — shown after a successful NL parse so the user can
+// pick which source/quality to actually download.
+const showSearchResults = ref(false)
+const searchQueryDisplay = ref('')
+// Intent captured at parse time and forwarded to addTask when the user picks
+// a search result. Cleared after the pick so the next NL turn starts clean.
+const pendingIntent = ref<DownloadIntentMeta | null>(null)
+
 // ---------------------------------------------------------------------------
 // Toast system (docs/design/handoff/02-components.md §5)
 // ---------------------------------------------------------------------------
@@ -81,7 +96,7 @@ function addToast(toast: Toast): void {
   toasts.value.push(toast)
   // Prune oldest done toasts if exceeding stack max
   while (toasts.value.length > TOAST_STACK_MAX) {
-    const oldestDone = toasts.value.findIndex(t => !t.exiting)
+    const oldestDone = toasts.value.findIndex((t) => !t.exiting)
     if (oldestDone !== -1) {
       toasts.value.splice(oldestDone, 1)
     } else {
@@ -93,11 +108,11 @@ function addToast(toast: Toast): void {
 }
 
 function dismissToast(id: string): void {
-  const idx = toasts.value.findIndex(t => t.id === id)
+  const idx = toasts.value.findIndex((t) => t.id === id)
   if (idx === -1) return
   toasts.value[idx].exiting = true
   setTimeout(() => {
-    const i = toasts.value.findIndex(t => t.id === id)
+    const i = toasts.value.findIndex((t) => t.id === id)
     if (i !== -1) toasts.value.splice(i, 1)
   }, TOAST_EXIT_DELAY)
 }
@@ -144,7 +159,12 @@ async function handleSendMessage(message: string): Promise<void> {
     addToast({ id: generateToastId(), type: 'info', text: 'Adding magnet link…', createdAt: Date.now() })
     try {
       const gid = await aria2AddUri(trimmed)
-      addToast({ id: generateToastId(), type: 'success', text: `Magnet added: ${gid.slice(0, 8)}…`, createdAt: Date.now() })
+      addToast({
+        id: generateToastId(),
+        type: 'success',
+        text: `Magnet added: ${gid.slice(0, 8)}…`,
+        createdAt: Date.now(),
+      })
     } catch (err) {
       addToast({ id: generateToastId(), type: 'error', text: `Add failed: ${String(err)}`, createdAt: Date.now() })
     }
@@ -156,28 +176,66 @@ async function handleSendMessage(message: string): Promise<void> {
     addToast({ id: generateToastId(), type: 'info', text: 'Adding download…', createdAt: Date.now() })
     try {
       const gid = await aria2AddUri(trimmed)
-      addToast({ id: generateToastId(), type: 'success', text: `Download added: ${gid.slice(0, 8)}…`, createdAt: Date.now() })
+      addToast({
+        id: generateToastId(),
+        type: 'success',
+        text: `Download added: ${gid.slice(0, 8)}…`,
+        createdAt: Date.now(),
+      })
     } catch (err) {
       addToast({ id: generateToastId(), type: 'error', text: `Add failed: ${String(err)}`, createdAt: Date.now() })
     }
     return
   }
 
-  // --- Natural language → parse intent ---
+  // --- Natural language → parse intent → search providers → modal ---
   addToast({ id: generateToastId(), type: 'info', text: `Recognising: "${trimmed}"…`, createdAt: Date.now() })
   try {
-    const intent = await invoke<{ title?: string; resource_type?: string; search_keywords?: string[] }>(
-      'parse_nl_intent',
-      { input: trimmed, llmConfig: null },
-    )
+    const intent = await invoke<{
+      title?: string
+      year?: number | null
+      quality?: string
+      need_subtitle?: boolean
+      resource_type?: string
+      search_keywords?: string[]
+    }>('parse_nl_intent', { input: trimmed, llmConfig: null })
+
     const title = intent.title || trimmed
     const rtype = intent.resource_type || 'unknown'
+
+    // Capture intent so we can attach it to the download when the user
+    // picks a search result. This is what makes the post-download pipeline
+    // able to name the file correctly and search for subtitles.
+    pendingIntent.value = {
+      title,
+      year: intent.year ?? null,
+      quality: intent.quality,
+      resourceType: rtype,
+      needSubtitle: intent.need_subtitle ?? false,
+    }
+    searchQueryDisplay.value = title
+
     addToast({
       id: generateToastId(),
-      type: 'success',
-      text: `Found: "${title}" (${rtype}). Paste a URL or magnet to download.`,
+      type: 'info',
+      text: `Searching for "${title}"…`,
       createdAt: Date.now(),
     })
+
+    // searchResources is async but we deliberately do NOT await here —
+    // the SearchResultsModal binds to the reactive `searching` and
+    // `searchResults` refs and updates as results arrive.
+    void searchResources({
+      title,
+      year: intent.year ?? null,
+      quality: (intent.quality as '4K' | '1080p' | '720p' | 'other') ?? 'other',
+      need_subtitle: intent.need_subtitle ?? false,
+      search_keywords: intent.search_keywords ?? [title],
+      resource_type: rtype as 'movie' | 'tv' | 'software' | 'music' | 'anime' | 'other',
+      raw_input: trimmed,
+    })
+
+    showSearchResults.value = true
   } catch {
     addToast({
       id: generateToastId(),
@@ -186,6 +244,49 @@ async function handleSendMessage(message: string): Promise<void> {
       createdAt: Date.now(),
     })
   }
+}
+
+/**
+ * Handle a search-result pick from SearchResultsModal.
+ *
+ * Forwards the chosen magnet to aria2 via the store (which captures the
+ * pending intent so the post-download pipeline can name/organize the file),
+ * then closes the modal.
+ */
+async function handleSelectSearchResult(result: SearchResult): Promise<void> {
+  showSearchResults.value = false
+  const intent = pendingIntent.value ?? undefined
+  pendingIntent.value = null
+
+  addToast({
+    id: generateToastId(),
+    type: 'info',
+    text: `Adding "${result.title.slice(0, 50)}"…`,
+    createdAt: Date.now(),
+  })
+
+  try {
+    await tasksStore.addTask(result.magnet, result.title, intent)
+    addToast({
+      id: generateToastId(),
+      type: 'success',
+      text: `Download added: ${result.title.slice(0, 50)}`,
+      createdAt: Date.now(),
+    })
+  } catch (err) {
+    addToast({
+      id: generateToastId(),
+      type: 'error',
+      text: `Add failed: ${String(err)}`,
+      createdAt: Date.now(),
+    })
+  }
+}
+
+/** Close the search results modal and discard any pending intent. */
+function closeSearchResults(): void {
+  showSearchResults.value = false
+  pendingIntent.value = null
 }
 
 /**
@@ -211,7 +312,12 @@ function handleQuickAction(index: number): void {
       addToast({ id: generateToastId(), type: 'info', text: 'Showing completed downloads', createdAt: Date.now() })
       return
     case 4: // Add magnet URL → focus the bottom chat input
-      addToast({ id: generateToastId(), type: 'info', text: 'Paste a magnet or URL in the input below', createdAt: Date.now() })
+      addToast({
+        id: generateToastId(),
+        type: 'info',
+        text: 'Paste a magnet or URL in the input below',
+        createdAt: Date.now(),
+      })
       return
   }
 }
@@ -241,7 +347,12 @@ async function handleAttach(): Promise<void> {
       selected = result
     }
   } catch (err) {
-    addToast({ id: generateToastId(), type: 'error', text: `Could not open file: ${String(err)}`, createdAt: Date.now() })
+    addToast({
+      id: generateToastId(),
+      type: 'error',
+      text: `Could not open file: ${String(err)}`,
+      createdAt: Date.now(),
+    })
     return
   }
   if (!selected) return
@@ -251,9 +362,19 @@ async function handleAttach(): Promise<void> {
 
   try {
     const gid = await invoke<string>('add_torrent_file', { path: selected })
-    addToast({ id: generateToastId(), type: 'success', text: `Torrent added: ${String(gid).slice(0, 8)}`, createdAt: Date.now() })
+    addToast({
+      id: generateToastId(),
+      type: 'success',
+      text: `Torrent added: ${String(gid).slice(0, 8)}`,
+      createdAt: Date.now(),
+    })
   } catch (err) {
-    addToast({ id: generateToastId(), type: 'error', text: `Could not add torrent: ${String(err)}`, createdAt: Date.now() })
+    addToast({
+      id: generateToastId(),
+      type: 'error',
+      text: `Could not add torrent: ${String(err)}`,
+      createdAt: Date.now(),
+    })
   }
 }
 
@@ -280,7 +401,7 @@ function toggleRowMenu(taskId: number, event: MouseEvent): void {
   if (showMenu.value && menuTask.value?.id === taskId) {
     closeMenu()
   } else {
-    const task = tasks.value.find(t => t.id === taskId)
+    const task = tasks.value.find((t) => t.id === taskId)
     if (task) {
       menuTask.value = task
       menuPosition.value = { x: event.clientX, y: event.clientY }
@@ -353,33 +474,34 @@ async function deleteTask(): Promise<void> {
 }
 
 /**
- * Reveal a downloaded file in the OS file manager. Called from both the row
- * ··· menu (with the row's task) and the detail-panel "Open file location"
- * menu item (no task passed, fall back to the currently-selected one).
+ * Reveal a downloaded file in the OS file manager.
+ *
+ * Prefers the task's actual file path (aria2 tells us where it landed);
+ * falls back to the configured download folder if no path is known yet
+ * (e.g. download still in progress).
  */
 async function openLocation(task?: Task | null): Promise<void> {
   const target = task ?? menuTask.value ?? selectedTask.value
   if (!target) return
   closeMenu()
-  // Heuristic path: aria2's --dir flag is configured to ~/Downloads/Motrix AI/
-  // (note the space). For real installs the path comes from the Rust
-  // `download_dir` config; for the demo we reconstruct the same way.
-  const filePath = `${target.source.split('/').pop() || target.name}`.replace(/^\/+/, '')
-  const folder = '~/Downloads/Motrix AI'
+
+  // Prefer the concrete file path; aria2's --dir config puts downloads
+  // under ~/Downloads/Motrix AI/. Falling back to the folder is still
+  // useful so the user sees *something* open if the file path is unknown.
+  const path = target.filePath || '~/Downloads/Motrix AI'
   try {
-    await invoke('show_in_folder', { path: folder })
+    await invoke('show_in_folder', { path })
     addToast({
       id: generateToastId(),
       type: 'success',
-      text: `Revealed ${target.name} in folder`,
+      text: `Revealed "${target.name}" in folder`,
       createdAt: Date.now(),
     })
-  } catch {
-    // Fallback if the Rust command is missing or fails: just inform
+  } catch (err) {
     addToast({
       id: generateToastId(),
-      type: 'info',
-      text: `Reveal in folder: ${folder}/${filePath}`,
+      type: 'error',
+      text: `Could not open folder: ${String(err)}`,
       createdAt: Date.now(),
     })
   }
@@ -429,30 +551,24 @@ function onToggleFile(payload: { name: string; checked: boolean }): void {
 }
 
 /**
- * Bump a task's priority in aria2 (changeOption with priority=high).
- * The store marks the task locally so the UI re-renders immediately.
+ * Bump a task's priority by moving it to the top of the aria2 queue.
+ *
+ * Delegates to `tasksStore.bumpPriority` which uses the real
+ * `aria2.changePosition(gid, 0, POS_SET)` RPC. Previously this called
+ * `invoke('aria2_change_option', ...)` — a command that was never
+ * registered in `lib.rs invoke_handler!`, so the call always failed
+ * silently behind a `.catch(() => {})`.
  */
 async function bumpPriority(): Promise<void> {
   const target = selectedTask.value
   if (!target) return
-  try {
-    if (target.gid) {
-      await invoke('aria2_change_option', { gid: target.gid, key: 'priority', value: 'high' }).catch(() => {})
-    }
-    addToast({
-      id: generateToastId(),
-      type: 'success',
-      text: `"${target.name}" priority raised`,
-      createdAt: Date.now(),
-    })
-  } catch (err) {
-    addToast({
-      id: generateToastId(),
-      type: 'error',
-      text: `Priority change failed: ${String(err)}`,
-      createdAt: Date.now(),
-    })
-  }
+  const ok = await tasksStore.bumpPriority(target.id)
+  addToast({
+    id: generateToastId(),
+    type: ok ? 'success' : 'error',
+    text: ok ? `"${target.name}" moved to top of queue` : `Could not change priority for "${target.name}"`,
+    createdAt: Date.now(),
+  })
 }
 
 // ---------------------------------------------------------------------------
@@ -472,6 +588,10 @@ function toggleTheme(): void {
 
 function openSettings(): void {
   router.push('/settings')
+}
+
+function openQueue(): void {
+  router.push('/queue')
 }
 
 // ---------------------------------------------------------------------------
@@ -495,9 +615,9 @@ function completeOnboarding(): void {
 const filteredForKb = computed<Task[]>(() => {
   if (activeFilter.value === 'all') return tasks.value
   if (activeFilter.value === 'active') {
-    return tasks.value.filter(t => t.status === 'downloading' || t.status === 'paused')
+    return tasks.value.filter((t) => t.status === 'downloading' || t.status === 'paused')
   }
-  return tasks.value.filter(t => t.status === activeFilter.value)
+  return tasks.value.filter((t) => t.status === activeFilter.value)
 })
 
 function handleKeydown(e: KeyboardEvent): void {
@@ -510,11 +630,7 @@ function handleKeydown(e: KeyboardEvent): void {
 
   // Don't interfere with text input fields
   const target = e.target as HTMLElement
-  if (
-    target.tagName === 'INPUT' ||
-    target.tagName === 'TEXTAREA' ||
-    target.isContentEditable
-  ) return
+  if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return
 
   // Esc: close detail panel or row menu
   if (e.key === 'Escape') {
@@ -534,10 +650,7 @@ function handleKeydown(e: KeyboardEvent): void {
     e.preventDefault()
     const len = filteredForKb.value.length
     if (len === 0) return
-    keyboardIndex.value =
-      keyboardIndex.value < 0 || keyboardIndex.value >= len - 1
-        ? 0
-        : keyboardIndex.value + 1
+    keyboardIndex.value = keyboardIndex.value < 0 || keyboardIndex.value >= len - 1 ? 0 : keyboardIndex.value + 1
     return
   }
 
@@ -546,17 +659,12 @@ function handleKeydown(e: KeyboardEvent): void {
     e.preventDefault()
     const len = filteredForKb.value.length
     if (len === 0) return
-    keyboardIndex.value =
-      keyboardIndex.value <= 0 ? len - 1 : keyboardIndex.value - 1
+    keyboardIndex.value = keyboardIndex.value <= 0 ? len - 1 : keyboardIndex.value - 1
     return
   }
 
   // Enter: open detail for the keyboard-selected row
-  if (
-    e.key === 'Enter' &&
-    keyboardIndex.value >= 0 &&
-    keyboardIndex.value < filteredForKb.value.length
-  ) {
+  if (e.key === 'Enter' && keyboardIndex.value >= 0 && keyboardIndex.value < filteredForKb.value.length) {
     e.preventDefault()
     const task = filteredForKb.value[keyboardIndex.value]
     if (task) openDetail(task)
@@ -577,7 +685,7 @@ onMounted(() => {
   }
   document.addEventListener('keydown', handleKeydown)
   // Initialize the aria2 connection through the store
-  tasksStore.init().catch(e => console.warn('aria2 init failed:', e))
+  tasksStore.init().catch((e) => console.warn('aria2 init failed:', e))
 })
 
 onUnmounted(() => {
@@ -590,9 +698,11 @@ onUnmounted(() => {
     <!-- Chrome bar (48px, sticky top) -->
     <ChromeBar
       :current-theme="theme === 'system' ? 'dark' : theme"
+      :queue-count="tasksStore.activeCount"
       @go-home="goHome"
       @toggle-theme="toggleTheme"
       @open-settings="openSettings"
+      @open-queue="openQueue"
     />
 
     <!-- Main content: task table (remaining space) -->
@@ -607,17 +717,10 @@ onUnmounted(() => {
     </main>
 
     <!-- Bottom chat input (96px, sticky bottom) -->
-    <BottomChat
-      @send="handleSendMessage"
-      @quick-action="handleQuickAction"
-      @attach="handleAttach"
-    />
+    <BottomChat @send="handleSendMessage" @quick-action="handleQuickAction" @attach="handleAttach" />
 
     <!-- Toast stack (floating above bottom chat) -->
-    <ToastStack
-      :toasts="toasts"
-      @dismiss="dismissToast"
-    />
+    <ToastStack :toasts="toasts" @dismiss="dismissToast" />
 
     <!-- Detail panel overlay (when task clicked) -->
     <DetailPanel
@@ -651,10 +754,16 @@ onUnmounted(() => {
     />
 
     <!-- Onboarding card (first visit) -->
-    <OnboardingCard
-      v-if="showOnboarding"
-      :show="showOnboarding"
-      @complete="completeOnboarding"
+    <OnboardingCard v-if="showOnboarding" :show="showOnboarding" @complete="completeOnboarding" />
+
+    <!-- Search results modal (after NL parse) -->
+    <SearchResultsModal
+      :visible="showSearchResults"
+      :results="searchResults"
+      :searching="searching"
+      :query="searchQueryDisplay"
+      @close="closeSearchResults"
+      @select="handleSelectSearchResult"
     />
   </div>
 </template>
@@ -665,8 +774,8 @@ onUnmounted(() => {
   flex-direction: column;
   height: 100vh;
   overflow: hidden;
-  background: var(--bg, #0A0A0B);
-  color: var(--fg, #FAFAFA);
+  background: var(--bg, #0a0a0b);
+  color: var(--fg, #fafafa);
   font-family: var(--font-ui, 'Inter', system-ui, sans-serif);
   position: relative;
 }
