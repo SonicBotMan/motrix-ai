@@ -42,7 +42,9 @@ fn safe_join(base: &PathBuf, components: &[&str]) -> Result<PathBuf, String> {
     // Canonicalise base if possible, then verify out starts with it.
     let canon_base = base.canonicalize().unwrap_or_else(|_| base.clone());
     let parent_out = out.parent().unwrap_or(&out);
-    let canon_parent = parent_out.canonicalize().unwrap_or_else(|_| parent_out.to_path_buf());
+    let canon_parent = parent_out
+        .canonicalize()
+        .unwrap_or_else(|_| parent_out.to_path_buf());
     if !canon_parent.starts_with(&canon_base) {
         return Err(format!(
             "Refusing to organize outside download dir: {} not under {}",
@@ -268,11 +270,14 @@ pub async fn organize_file(
             "movie" => {
                 let dir = safe_join(
                     &base_dir,
-                    &["Movies", &format!(
-                        "{}{}",
-                        title,
-                        year.map(|y| format!(" ({})", y)).unwrap_or_default()
-                    )],
+                    &[
+                        "Movies",
+                        &format!(
+                            "{}{}",
+                            title,
+                            year.map(|y| format!(" ({})", y)).unwrap_or_default()
+                        ),
+                    ],
                 )?;
                 let fname = format!(
                     "{}{}.{}",
@@ -329,7 +334,9 @@ pub async fn organize_file(
 
         if src != final_path {
             std::fs::rename(&src, &final_path)
-                .or_else(|_| std::fs::copy(&src, &final_path).and_then(|_| std::fs::remove_file(&src)))
+                .or_else(|_| {
+                    std::fs::copy(&src, &final_path).and_then(|_| std::fs::remove_file(&src))
+                })
                 .map_err(|e| format!("Failed to move file: {}", e))?;
         }
 

@@ -56,31 +56,35 @@ pub async fn start_aria2(app: tauri::AppHandle, rpc_port: Option<u16>) -> Result
     // These are all sync std::fs operations; running them inline would block
     // the Tauri async runtime, freezing every other concurrent command.
     let home = dirs::home_dir().ok_or("Cannot find home directory")?;
-    let prep = tokio::task::spawn_blocking(move || -> Result<(std::path::PathBuf, std::path::PathBuf, std::fs::File), String> {
-        let download_dir = home.join("Downloads").join("Motrix AI");
-        std::fs::create_dir_all(&download_dir)
-            .map_err(|e| format!("Create download dir failed: {}", e))?;
+    let prep = tokio::task::spawn_blocking(
+        move || -> Result<(std::path::PathBuf, std::path::PathBuf, std::fs::File), String> {
+            let download_dir = home.join("Downloads").join("Motrix AI");
+            std::fs::create_dir_all(&download_dir)
+                .map_err(|e| format!("Create download dir failed: {}", e))?;
 
-        let session_dir = home.join(".motrix-ai");
-        std::fs::create_dir_all(&session_dir)
-            .map_err(|e| format!("Create session dir failed: {}", e))?;
-        let session_file = session_dir.join("aria2.session");
-        if !session_file.exists() {
-            std::fs::write(&session_file, "")
-                .map_err(|e| format!("Create session file failed: {}", e))?;
-        }
+            let session_dir = home.join(".motrix-ai");
+            std::fs::create_dir_all(&session_dir)
+                .map_err(|e| format!("Create session dir failed: {}", e))?;
+            let session_file = session_dir.join("aria2.session");
+            if !session_file.exists() {
+                std::fs::write(&session_file, "")
+                    .map_err(|e| format!("Create session file failed: {}", e))?;
+            }
 
-        let log_path = session_dir.join("aria2.log");
-        let log_file = std::fs::File::create(&log_path)
-            .map_err(|e| format!("Failed to create {}: {}", log_path.display(), e))?;
+            let log_path = session_dir.join("aria2.log");
+            let log_file = std::fs::File::create(&log_path)
+                .map_err(|e| format!("Failed to create {}: {}", log_path.display(), e))?;
 
-        Ok((download_dir, session_file, log_file))
-    })
+            Ok((download_dir, session_file, log_file))
+        },
+    )
     .await
     .map_err(|e| format!("Setup task join error: {}", e))??;
 
     let (download_dir, session_file, log_file) = prep;
-    let session_dir = session_file.parent().map(|p| p.to_path_buf())
+    let session_dir = session_file
+        .parent()
+        .map(|p| p.to_path_buf())
         .unwrap_or_else(|| std::path::PathBuf::from(".motrix-ai"));
 
     // Start aria2c (detached from parent process)
@@ -222,9 +226,10 @@ pub async fn check_aria2_binary(app: tauri::AppHandle) -> Result<serde_json::Val
     let aria2c_path = resource_path.join("resources").join("bin").join("aria2c");
     let aria2c_path_for_blocking = aria2c_path.clone();
     // stat() on a network mount or slow disk blocks; do it on a worker.
-    let metadata = tokio::task::spawn_blocking(move || std::fs::metadata(&aria2c_path_for_blocking).ok())
-        .await
-        .map_err(|e| format!("Stat join error: {}", e))?;
+    let metadata =
+        tokio::task::spawn_blocking(move || std::fs::metadata(&aria2c_path_for_blocking).ok())
+            .await
+            .map_err(|e| format!("Stat join error: {}", e))?;
     let exists = metadata.is_some();
     let executable = metadata
         .as_ref()
@@ -268,7 +273,10 @@ async fn aria2_rpc(method: &str, params: serde_json::Value) -> Result<serde_json
     if let Some(err) = data.get("error") {
         return Err(format!("aria2 error: {}", err));
     }
-    Ok(data.get("result").cloned().unwrap_or(serde_json::Value::Null))
+    Ok(data
+        .get("result")
+        .cloned()
+        .unwrap_or(serde_json::Value::Null))
 }
 
 /// Pause all active downloads (aria2.pauseAll).
@@ -297,10 +305,11 @@ pub async fn add_torrent_file(path: String) -> Result<String, String> {
     // abuse (memory exhaustion via base64 inflation).
     const MAX_TORRENT_SIZE: u64 = 5 * 1024 * 1024;
     let path_for_stat = path.clone();
-    let size = tokio::task::spawn_blocking(move || std::fs::metadata(&path_for_stat).map(|m| m.len()))
-        .await
-        .map_err(|e| format!("Stat join error: {}", e))?
-        .map_err(|e| format!("Failed to stat torrent file: {}", e))?;
+    let size =
+        tokio::task::spawn_blocking(move || std::fs::metadata(&path_for_stat).map(|m| m.len()))
+            .await
+            .map_err(|e| format!("Stat join error: {}", e))?
+            .map_err(|e| format!("Failed to stat torrent file: {}", e))?;
     if size > MAX_TORRENT_SIZE {
         return Err(format!(
             "Torrent file too large ({} bytes, max {} bytes)",
@@ -316,5 +325,9 @@ pub async fn add_torrent_file(path: String) -> Result<String, String> {
     let base64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
     aria2_rpc("aria2.addTorrent", serde_json::json!([base64]))
         .await
-        .and_then(|v| v.as_str().map(String::from).ok_or_else(|| "aria2 returned non-string gid".to_string()))
+        .and_then(|v| {
+            v.as_str()
+                .map(String::from)
+                .ok_or_else(|| "aria2 returned non-string gid".to_string())
+        })
 }
