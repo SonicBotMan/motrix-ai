@@ -18,6 +18,7 @@ import {
   SearchOutline,
   CloseOutline,
 } from '@vicons/ionicons5'
+import { t } from '@/composables/useSettings'
 import { useAria2Manager, type DownloadItem } from '@/composables/useAria2Manager'
 import { useAria2, type TaskStatus } from '@/composables/useAria2'
 import TaskDetailModal from '@/components/TaskDetailModal.vue'
@@ -409,7 +410,9 @@ function toModalStatus(s: TaskStatus): 'downloading' | 'completed' | 'paused' | 
             <path d="M12 12 8.15 18.6" />
             <path d="M12 12h10" />
           </svg>
-          <span><span class="accent">Download</span> Queue</span>
+          <span
+            ><span class="accent">{{ t('btn.download') }}</span> {{ t('nav.queue') }}</span
+          >
         </div>
       </div>
       <div class="chrome-center"></div>
@@ -427,19 +430,19 @@ function toModalStatus(s: TaskStatus): 'downloading' | 'completed' | 'paused' | 
     <div class="stats-bar">
       <div class="stat-item">
         <div class="stat-value">{{ stats.total }}</div>
-        <div class="stat-label">Total Tasks</div>
+        <div class="stat-label">{{ t('queue.totalTasks') }}</div>
       </div>
       <div class="stat-item">
         <div class="stat-value">{{ stats.active }}</div>
-        <div class="stat-label">Active</div>
+        <div class="stat-label">{{ t('filter.active') }}</div>
       </div>
       <div class="stat-item">
         <div class="stat-value">{{ stats.completed }}</div>
-        <div class="stat-label">Completed</div>
+        <div class="stat-label">{{ t('filter.completed') }}</div>
       </div>
       <div class="stat-item">
         <div class="stat-value">{{ stats.failed }}</div>
-        <div class="stat-label">Failed</div>
+        <div class="stat-label">{{ t('filter.failed') }}</div>
       </div>
       <div class="stat-item stat-speed">
         <div class="stat-value">{{ formatBytes(stats.totalSpeed) }}</div>
@@ -455,48 +458,55 @@ function toModalStatus(s: TaskStatus): 'downloading' | 'completed' | 'paused' | 
           size="tiny"
           quaternary
           @click="activeFilter = 'all'"
-          >All</NButton
+          >{{ t('filter.all') }}</NButton
         >
         <NButton
           :type="activeFilter === 'active' ? 'primary' : 'default'"
           size="tiny"
           quaternary
           @click="activeFilter = 'active'"
-          >Active</NButton
+          >{{ t('filter.active') }}</NButton
         >
         <NButton
           :type="activeFilter === 'paused' ? 'primary' : 'default'"
           size="tiny"
           quaternary
           @click="activeFilter = 'paused'"
-          >Paused</NButton
+          >{{ t('filter.paused') }}</NButton
         >
         <NButton
           :type="activeFilter === 'complete' ? 'primary' : 'default'"
           size="tiny"
           quaternary
           @click="activeFilter = 'complete'"
-          >Completed</NButton
+          >{{ t('filter.completed') }}</NButton
         >
         <NButton
           :type="activeFilter === 'error' ? 'primary' : 'default'"
           size="tiny"
           quaternary
           @click="activeFilter = 'error'"
-          >Failed</NButton
+          >{{ t('filter.failed') }}</NButton
         >
       </div>
       <div class="filter-actions">
         <div class="search-box">
           <NIcon size="14"><SearchOutline /></NIcon>
-          <input v-model="searchQuery" type="text" placeholder="Search tasks..." class="search-input" />
+          <input
+            v-model="searchQuery"
+            type="text"
+            :placeholder="t('queue.searchTasksPlaceholder')"
+            class="search-input"
+          />
           <button v-if="searchQuery" class="search-clear" @click="searchQuery = ''">
             <NIcon size="12"><CloseOutline /></NIcon>
           </button>
         </div>
-        <NButton size="tiny" quaternary @click="handlePauseAll">Pause All</NButton>
-        <NButton size="tiny" quaternary @click="handleResumeAll">Resume All</NButton>
-        <NButton size="tiny" quaternary type="error" @click="handleClearCompleted">Clear Completed</NButton>
+        <NButton size="tiny" quaternary @click="handlePauseAll">{{ t('btn.pauseAll') }}</NButton>
+        <NButton size="tiny" quaternary @click="handleResumeAll">{{ t('btn.resumeAll') }}</NButton>
+        <NButton size="tiny" quaternary type="error" @click="handleClearCompleted">{{
+          t('btn.clearCompleted')
+        }}</NButton>
       </div>
     </div>
 
@@ -521,7 +531,7 @@ function toModalStatus(s: TaskStatus): 'downloading' | 'completed' | 'paused' | 
         ></template>
         Remove
       </NButton>
-      <NButton size="tiny" quaternary @click="selectedGids.clear()">Cancel</NButton>
+      <NButton size="tiny" quaternary @click="selectedGids.clear()">{{ t('btn.cancel') }}</NButton>
     </div>
 
     <!-- Loading -->
@@ -539,18 +549,18 @@ function toModalStatus(s: TaskStatus): 'downloading' | 'completed' | 'paused' | 
             <th class="col-name sortable" @click="toggleSort('name')">
               NAME {{ sortKey === 'name' ? (sortAsc ? '↑' : '↓') : '' }}
             </th>
-            <th class="col-source">SOURCE</th>
+            <th class="col-source">{{ t('table.source') }}</th>
             <th class="col-status sortable" @click="toggleSort('status')">
               STATUS {{ sortKey === 'status' ? (sortAsc ? '↑' : '↓') : '' }}
             </th>
-            <th class="col-progress">PROGRESS</th>
+            <th class="col-progress">{{ t('table.progress') }}</th>
             <th class="col-speed sortable" @click="toggleSort('speed')">
               SPEED {{ sortKey === 'speed' ? (sortAsc ? '↑' : '↓') : '' }}
             </th>
             <th class="col-size sortable" @click="toggleSort('size')">
               SIZE {{ sortKey === 'size' ? (sortAsc ? '↑' : '↓') : '' }}
             </th>
-            <th class="col-eta">ETA</th>
+            <th class="col-eta">{{ t('table.eta') }}</th>
             <th class="col-actions"></th>
           </tr>
         </thead>
@@ -682,9 +692,9 @@ function toModalStatus(s: TaskStatus): 'downloading' | 'completed' | 'paused' | 
       <div class="bottom-right">
         <span :class="['connection-dot', manager.connected.value ? 'connected' : 'disconnected']"></span>
         <span class="connection-text">{{ manager.connected.value ? 'aria2 connected' : 'aria2 disconnected' }}</span>
-        <NButton v-if="!manager.connected.value" size="tiny" type="primary" quaternary @click="handleReconnect"
-          >Reconnect</NButton
-        >
+        <NButton v-if="!manager.connected.value" size="tiny" type="primary" quaternary @click="handleReconnect">{{
+          t('btn.reconnect')
+        }}</NButton>
       </div>
     </div>
 
