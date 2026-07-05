@@ -34,13 +34,26 @@ pub fn run() {
             }
 
             // ---- Deep Link ----
-            // Log deep-link URLs so the frontend can react to them.
+            // Forward magnet://ed2k://thunder:// URLs to aria2 on open.
             #[cfg(desktop)]
             {
                 use tauri_plugin_deep_link::DeepLinkExt;
                 app.deep_link().on_open_url(|event| {
                     for url in event.urls() {
-                        log::info!("Deep link opened: {}", url);
+                        let url_str = url.to_string();
+                        log::info!("Deep link opened: {}", url_str);
+                        if url_str.starts_with("magnet:")
+                            || url_str.starts_with("ed2k://")
+                            || url_str.starts_with("thunder://")
+                        {
+                            let url_owned = url_str.clone();
+                            tauri::async_runtime::spawn(async move {
+                                match commands::aria2_add_uri(&url_owned).await {
+                                    Ok(gid) => log::info!("Deep link queued: gid {}", gid),
+                                    Err(e) => log::warn!("Deep link forward failed: {}", e),
+                                }
+                            });
+                        }
                     }
                 });
             }
@@ -57,6 +70,18 @@ pub fn run() {
                         "Bundled aria2c not available: {} (user can start manually)",
                         e
                     ),
+                }
+
+                // Start the local HTTP API for browser extension bridge
+                match commands::http_api::start_http_api(Some(18900)).await {
+                    Ok(url) => log::info!("HTTP API started: {}", url),
+                    Err(e) => log::warn!("HTTP API failed to start: {}", e),
+                }
+
+                // Prevent system sleep while the app is running (download manager)
+                match commands::power::prevent_sleep().await {
+                    Ok(msg) => log::info!("Power: {}", msg),
+                    Err(e) => log::warn!("Power management failed: {}", e),
                 }
             });
 
