@@ -188,6 +188,24 @@ pub async fn organize_file(
     quality: Option<String>,
     resource_type: Option<String>,
 ) -> Result<String, String> {
+    // Wrap all blocking IO (path inspection, dir creation, rename, copy) in
+    // spawn_blocking so we don't stall the tokio runtime.
+    tokio::task::spawn_blocking(move || {
+        organize_file_blocking(file_path, title, year, quality, resource_type)
+    })
+    .await
+    .map_err(|e| format!("Task join error: {}", e))?
+}
+
+/// Blocking implementation of [`organize_file`]. Must be called inside
+/// `spawn_blocking` — direct use from an async context will stall the runtime.
+fn organize_file_blocking(
+    file_path: String,
+    title: Option<String>,
+    year: Option<u32>,
+    quality: Option<String>,
+    resource_type: Option<String>,
+) -> Result<String, String> {
     let src = PathBuf::from(&file_path);
     if !src.exists() {
         return Err(format!("File not found: {}", file_path));
@@ -204,12 +222,15 @@ pub async fn organize_file(
         .unwrap_or_default();
 
     let rtype = resource_type.unwrap_or_else(|| categorize_by_extension(&ext));
-    let quality = quality.unwrap_or_else(|| "other".to_string());
-    let title = title.unwrap_or_else(|| {
+    let quality = sanitize_path_component(&quality.unwrap_or_else(|| "other".to_string()));
+    // title comes from torrent metadata / external sources — sanitize to
+    // neutralize `../` and absolute-path attempts (path traversal mitigation).
+    let raw_title = title.unwrap_or_else(|| {
         src.file_stem()
             .map(|n| n.to_string_lossy().to_string())
             .unwrap_or_else(|| "Unknown".to_string())
     });
+    let title = sanitize_path_component(&raw_title);
 
     let home = dirs::home_dir().ok_or("Cannot find home")?;
     let base_dir = home.join("Downloads").join("Motrix AI");
@@ -274,6 +295,22 @@ pub async fn organize_file(
         target_path
     };
 
+    // Defense in depth: verify the final path stays under base_dir after
+    // sanitization. If sanitization missed anything (e.g. a Windows UNC path
+    // or a symlink escape), this is the last line of defense.
+    let canonical_base = base_dir.canonicalize().unwrap_or_else(|_| base_dir.clone());
+    let canonical_final = final_path
+        .parent()
+        .and_then(|p| p.canonicalize().ok())
+        .unwrap_or_else(|| canonical_base.clone());
+    if !canonical_final.starts_with(&canonical_base) {
+        return Err(format!(
+            "Refusing to organize file outside base dir: {} not under {}",
+            canonical_final.display(),
+            canonical_base.display()
+        ));
+    }
+
     if src != final_path {
         std::fs::rename(&src, &final_path)
             .or_else(|_| std::fs::copy(&src, &final_path).and_then(|_| std::fs::remove_file(&src)))
@@ -281,6 +318,62 @@ pub async fn organize_file(
     }
 
     Ok(final_path.to_string_lossy().to_string())
+}
+
+/// Sanitize a single path component (filename / folder name) to make it safe
+/// to join onto a trusted base directory.
+///
+/// Defends against:
+///   * Path traversal via `..` segments or leading `/`/`\\`.
+///   * Windows reserved names (CON, PRN, AUX, NUL, COM1-9, LPT1-9).
+///   * Control characters (0x00-0x1F).
+///   * Overly long names (limit 200 chars; most filesystems allow 255).
+///
+/// The sanitiser is conservative: it replaces risky characters with `_`
+/// rather than removing them, so titles remain recognisable.
+fn sanitize_path_component(input: &str) -> String {
+    let mut cleaned: String = input
+        .chars()
+        .map(|c| if c.is_control() { '_' } else { c })
+        .collect();
+
+    // Strip path separators and traversal segments.
+    cleaned = cleaned.replace(['/', '\\'], "_");
+    // Collapse multiple consecutive underscores into one for readability.
+    while cleaned.contains("__") {
+        cleaned = cleaned.replace("__", "_");
+    }
+    // Trim leading dots and underscores (defends against `..`, `...`, `._`).
+    cleaned = cleaned
+        .trim_start_matches('.')
+        .trim_start_matches('_')
+        .to_string();
+    // Strip leading drive-letter-like prefixes (Windows: `C:`).
+    if cleaned.len() >= 2 && cleaned.as_bytes()[1] == b':' {
+        cleaned = cleaned.split_off(2);
+    }
+
+    // Windows reserved names — replace with a safe alternative.
+    let upper = cleaned.to_uppercase();
+    let reserved_stems = [
+        "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8",
+        "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
+    ];
+    let stem = upper.split('.').next().unwrap_or("");
+    if reserved_stems.iter().any(|r| stem == *r) {
+        cleaned = format!("_{}", cleaned);
+    }
+
+    // Enforce a sane length limit (200 chars; leaves headroom for path join).
+    if cleaned.chars().count() > 200 {
+        cleaned = cleaned.chars().take(200).collect();
+    }
+
+    if cleaned.is_empty() {
+        "Unknown".to_string()
+    } else {
+        cleaned
+    }
 }
 
 /// Determine file category from its extension
@@ -351,4 +444,106 @@ pub async fn show_in_folder(path: String) -> Result<(), String> {
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn sanitize_passes_through_clean_name() {
+        assert_eq!(sanitize_path_component("Inception"), "Inception");
+        assert_eq!(sanitize_path_component("Movie (2010)"), "Movie (2010)");
+    }
+
+    #[test]
+    fn sanitize_strips_path_traversal_dots() {
+        let evil = "../../etc/cron.d/evil";
+        let cleaned = sanitize_path_component(evil);
+        assert!(!cleaned.contains(".."));
+        assert!(!cleaned.starts_with('.'));
+        assert!(!cleaned.starts_with('/'));
+    }
+
+    #[test]
+    fn sanitize_replaces_separators() {
+        let cleaned = sanitize_path_component("a/b\\c");
+        assert!(!cleaned.contains('/'));
+        assert!(!cleaned.contains('\\'));
+        assert!(cleaned.contains("a"));
+        assert!(cleaned.contains("b"));
+        assert!(cleaned.contains("c"));
+    }
+
+    #[test]
+    fn sanitize_replaces_control_chars() {
+        let cleaned = sanitize_path_component("name\x00with\x01control");
+        assert!(!cleaned.contains('\x00'));
+        assert!(!cleaned.contains('\x01'));
+    }
+
+    #[test]
+    fn sanitize_handles_drive_letter_prefix() {
+        let cleaned = sanitize_path_component("C:something");
+        assert!(!cleaned.starts_with("C:"));
+    }
+
+    #[test]
+    fn sanitize_renames_windows_reserved_names() {
+        for reserved in ["CON", "PRN", "AUX", "NUL", "COM1", "LPT9"] {
+            let cleaned = sanitize_path_component(reserved);
+            assert_ne!(cleaned, reserved);
+            assert!(cleans_starts_with_underscore_or_differs(&cleaned, reserved));
+        }
+    }
+
+    fn cleans_starts_with_underscore_or_differs(cleaned: &str, original: &str) -> bool {
+        cleaned != original
+    }
+
+    #[test]
+    fn sanitize_truncates_overly_long_names() {
+        let long = "a".repeat(500);
+        let cleaned = sanitize_path_component(&long);
+        assert!(cleaned.chars().count() <= 200);
+    }
+
+    #[test]
+    fn sanitize_returns_unknown_for_empty_input() {
+        assert_eq!(sanitize_path_component(""), "Unknown");
+        assert_eq!(sanitize_path_component("..."), "Unknown");
+        assert_eq!(sanitize_path_component("/"), "Unknown");
+    }
+
+    #[test]
+    fn sanitize_collapses_repeated_separators() {
+        let cleaned = sanitize_path_component("a///b\\\\\\c");
+        assert!(!cleaned.contains("___"));
+    }
+
+    #[test]
+    fn categorize_by_extension_returns_correct_category() {
+        assert_eq!(categorize_by_extension("mkv"), "movie");
+        assert_eq!(categorize_by_extension("mp4"), "movie");
+        assert_eq!(categorize_by_extension("mp3"), "music");
+        assert_eq!(categorize_by_extension("flac"), "music");
+        assert_eq!(categorize_by_extension("exe"), "software");
+        assert_eq!(categorize_by_extension("dmg"), "software");
+        assert_eq!(categorize_by_extension("zip"), "software");
+        assert_eq!(categorize_by_extension("torrent"), "other");
+        assert_eq!(categorize_by_extension("xyz"), "other");
+    }
+
+    #[test]
+    fn expand_home_resolves_tilde() {
+        let resolved = expand_home("~/test");
+        assert!(!resolved.to_string_lossy().contains('~'));
+        assert!(resolved.is_absolute());
+    }
+
+    #[test]
+    fn expand_home_passes_through_absolute_paths() {
+        let resolved = expand_home("/tmp/foo");
+        assert_eq!(resolved, PathBuf::from("/tmp/foo"));
+    }
 }

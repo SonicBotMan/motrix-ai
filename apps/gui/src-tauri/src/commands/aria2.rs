@@ -93,9 +93,18 @@ pub async fn start_aria2(app: tauri::AppHandle, rpc_port: Option<u16>) -> Result
     ])
     .stdout(std::process::Stdio::null())
     .stderr(std::process::Stdio::from({
-        let log_file = std::fs::File::create(session_dir.join("aria2.log"))
-            .unwrap_or_else(|_| panic!("cannot create aria2.log"));
-        log_file
+        // Never panic inside an async command — panics in async fn tear down
+        // the entire tokio runtime. Map the IO error into a normal Result.
+        // Fall back to inheriting stderr so the spawn still succeeds even if
+        // the log file is unwritable (the parent dir was created above so
+        // this branch is unlikely, but we must not panic).
+        match std::fs::File::create(session_dir.join("aria2.log")) {
+            Ok(f) => std::process::Stdio::from(f),
+            Err(e) => {
+                log::warn!("Failed to create aria2.log (using inherited stderr): {}", e);
+                std::process::Stdio::inherit()
+            }
+        }
     }));
 
     // Detach from parent so process survives when Child handle is dropped
@@ -251,7 +260,10 @@ async fn aria2_rpc(method: &str, params: serde_json::Value) -> Result<serde_json
     if let Some(err) = data.get("error") {
         return Err(format!("aria2 error: {}", err));
     }
-    Ok(data.get("result").cloned().unwrap_or(serde_json::Value::Null))
+    Ok(data
+        .get("result")
+        .cloned()
+        .unwrap_or(serde_json::Value::Null))
 }
 
 /// Pause all active downloads (aria2.pauseAll).
@@ -273,12 +285,15 @@ pub async fn unpause_all() -> Result<String, String> {
 /// Add a .torrent file to aria2 by reading the file and base64-encoding it.
 #[command]
 pub async fn add_torrent_file(path: String) -> Result<String, String> {
-    let bytes = std::fs::read(&path)
-        .map_err(|e| format!("Failed to read {}: {}", path, e))?;
+    let bytes = std::fs::read(&path).map_err(|e| format!("Failed to read {}: {}", path, e))?;
     // aria2.addTorrent expects base64-encoded contents.
     use base64::Engine as _;
     let base64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
     aria2_rpc("aria2.addTorrent", serde_json::json!([base64]))
         .await
-        .and_then(|v| v.as_str().map(String::from).ok_or_else(|| "aria2 returned non-string gid".to_string()))
+        .and_then(|v| {
+            v.as_str()
+                .map(String::from)
+                .ok_or_else(|| "aria2 returned non-string gid".to_string())
+        })
 }
