@@ -32,16 +32,22 @@ interface Props {
   tasks: Task[]
   activeFilter: string
   keyboardIndex?: number
+  connecting?: boolean
+  connected?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   keyboardIndex: -1,
+  connecting: false,
+  connected: false,
 })
 
 const emit = defineEmits<{
   openDetail: [task: Task]
   toggleMenu: [taskId: number, event: MouseEvent]
   'update:filter': [filter: string]
+  retryConnect: []
+  trySample: []
 }>()
 
 // --- Filter tabs (spec: All / Active / Paused / Completed) ---
@@ -239,6 +245,12 @@ function handleMenuToggle(taskId: number, event: MouseEvent): void {
       </button>
     </div>
 
+    <!-- Connecting state -->
+    <div v-if="props.connecting && filteredTasks.length === 0" class="state-banner connecting">
+      <div class="state-spinner" />
+      <span>Connecting to download engine…</span>
+    </div>
+
     <!-- Table -->
     <table v-if="filteredTasks.length > 0" class="task-table">
       <thead>
@@ -339,10 +351,18 @@ function handleMenuToggle(taskId: number, event: MouseEvent): void {
       </tbody>
     </table>
 
-    <!-- Empty state -->
-    <div v-else class="empty-state">
-      <h3 class="empty-heading">{{ emptyState.heading }}</h3>
-      <p class="empty-sub">{{ emptyState.sub }}</p>
+    <!-- Empty state with actionable CTAs -->
+    <div v-else-if="!props.connecting" class="empty-state">
+      <div v-if="!props.connected" class="empty-disconnected">
+        <p class="empty-heading">Download engine offline</p>
+        <p class="empty-sub">aria2 isn't running. Downloads will be queued locally.</p>
+        <button class="empty-action" type="button" @click="$emit('retryConnect')">Retry connection</button>
+      </div>
+      <template v-else>
+        <h3 class="empty-heading">{{ emptyState.heading }}</h3>
+        <p class="empty-sub">{{ emptyState.sub }}</p>
+        <button class="empty-action" type="button" @click="$emit('trySample')">Try a sample download</button>
+      </template>
     </div>
   </div>
 </template>
@@ -742,8 +762,67 @@ tr:hover .task-row-menu {
   font-size: 14px;
   line-height: 1.5;
   color: var(--fg-secondary);
-  margin: 0;
+  margin: 0 0 var(--space-4, 16px) 0;
   max-width: 380px;
+}
+
+.empty-action {
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--primary);
+  background: var(--primary-muted);
+  border: 1px solid var(--primary);
+  border-radius: var(--radius-xs, 6px);
+  padding: 8px 20px;
+  cursor: pointer;
+  transition: background var(--transition-fast, 150ms) var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1));
+}
+
+.empty-action:hover {
+  background: var(--primary);
+  color: #fff;
+}
+
+.empty-action:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 6px var(--focus-ring-soft);
+}
+
+.empty-disconnected {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2, 8px);
+}
+
+/* --- Connecting banner --- */
+
+.state-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3, 12px);
+  padding: var(--space-8, 48px) var(--space-5, 24px);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  color: var(--fg-secondary);
+}
+
+.state-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border);
+  border-top-color: var(--primary);
+  border-radius: var(--radius-full, 9999px);
+  animation: spin 800ms linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* --- Reduced motion --- */

@@ -629,6 +629,12 @@ async function bumpPriority(): Promise<void> {
 // Chrome bar handlers
 // ---------------------------------------------------------------------------
 
+function handleTrySample(): void {
+  const ubuntuMagnet =
+    'magnet:?xt=urn:btih:9e3f8a0f8c0c0a0c0f0a0e0a0d0b0a0c0f0a0e0a&dn=ubuntu-24.04-desktop-amd64.iso&tr=https%3A%2F%2Ftorrent.ubuntu.com%2Fannounce&tr=https%3A%2F%2Fipv6.torrent.ubuntu.com%2Fannounce'
+  handleSendMessage(ubuntuMagnet)
+}
+
 function goHome(): void {
   closeDetail()
   closeMenu()
@@ -772,9 +778,13 @@ onUnmounted(() => {
         :tasks="tasks"
         :active-filter="activeFilter"
         :keyboard-index="keyboardIndex"
+        :connecting="tasksStore.aria2Connecting"
+        :connected="tasksStore.aria2Connected"
         @update:filter="activeFilter = $event"
         @toggle-menu="toggleRowMenu"
         @open-detail="openDetail"
+        @retry-connect="tasksStore.init().catch((e) => console.warn('retry failed:', e))"
+        @try-sample="handleTrySample"
       />
     </main>
 
