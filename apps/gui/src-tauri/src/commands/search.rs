@@ -310,8 +310,8 @@ async fn parse_1337x_results(client: &reqwest::Client, html: &str) -> Vec<Search
 
     let mut results = Vec::new();
     while let Some(res) = set.join_next().await {
-        match res {
-            Ok((entry, Some(magnet))) => results.push(SearchResult {
+        if let Ok((entry, Some(magnet))) = res {
+            results.push(SearchResult {
                 title: entry.title,
                 magnet,
                 size: entry.size,
@@ -319,8 +319,7 @@ async fn parse_1337x_results(client: &reqwest::Client, html: &str) -> Vec<Search
                 leechers: entry.leechers,
                 source: "1337x".to_string(),
                 quality: entry.quality,
-            }),
-            _ => {}
+            });
         }
     }
     results
