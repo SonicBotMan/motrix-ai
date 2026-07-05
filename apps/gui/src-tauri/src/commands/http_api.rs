@@ -1,8 +1,6 @@
 // commands/http_api.rs — Local HTTP API server for browser extension bridge.
-//
-// Provides a simple HTTP endpoint that the browser extension can POST to,
-// forwarding download requests to aria2 without exposing the raw RPC port.
 
+use super::aria2_add_uri;
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::command;
@@ -14,10 +12,10 @@ static SERVER_RUNNING: AtomicBool = AtomicBool::new(false);
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DownloadRequest {
     pub url: String,
+    #[allow(dead_code)]
     pub title: Option<String>,
 }
 
-/// Start the local HTTP API server for browser extension communication.
 #[command]
 pub async fn start_http_api(port: Option<u16>) -> Result<String, String> {
     let port = port.unwrap_or(DEFAULT_PORT);
@@ -56,43 +54,23 @@ pub async fn start_http_api(port: Option<u16>) -> Result<String, String> {
 async fn handle_connection(stream: &mut tokio::net::TcpStream) -> Result<(), String> {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
-    let mut buf = [0u8; 4096];
+    let mut buf = vec![0u8; 65536];
     let n = stream
         .read(&mut buf)
         .await
         .map_err(|e| format!("Read: {}", e))?;
     let request = String::from_utf8_lossy(&buf[..n]).to_string();
 
-    let (status, body) = if request.starts_with("POST ") {
-        if let Some(json_start) = request.find("\r\n\r\n") {
-            let body_str = &request[json_start + 4..];
-            match serde_json::from_str::<DownloadRequest>(body_str.trim()) {
-                Ok(req) => match forward_to_aria2(&req.url).await {
-                    Ok(gid) => (200, format!("{{\"status\":\"ok\",\"gid\":\"{}\"}}", gid)),
-                    Err(e) => (502, format!("{{\"status\":\"error\",\"error\":\"{}\"}}", e)),
-                },
-                Err(_) => (
-                    400,
-                    r#"{"status":"error","error":"invalid JSON"}"#.to_string(),
-                ),
-            }
-        } else {
-            (
-                400,
-                r#"{"status":"error","error":"empty body"}"#.to_string(),
-            )
-        }
-    } else if request.starts_with("GET / ") {
-        (
-            200,
-            r#"{"status":"ok","service":"motrix-ai-http-api"}"#.to_string(),
-        )
-    } else {
-        (404, r#"{"status":"error","error":"not found"}"#.to_string())
-    };
+    let (status, body) = route_request(&request).await;
 
     let response = format!(
-        "HTTP/1.1 {} OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nAccess-Control-Allow-Origin: *\r\n\r\n{}",
+        "HTTP/1.1 {} OK\r\n\
+         Content-Type: application/json\r\n\
+         Content-Length: {}\r\n\
+         Access-Control-Allow-Origin: *\r\n\
+         Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n\
+         Access-Control-Allow-Headers: Content-Type\r\n\
+         \r\n{}",
         status,
         body.len(),
         body
@@ -105,37 +83,46 @@ async fn handle_connection(stream: &mut tokio::net::TcpStream) -> Result<(), Str
     Ok(())
 }
 
-async fn forward_to_aria2(url: &str) -> Result<String, String> {
-    let client = reqwest::Client::new();
-    let body = serde_json::json!({
-        "jsonrpc": "2.0",
-        "id": "motrix-http-api",
-        "method": "aria2.addUri",
-        "params": [[url]],
-    });
-    let resp = client
-        .post("http://127.0.0.1:6800/jsonrpc")
-        .header("Content-Type", "application/json")
-        .json(&body)
-        .timeout(std::time::Duration::from_secs(10))
-        .send()
-        .await
-        .map_err(|e| format!("aria2 RPC: {}", e))?;
+async fn route_request(request: &str) -> (u16, String) {
+    if request.starts_with("OPTIONS ") {
+        return (204, String::new());
+    }
 
-    let data: serde_json::Value = resp.json().await.map_err(|e| format!("Parse: {}", e))?;
-    data.get("result")
-        .and_then(|v| v.as_str())
-        .map(String::from)
-        .ok_or_else(|| {
-            format!(
-                "aria2 error: {}",
-                data.get("error").map(|v| v.to_string()).unwrap_or_default()
-            )
-        })
+    if request.starts_with("GET / ") {
+        return (
+            200,
+            r#"{"status":"ok","service":"motrix-ai-http-api"}"#.to_string(),
+        );
+    }
+
+    if request.starts_with("POST ") {
+        let body_str = match request.find("\r\n\r\n") {
+            Some(idx) => &request[idx + 4..],
+            None => return (400, err_body("empty body")),
+        };
+
+        let req: DownloadRequest = match serde_json::from_str(body_str.trim()) {
+            Ok(r) => r,
+            Err(_) => return (400, err_body("invalid JSON")),
+        };
+
+        return match aria2_add_uri(&req.url).await {
+            Ok(gid) => (200, format!("{{\"status\":\"ok\",\"gid\":\"{}\"}}", gid)),
+            Err(e) => (502, err_body(&e)),
+        };
+    }
+
+    (404, err_body("not found"))
 }
 
-/// Handle a download request forwarded from the browser extension.
+fn err_body(msg: &str) -> String {
+    format!(
+        "{{\"status\":\"error\",\"error\":\"{}\"}}",
+        msg.replace('"', "\\\"")
+    )
+}
+
 #[command]
 pub async fn handle_download_request(request: DownloadRequest) -> Result<String, String> {
-    forward_to_aria2(&request.url).await
+    aria2_add_uri(&request.url).await
 }

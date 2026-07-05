@@ -1,27 +1,31 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from "vue"
-import { useRouter } from "vue-router"
-import { invoke } from "@tauri-apps/api/core"
+import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { invoke } from '@tauri-apps/api/core'
+import { NButton, NIcon, NTag, useMessage } from 'naive-ui'
 import {
-  NButton, NIcon, NTag, useMessage,
-} from "naive-ui"
-import {
-  SettingsOutline, DownloadOutline, PauseOutline,
-  PlayOutline, RefreshOutline, FolderOpenOutline,
-  MusicalNotesOutline, DocumentTextOutline,
-  ArchiveOutline, VideocamOutline,
-} from "@vicons/ionicons5"
-import TaskDetailModal from "@/components/TaskDetailModal.vue"
-import SearchResultsModal from "@/components/SearchResultsModal.vue"
-import { useTasksStore, type Task } from "@/stores/tasks"
-import { useChatStore } from "@/composables/useChatStore"
-import { useConfigStore } from "@/stores/config"
-import { useOpenCode, type DownloadIntent } from "@/composables/useOpenCode"
-import { useSearch } from "@/composables/useSearch"
-import type { SearchResult } from "@/composables/useSearch"
-import { useSubtitle } from "@/composables/useSubtitle"
-import type { SubtitleResult } from "@/composables/useSubtitle"
-import { t } from "@/composables/useSettings"
+  SettingsOutline,
+  DownloadOutline,
+  PauseOutline,
+  PlayOutline,
+  RefreshOutline,
+  FolderOpenOutline,
+  MusicalNotesOutline,
+  DocumentTextOutline,
+  ArchiveOutline,
+  VideocamOutline,
+} from '@vicons/ionicons5'
+import TaskDetailModal from '@/components/TaskDetailModal.vue'
+import SearchResultsModal from '@/components/SearchResultsModal.vue'
+import { useTasksStore, type Task } from '@/stores/tasks'
+import { useChatStore } from '@/composables/useChatStore'
+import { useConfigStore } from '@/stores/config'
+import { useOpenCode, type DownloadIntent } from '@/composables/useOpenCode'
+import { useSearch } from '@/composables/useSearch'
+import type { SearchResult } from '@/composables/useSearch'
+import { useSubtitle } from '@/composables/useSubtitle'
+import type { SubtitleResult } from '@/composables/useSubtitle'
+import { t } from '@/composables/useSettings'
 
 // ---- Stores & composables ----
 
@@ -33,10 +37,7 @@ const configStore = useConfigStore()
 
 const { connected: openCodeConnected, parseIntent } = useOpenCode()
 const { searchResults, searching, searchResources } = useSearch()
-const {
-  subtitleResults, searching: subtitleSearching,
-  searchSubtitles, getBestSubtitle, autoSearch,
-} = useSubtitle()
+const { subtitleResults, searching: subtitleSearching, searchSubtitles, getBestSubtitle, autoSearch } = useSubtitle()
 
 // ---- Store-derived reactive state ----
 
@@ -65,13 +66,13 @@ const activeFilter = computed<string>({
 // ---- Search / intent state ----
 
 const showSearchResults = ref(false)
-const searchQuery = ref("")
+const searchQuery = ref('')
 const currentIntent = ref<DownloadIntent | null>(null)
 
 // ---- Input state ----
 
-const urlInput = ref("")
-const chatInput = ref("")
+const urlInput = ref('')
+const chatInput = ref('')
 const urlInputRef = ref<HTMLInputElement | null>(null)
 
 // ---- Modal state ----
@@ -86,12 +87,72 @@ const selectedTask = ref<Task | null>(null)
  * Seeded into the store's `localTasks` so the UI stays populated.
  */
 const demoTasks: Task[] = [
-  { id: 1, name: "ubuntu-24.04-desktop-amd64.iso", source: "releases.ubuntu.com", status: "downloading", progress: 84, speed: "24.6 MB/s", size: "4.8 GB / 5.7 GB", eta: "38s", type: "document" },
-  { id: 2, name: "The.Weeknd.-.Dawn.FM.2025.mp3", source: "qobuz.com", status: "downloading", progress: 62, speed: "8.2 MB/s", size: "142 MB / 228 MB", eta: "10s", type: "audio" },
-  { id: 3, name: "ubuntu-24.04-desktop-amd64.iso", source: "magnet:?xt=urn:btih:...", status: "downloading", progress: 35, speed: "9.8 MB/s", size: "2.0 GB / 5.7 GB", eta: "6m 24s", type: "torrent" },
-  { id: 4, name: "Arch_Linux_2025.03.01-x86_64.iso", source: "archlinux.org", status: "completed", progress: 100, speed: "—", size: "876 MB / 876 MB", eta: "—", type: "document" },
-  { id: 5, name: "VSCode_macOS_arm64_1.96.zip", source: "code.visualstudio.com", status: "paused", progress: 73, speed: "—", size: "178 MB / 245 MB", eta: "—", type: "archive" },
-  { id: 6, name: "Big_Buck_Bunny_2160p.mkv", source: "archive.org", status: "failed", progress: 12, speed: "—", size: "214 MB / 1.8 GB", eta: "—", type: "video" },
+  {
+    id: 1,
+    name: 'ubuntu-24.04-desktop-amd64.iso',
+    source: 'releases.ubuntu.com',
+    status: 'downloading',
+    progress: 84,
+    speed: '24.6 MB/s',
+    size: '4.8 GB / 5.7 GB',
+    eta: '38s',
+    type: 'document',
+  },
+  {
+    id: 2,
+    name: 'The.Weeknd.-.Dawn.FM.2025.mp3',
+    source: 'qobuz.com',
+    status: 'downloading',
+    progress: 62,
+    speed: '8.2 MB/s',
+    size: '142 MB / 228 MB',
+    eta: '10s',
+    type: 'audio',
+  },
+  {
+    id: 3,
+    name: 'ubuntu-24.04-desktop-amd64.iso',
+    source: 'magnet:?xt=urn:btih:...',
+    status: 'downloading',
+    progress: 35,
+    speed: '9.8 MB/s',
+    size: '2.0 GB / 5.7 GB',
+    eta: '6m 24s',
+    type: 'torrent',
+  },
+  {
+    id: 4,
+    name: 'Arch_Linux_2025.03.01-x86_64.iso',
+    source: 'archlinux.org',
+    status: 'completed',
+    progress: 100,
+    speed: '—',
+    size: '876 MB / 876 MB',
+    eta: '—',
+    type: 'document',
+  },
+  {
+    id: 5,
+    name: 'VSCode_macOS_arm64_1.96.zip',
+    source: 'code.visualstudio.com',
+    status: 'paused',
+    progress: 73,
+    speed: '—',
+    size: '178 MB / 245 MB',
+    eta: '—',
+    type: 'archive',
+  },
+  {
+    id: 6,
+    name: 'Big_Buck_Bunny_2160p.mkv',
+    source: 'archive.org',
+    status: 'failed',
+    progress: 12,
+    speed: '—',
+    size: '214 MB / 1.8 GB',
+    eta: '—',
+    type: 'video',
+  },
 ]
 
 onMounted(async () => {
@@ -104,66 +165,29 @@ onMounted(async () => {
   }
 })
 
-// ---- Download completion handler: notification + auto-organize ----
-
-tasksStore.onTaskComplete(async (task) => {
-  const filename = task.files?.[0]?.path?.split("/").pop()
-    || task.bittorrent?.info?.name
-    || task.gid
-  const filePath = task.files?.[0]?.path
-
-  // 1. System notification
-  try {
-    const { isPermissionGranted, requestPermission, sendNotification } = await import("@tauri-apps/plugin-notification")
-    let granted = await isPermissionGranted()
-    if (!granted) {
-      const perm = await requestPermission()
-      granted = perm === "granted"
-    }
-    if (granted) {
-      sendNotification({
-        title: t("msg.downloadComplete"),
-        body: filename,
-      })
-    }
-  } catch (e) {
-    console.warn("Notification failed:", e)
-  }
-
-  // 2. Auto-organize file (categorize + rename + move)
-  if (filePath) {
-    try {
-      const newPath = await invoke<string>("organize_file", {
-        filePath,
-        title: currentIntent.value?.title || undefined,
-        year: currentIntent.value?.year || undefined,
-        quality: currentIntent.value?.quality || undefined,
-        resourceType: currentIntent.value?.resource_type || undefined,
-      })
-      message.success(`${t("msg.organized")}: ${newPath.split("/").pop()}`)
-    } catch (e) {
-      console.warn("Auto-organize failed:", e)
-      // Not critical — file stays in download dir
-    }
-  }
-
-  // 3. Auto-search subtitles if intent requires it
-  if (currentIntent.value?.need_subtitle && filePath) {
-    // Handled by subtitle composable flow
-  }
-})
+// Post-download pipeline (notification + organize + subtitle) is now
+// handled centrally in the tasks store's init() — see
+// registerPostDownloadPipeline(). This view no longer registers its
+// own onTaskComplete listener to avoid double-execution when users
+// navigate between / and /legacy.
 
 // ---- UI helpers ----
 
 /** Map a task type to its icon component. */
 const getTypeIcon = (type: string) => {
   switch (type) {
-    case "video": return VideocamOutline
-    case "audio": return MusicalNotesOutline
-    case "document": return DocumentTextOutline
-    case "archive": return ArchiveOutline
-    case "torrent": return DownloadOutline
-    default: return DocumentTextOutline
+    case 'video':
+      return VideocamOutline
+    case 'audio':
+      return MusicalNotesOutline
+    case 'document':
+      return DocumentTextOutline
+    case 'archive':
+      return ArchiveOutline
+    case 'torrent':
+      return DownloadOutline
+    default:
+      return DocumentTextOutline
   }
 }
 
@@ -175,11 +199,16 @@ const getStatusClass = (status: string) => {
 /** Return a hex progress-bar color for the given status. */
 const getProgressColor = (status: string) => {
   switch (status) {
-    case "downloading": return "#3B82F6"
-    case "completed": return "#10B981"
-    case "paused": return "#F59E0B"
-    case "failed": return "#EF4444"
-    default: return "#3B82F6"
+    case 'downloading':
+      return '#3B82F6'
+    case 'completed':
+      return '#10B981'
+    case 'paused':
+      return '#F59E0B'
+    case 'failed':
+      return '#EF4444'
+    default:
+      return '#3B82F6'
   }
 }
 
@@ -210,7 +239,7 @@ const cancelTask = async (taskId: number) => {
 
 /** Open the detail modal for a task by id. */
 const openDetail = (taskId: number) => {
-  const task = tasks.value.find(t => t.id === taskId)
+  const task = tasks.value.find((t) => t.id === taskId)
   if (task) {
     selectedTask.value = task
     showModal.value = true
@@ -225,22 +254,25 @@ const closeModal = () => {
 
 /** Open the folder containing a completed task's file. */
 const openLocation = async (taskId: number) => {
-  const task = tasks.value.find(t => t.id === taskId)
+  const task = tasks.value.find((t) => t.id === taskId)
   if (!task?.filePath) {
-    message.warning(t("msg.noFilePath"))
+    message.warning(t('msg.noFilePath'))
     return
   }
   try {
-    await invoke("show_in_folder", { path: task.filePath })
+    await invoke('show_in_folder', { path: task.filePath })
   } catch (e) {
-    console.error("Failed to open folder:", e)
+    console.error('Failed to open folder:', e)
     // Fallback: copy path to clipboard
-    const dir = task.filePath.substring(0, task.filePath.lastIndexOf("/"))
-    navigator.clipboard.writeText(dir).then(() => {
-      message.success(`${t("msg.pathCopied")}: ${dir}`)
-    }).catch(() => {
-      message.info(`${t("msg.fileLocation")}: ${dir}`)
-    })
+    const dir = task.filePath.substring(0, task.filePath.lastIndexOf('/'))
+    navigator.clipboard
+      .writeText(dir)
+      .then(() => {
+        message.success(`${t('msg.pathCopied')}: ${dir}`)
+      })
+      .catch(() => {
+        message.info(`${t('msg.fileLocation')}: ${dir}`)
+      })
   }
 }
 
@@ -260,8 +292,8 @@ const handlePasteLink = async () => {
       urlInputRef.value?.focus()
     }
   } catch (e) {
-    console.error("Failed to read clipboard:", e)
-    message.warning(t("msg.clipboardReadFailed"))
+    console.error('Failed to read clipboard:', e)
+    message.warning(t('msg.clipboardReadFailed'))
   }
 }
 
@@ -273,15 +305,15 @@ const handleUrlSubmit = async () => {
   try {
     await tasksStore.addTask(url)
     if (tasksStore.aria2Connected) {
-      message.success(`${t("msg.added")}: ${url.substring(0, 60)}...`)
+      message.success(`${t('msg.added')}: ${url.substring(0, 60)}...`)
     } else {
-      message.warning(t("msg.aria2NotConnected"))
+      message.warning(t('msg.aria2NotConnected'))
     }
-    urlInput.value = ""
+    urlInput.value = ''
   } catch (e: unknown) {
-    console.error("Failed to add URL:", e)
+    console.error('Failed to add URL:', e)
     const msg = e instanceof Error ? e.message : String(e)
-    message.error(`${t("msg.addFailed")}: ${msg || t("msg.unknownError")}`)
+    message.error(`${t('msg.addFailed')}: ${msg || t('msg.unknownError')}`)
   }
 }
 
@@ -293,7 +325,7 @@ const handleUrlSubmit = async () => {
 const handleChatSubmit = async () => {
   if (!chatInput.value) return
   const input = chatInput.value
-  chatInput.value = ""
+  chatInput.value = ''
 
   // Record the user message in the chat store
   chatStore.addUserMessage(input)
@@ -303,7 +335,7 @@ const handleChatSubmit = async () => {
     const intent = await parseIntent(input)
 
     // Build a human-readable summary
-    const summary = `${t("msg.recognized")}: ${intent.title} (${intent.quality || t("msg.auto")})${intent.need_subtitle ? " + " + t("msg.subtitle") : ""}`
+    const summary = `${t('msg.recognized')}: ${intent.title} (${intent.quality || t('msg.auto')})${intent.need_subtitle ? ' + ' + t('msg.subtitle') : ''}`
 
     // Record the assistant response in the chat store
     chatStore.addAssistantMessage(summary, intent)
@@ -317,9 +349,9 @@ const handleChatSubmit = async () => {
     showSearchResults.value = true
     await searchResources(intent)
   } catch (e) {
-    console.error("Failed:", e)
-    message.error(t("msg.searchFailed"))
-    chatStore.addAssistantMessage(t("msg.searchFailed"), null, true)
+    console.error('Failed:', e)
+    message.error(t('msg.searchFailed'))
+    chatStore.addAssistantMessage(t('msg.searchFailed'), null, true)
   }
 }
 
@@ -327,26 +359,26 @@ const handleChatSubmit = async () => {
 const handleSelectResult = async (result: SearchResult) => {
   try {
     await tasksStore.addTask(result.magnet)
-    message.success(`${t("msg.added")}: ${result.title}`)
+    message.success(`${t('msg.added')}: ${result.title}`)
     showSearchResults.value = false
 
     // Auto-search subtitles if intent requires it
     if (currentIntent.value?.need_subtitle && subtitlesEnabled.value && autoSearch.value) {
-      message.info(t("msg.subtitleSearching"))
+      message.info(t('msg.subtitleSearching'))
       await searchSubtitles(currentIntent.value.title)
 
       const best = getBestSubtitle()
       if (best) {
-        message.success(`${t("msg.subtitleFound")}: ${best.language} (${best.fileName})`)
+        message.success(`${t('msg.subtitleFound')}: ${best.language} (${best.fileName})`)
         // Auto-download the best subtitle
         // In production, save alongside the video file
       } else {
-        message.warning(t("msg.subtitleNotFound"))
+        message.warning(t('msg.subtitleNotFound'))
       }
     }
   } catch (e) {
-    console.error("Failed to add:", e)
-    message.error(t("msg.addDownloadFailed"))
+    console.error('Failed to add:', e)
+    message.error(t('msg.addDownloadFailed'))
   }
 }
 
@@ -354,13 +386,12 @@ const handleSelectResult = async (result: SearchResult) => {
 const handleSelectSubtitle = async (subtitle: SubtitleResult) => {
   try {
     // In production, download and save alongside the video
-    message.success(`${t("msg.subtitleDownload")}: ${subtitle.language} - ${subtitle.fileName}`)
+    message.success(`${t('msg.subtitleDownload')}: ${subtitle.language} - ${subtitle.fileName}`)
   } catch (e) {
-    console.error("Failed to download subtitle:", e)
-    message.error(t("msg.subtitleDownloadFailed"))
+    console.error('Failed to download subtitle:', e)
+    message.error(t('msg.subtitleDownloadFailed'))
   }
 }
-
 </script>
 
 <template>
@@ -369,11 +400,19 @@ const handleSelectSubtitle = async (subtitle: SubtitleResult) => {
     <header class="chrome">
       <div class="chrome-left">
         <div class="chrome-logo">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="logo-icon">
-            <path d="M12 2a10 10 0 1 0 10 10h-10Z"/>
-            <path d="M12 12 2.93 5.4"/>
-            <path d="M12 12 8.15 18.6"/>
-            <path d="M12 12h10"/>
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            class="logo-icon"
+          >
+            <path d="M12 2a10 10 0 1 0 10 10h-10Z" />
+            <path d="M12 12 2.93 5.4" />
+            <path d="M12 12 8.15 18.6" />
+            <path d="M12 12h10" />
           </svg>
           <span><span class="accent">Motrix</span> AI</span>
         </div>
@@ -381,7 +420,9 @@ const handleSelectSubtitle = async (subtitle: SubtitleResult) => {
       <div class="chrome-center"></div>
       <div class="chrome-right">
         <NButton quaternary circle size="small" @click="router.push('/settings')">
-          <template #icon><NIcon><SettingsOutline /></NIcon></template>
+          <template #icon
+            ><NIcon><SettingsOutline /></NIcon
+          ></template>
         </NButton>
       </div>
     </header>
@@ -397,10 +438,34 @@ const handleSelectSubtitle = async (subtitle: SubtitleResult) => {
             <NTag size="small" round :bordered="false" class="count-tag">{{ tasks.length }}</NTag>
           </h2>
           <div class="task-filters">
-            <NButton :type="activeFilter === 'all' ? 'primary' : 'default'" size="tiny" quaternary @click="activeFilter = 'all'">{{ t('filter.all') }}</NButton>
-            <NButton :type="activeFilter === 'downloading' ? 'primary' : 'default'" size="tiny" quaternary @click="activeFilter = 'downloading'">{{ t('filter.active') }}</NButton>
-            <NButton :type="activeFilter === 'completed' ? 'primary' : 'default'" size="tiny" quaternary @click="activeFilter = 'completed'">{{ t('filter.completed') }}</NButton>
-            <NButton :type="activeFilter === 'failed' ? 'primary' : 'default'" size="tiny" quaternary @click="activeFilter = 'failed'">{{ t('filter.failed') }}</NButton>
+            <NButton
+              :type="activeFilter === 'all' ? 'primary' : 'default'"
+              size="tiny"
+              quaternary
+              @click="activeFilter = 'all'"
+              >{{ t('filter.all') }}</NButton
+            >
+            <NButton
+              :type="activeFilter === 'downloading' ? 'primary' : 'default'"
+              size="tiny"
+              quaternary
+              @click="activeFilter = 'downloading'"
+              >{{ t('filter.active') }}</NButton
+            >
+            <NButton
+              :type="activeFilter === 'completed' ? 'primary' : 'default'"
+              size="tiny"
+              quaternary
+              @click="activeFilter = 'completed'"
+              >{{ t('filter.completed') }}</NButton
+            >
+            <NButton
+              :type="activeFilter === 'failed' ? 'primary' : 'default'"
+              size="tiny"
+              quaternary
+              @click="activeFilter = 'failed'"
+              >{{ t('filter.failed') }}</NButton
+            >
           </div>
         </div>
         <div class="task-header-right">
@@ -408,7 +473,9 @@ const handleSelectSubtitle = async (subtitle: SubtitleResult) => {
           <span v-else class="connection-status disconnected">○ aria2</span>
           <span v-if="openCodeConnected" class="connection-status connected">● OpenCode</span>
           <span v-else class="connection-status disconnected">○ OpenCode</span>
-          <span class="speed-indicator">↓ {{ globalStat ? (Number(globalStat.downloadSpeed) / 1024 / 1024).toFixed(1) : '0.0' }} MB/s</span>
+          <span class="speed-indicator"
+            >↓ {{ globalStat ? (Number(globalStat.downloadSpeed) / 1024 / 1024).toFixed(1) : '0.0' }} MB/s</span
+          >
           <span class="active-count">{{ activeCount }} {{ t('status.active') }}</span>
           <NButton size="tiny" quaternary @click="handleClearCompleted">{{ t('btn.clear') }}</NButton>
         </div>
@@ -465,16 +532,29 @@ const handleSelectSubtitle = async (subtitle: SubtitleResult) => {
               <td class="col-eta">{{ task.eta }}</td>
               <td class="col-actions">
                 <NButton v-if="task.status === 'downloading'" size="tiny" quaternary @click.stop="pauseTask(task.id)">
-                  <template #icon><NIcon><PauseOutline /></NIcon></template>
+                  <template #icon
+                    ><NIcon><PauseOutline /></NIcon
+                  ></template>
                 </NButton>
                 <NButton v-else-if="task.status === 'paused'" size="tiny" quaternary @click.stop="resumeTask(task.id)">
-                  <template #icon><NIcon><PlayOutline /></NIcon></template>
+                  <template #icon
+                    ><NIcon><PlayOutline /></NIcon
+                  ></template>
                 </NButton>
                 <NButton v-else-if="task.status === 'failed'" size="tiny" quaternary @click.stop="retryTask(task.id)">
-                  <template #icon><NIcon><RefreshOutline /></NIcon></template>
+                  <template #icon
+                    ><NIcon><RefreshOutline /></NIcon
+                  ></template>
                 </NButton>
-                <NButton v-else-if="task.status === 'completed'" size="tiny" quaternary @click.stop="openLocation(task.id)">
-                  <template #icon><NIcon><FolderOpenOutline /></NIcon></template>
+                <NButton
+                  v-else-if="task.status === 'completed'"
+                  size="tiny"
+                  quaternary
+                  @click.stop="openLocation(task.id)"
+                >
+                  <template #icon
+                    ><NIcon><FolderOpenOutline /></NIcon
+                  ></template>
                 </NButton>
               </td>
             </tr>
@@ -514,9 +594,7 @@ const handleSelectSubtitle = async (subtitle: SubtitleResult) => {
             :placeholder="t('search.placeholder')"
             @keyup.enter="handleUrlSubmit"
           />
-          <NButton quaternary circle size="tiny" class="input-action-btn" @click="handleUrlSubmit">
-            &#8595;
-          </NButton>
+          <NButton quaternary circle size="tiny" class="input-action-btn" @click="handleUrlSubmit"> &#8595; </NButton>
           <div class="input-divider"></div>
           <input
             v-model="chatInput"
@@ -524,9 +602,7 @@ const handleSelectSubtitle = async (subtitle: SubtitleResult) => {
             :placeholder="t('search.chatPlaceholder')"
             @keyup.enter="handleChatSubmit"
           />
-          <NButton type="primary" circle size="tiny" class="send-btn" @click="handleChatSubmit">
-            &#8594;
-          </NButton>
+          <NButton type="primary" circle size="tiny" class="send-btn" @click="handleChatSubmit"> &#8594; </NButton>
         </div>
       </div>
     </div>
@@ -729,14 +805,30 @@ const handleSelectSubtitle = async (subtitle: SubtitleResult) => {
 }
 
 /* Column widths */
-.col-name { width: 25%; }
-.col-source { width: 20%; }
-.col-status { width: 10%; }
-.col-progress { width: 18%; }
-.col-speed { width: 10%; }
-.col-size { width: 12%; }
-.col-eta { width: 8%; }
-.col-actions { width: 7%; }
+.col-name {
+  width: 25%;
+}
+.col-source {
+  width: 20%;
+}
+.col-status {
+  width: 10%;
+}
+.col-progress {
+  width: 18%;
+}
+.col-speed {
+  width: 10%;
+}
+.col-size {
+  width: 12%;
+}
+.col-eta {
+  width: 8%;
+}
+.col-actions {
+  width: 7%;
+}
 
 /* Name cell */
 .task-name-cell {
@@ -756,11 +848,26 @@ const handleSelectSubtitle = async (subtitle: SubtitleResult) => {
   font-size: 12px;
 }
 
-.task-name-icon.video { background: var(--primary-muted); color: var(--primary); }
-.task-name-icon.document { background: var(--accent-muted); color: var(--accent); }
-.task-name-icon.archive { background: var(--warning-muted); color: var(--warning); }
-.task-name-icon.torrent { background: var(--error-muted); color: var(--error); }
-.task-name-icon.audio { background: rgba(139, 92, 246, 0.12); color: #8B5CF6; }
+.task-name-icon.video {
+  background: var(--primary-muted);
+  color: var(--primary);
+}
+.task-name-icon.document {
+  background: var(--accent-muted);
+  color: var(--accent);
+}
+.task-name-icon.archive {
+  background: var(--warning-muted);
+  color: var(--warning);
+}
+.task-name-icon.torrent {
+  background: var(--error-muted);
+  color: var(--error);
+}
+.task-name-icon.audio {
+  background: rgba(139, 92, 246, 0.12);
+  color: #8b5cf6;
+}
 
 .task-name-text {
   font-weight: 500;
@@ -833,7 +940,7 @@ const handleSelectSubtitle = async (subtitle: SubtitleResult) => {
   height: 100%;
   border-radius: 2px;
   transition: width 0.3s ease;
-  background: #3B82F6; /* 使用设计稿蓝色 */
+  background: #3b82f6; /* 使用设计稿蓝色 */
 }
 
 .task-progress-text {
