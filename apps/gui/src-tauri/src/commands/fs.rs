@@ -3,7 +3,7 @@
 // get_download_path, organize_file, show_in_folder.
 
 use super::build_http_client;
-use std::path::{Component, PathBuf};
+use std::path::PathBuf;
 use tauri::command;
 
 /// Sanitize a user/metadata-provided string so it is safe to use as a
@@ -387,12 +387,10 @@ pub async fn show_in_folder(path: String) -> Result<(), String> {
     if !p.exists() {
         return Err(format!("File not found: {}", p.display()));
     }
-    let path_str = p.to_string_lossy().to_string();
-
     #[cfg(target_os = "macos")]
     {
         std::process::Command::new("open")
-            .args(["-R", &path_str])
+            .args(["-R", &p.to_string_lossy()])
             .spawn()
             .map_err(|e| format!("Failed to open Finder: {}", e))?;
     }
@@ -400,7 +398,7 @@ pub async fn show_in_folder(path: String) -> Result<(), String> {
     #[cfg(target_os = "windows")]
     {
         std::process::Command::new("explorer")
-            .args(["/select,", &path_str])
+            .args(["/select,", &p.to_string_lossy()])
             .spawn()
             .map_err(|e| format!("Failed to open Explorer: {}", e))?;
     }
