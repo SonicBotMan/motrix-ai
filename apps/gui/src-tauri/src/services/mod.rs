@@ -4,6 +4,4 @@
 // frontend via Tauri commands but is not user-facing IPC in the same way
 // as the `commands` modules.
 
-pub mod port_guard;
 pub mod power;
-pub mod tracker;
