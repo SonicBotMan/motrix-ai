@@ -9,11 +9,6 @@ const router = createRouter({
       component: () => import('@/views/TaskFirstView.vue'),
     },
     {
-      path: '/legacy',
-      name: 'legacy',
-      component: () => import('@/views/MainView.vue'),
-    },
-    {
       path: '/queue',
       name: 'queue',
       component: () => import('@/views/QueueView.vue'),

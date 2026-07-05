@@ -63,6 +63,7 @@ const showSearchResults = ref(false)
 const searchResults = ref<SearchResult[]>([])
 const searching = ref(false)
 const searchQuery = ref('')
+const pendingIntent = ref<{ title?: string; year?: number; quality?: string; resource_type?: string } | null>(null)
 
 // ---------------------------------------------------------------------------
 // Toast system (docs/design/handoff/02-components.md §5)
@@ -120,9 +121,23 @@ function dismissToast(id: string): void {
  * table immediately (the store picks up the real aria2 task on next poll).
  * @returns the aria2 GID string on success
  */
-async function aria2AddUri(uri: string): Promise<void> {
+async function aria2AddUri(
+  uri: string,
+  intent?: { title?: string; year?: number; quality?: string; resource_type?: string },
+): Promise<void> {
   try {
-    await tasksStore.addTask(uri)
+    await tasksStore.addTask(
+      uri,
+      undefined,
+      intent
+        ? {
+            title: intent.title,
+            year: intent.year,
+            quality: intent.quality,
+            resourceType: intent.resource_type,
+          }
+        : undefined,
+    )
   } catch (e) {
     // addTask only throws if aria2 is connected AND the RPC fails; fall
     // back to a raw JSON-RPC call so the user still gets the real error.
@@ -194,8 +209,10 @@ async function handleSendMessage(message: string): Promise<void> {
       resource_type: string
       search_keywords: string[]
       quality: string
+      year?: number
     }>('parse_nl_intent', { input: trimmed, llmConfig: null })
 
+    pendingIntent.value = intent
     searchQuery.value = intent.search_keywords[0] || intent.title
     searching.value = true
     showSearchResults.value = true
@@ -241,7 +258,14 @@ async function handleSendMessage(message: string): Promise<void> {
 function handleSelectSearchResult(result: SearchResult): void {
   showSearchResults.value = false
   if (result.magnet) {
-    handleSendMessage(result.magnet)
+    void aria2AddUri(result.magnet, pendingIntent.value || undefined)
+    addToast({
+      id: generateToastId(),
+      type: 'success',
+      text: `Downloading: ${result.title.slice(0, 40)}`,
+      createdAt: Date.now(),
+    })
+    pendingIntent.value = null
   } else {
     addToast({ id: generateToastId(), type: 'error', text: 'No magnet link for this result', createdAt: Date.now() })
   }
