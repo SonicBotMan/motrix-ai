@@ -79,7 +79,7 @@ pub fn run() {
                 }
 
                 // Prevent system sleep while the app is running (download manager)
-                match commands::power::prevent_sleep().await {
+                match services::power::prevent_sleep().await {
                     Ok(msg) => log::info!("Power: {}", msg),
                     Err(e) => log::warn!("Power management failed: {}", e),
                 }
