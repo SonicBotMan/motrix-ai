@@ -34,13 +34,12 @@ fn sanitize_path_component(s: &str) -> String {
 /// `base`. Defends against any path-escape attempt that slipped past
 /// `sanitize_path_component` (defence in depth).
 fn safe_join(base: &Path, components: &[&str]) -> Result<PathBuf, String> {
-    let mut out = base.clone();
+    let mut out = base.to_path_buf();
     for c in components {
         let cleaned = sanitize_path_component(c);
         out.push(&cleaned);
     }
-    // Canonicalise base if possible, then verify out starts with it.
-    let canon_base = base.canonicalize().unwrap_or_else(|_| base.clone());
+    let canon_base = base.canonicalize().unwrap_or_else(|_| base.to_path_buf());
     let parent_out = out.parent().unwrap_or(&out);
     let canon_parent = parent_out
         .canonicalize()
