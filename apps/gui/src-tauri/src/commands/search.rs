@@ -374,13 +374,15 @@ fn extract_1337x_search_entries(html: &str) -> Vec<X1337Entry> {
             })
             .unwrap_or(0);
 
+        let quality = detect_quality(&title);
+
         entries.push(X1337Entry {
             detail_url: format!("https://1337x.to{}", detail_path),
             title,
             seeders,
             leechers,
             size,
-            quality: detect_quality(&title),
+            quality,
         });
     }
 
@@ -409,7 +411,8 @@ async fn fetch_1337x_magnet(
                 "Accept",
                 "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
             )
-            .header("Accept-Language", "en-US,en;q=0.5"),
+            .header("Accept-Language", "en-US,en;q=0.5")
+            .send(),
     )
     .await
     .ok()?;
