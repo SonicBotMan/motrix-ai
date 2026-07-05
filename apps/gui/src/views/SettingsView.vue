@@ -2,8 +2,18 @@
 import { ref, computed, watch, type Ref } from 'vue'
 import { useRouter } from 'vue-router'
 import {
-  NButton, NIcon, NTabs, NTabPane, NInput, NSwitch, NSelect, NSlider,
-  NInputNumber, NDivider, NAlert, useMessage,
+  NButton,
+  NIcon,
+  NTabs,
+  NTabPane,
+  NInput,
+  NSwitch,
+  NSelect,
+  NSlider,
+  NInputNumber,
+  NDivider,
+  NAlert,
+  useMessage,
 } from 'naive-ui'
 import { ArrowBackOutline, SettingsOutline, TrashOutline, FolderOpenOutline } from '@vicons/ionicons5'
 import { useAria2 } from '@/composables/useAria2'
@@ -28,9 +38,13 @@ function useLocalStorage<T>(key: string, defaultValue: T) {
   const stored = localStorage.getItem(key)
   const data = ref<T>(stored !== null ? (JSON.parse(stored) as T) : defaultValue)
 
-  watch(data, (newVal) => {
-    localStorage.setItem(key, JSON.stringify(newVal))
-  }, { deep: true })
+  watch(
+    data,
+    (newVal) => {
+      localStorage.setItem(key, JSON.stringify(newVal))
+    },
+    { deep: true },
+  )
 
   return data
 }
@@ -39,22 +53,26 @@ function useLocalStorage<T>(key: string, defaultValue: T) {
 const llmEndpoint = useLocalStorage<string>('motrix-ai:llm-endpoint', '')
 const llmApiKey = useLocalStorage<string>('motrix-ai:llm-api-key', '')
 const llmModel = useLocalStorage<string>('motrix-ai:llm-model', 'gpt-4o-mini')
-const currentModel = computed(() => llmEndpoint.value ? llmModel.value : '内置启发式解析器（零配置）')
+const currentModel = computed(() => (llmEndpoint.value ? llmModel.value : '内置启发式解析器（零配置）'))
 
 // Sync to the LLM config format used by useOpenCode
-watch([llmEndpoint, llmApiKey, llmModel], () => {
-  import('@/composables/useOpenCode').then(({ setLLMConfig }) => {
-    if (llmEndpoint.value) {
-      setLLMConfig({
-        endpoint: llmEndpoint.value,
-        api_key: llmApiKey.value,
-        model: llmModel.value,
-      })
-    } else {
-      setLLMConfig(null)
-    }
-  })
-}, { immediate: true })
+watch(
+  [llmEndpoint, llmApiKey, llmModel],
+  () => {
+    import('@/composables/useOpenCode').then(({ setLLMConfig }) => {
+      if (llmEndpoint.value) {
+        setLLMConfig({
+          endpoint: llmEndpoint.value,
+          api_key: llmApiKey.value,
+          model: llmModel.value,
+        })
+      } else {
+        setLLMConfig(null)
+      }
+    })
+  },
+  { immediate: true },
+)
 
 // ---- BYOK AI Provider options ----
 /** Provider options for the AI provider dropdown. */
@@ -127,32 +145,42 @@ const logLevel = useLocalStorage<'debug' | 'info' | 'warn' | 'error'>('motrix-ai
 watch(maxConcurrent, async (val) => {
   try {
     await aria2.changeGlobalOption({ 'max-concurrent-downloads': String(val) })
-  } catch (e) { console.warn('Failed to apply maxConcurrent:', e) }
+  } catch (e) {
+    console.warn('Failed to apply maxConcurrent:', e)
+  }
 })
 
 watch(downloadSpeedLimit, async (val) => {
   try {
     await aria2.changeGlobalOption({ 'max-overall-download-limit': String(val * 1024) })
-  } catch (e) { console.warn('Failed to apply downloadSpeedLimit:', e) }
+  } catch (e) {
+    console.warn('Failed to apply downloadSpeedLimit:', e)
+  }
 })
 
 watch(uploadSpeedLimit, async (val) => {
   try {
     await aria2.changeGlobalOption({ 'max-overall-upload-limit': String(val * 1024) })
-  } catch (e) { console.warn('Failed to apply uploadSpeedLimit:', e) }
+  } catch (e) {
+    console.warn('Failed to apply uploadSpeedLimit:', e)
+  }
 })
 
 watch(autoRetry, async (val) => {
   try {
     await aria2.changeGlobalOption({ 'max-tries': val ? String(maxRetries.value) : '0' })
-  } catch (e) { console.warn('Failed to apply autoRetry:', e) }
+  } catch (e) {
+    console.warn('Failed to apply autoRetry:', e)
+  }
 })
 
 watch(maxRetries, async (val) => {
   if (autoRetry.value) {
     try {
       await aria2.changeGlobalOption({ 'max-tries': String(val) })
-    } catch (e) { console.warn('Failed to apply maxRetries:', e) }
+    } catch (e) {
+      console.warn('Failed to apply maxRetries:', e)
+    }
   }
 })
 
@@ -253,13 +281,15 @@ async function applyAria2Settings() {
       <div class="chrome-left">
         <div class="chrome-logo">
           <SettingsOutline :size="18" />
-          <span>Settings</span>
+          <span>{{ t('nav.settings') }}</span>
         </div>
       </div>
       <div class="chrome-center"></div>
       <div class="chrome-right">
         <NButton quaternary size="small" @click="router.push('/')">
-          <template #icon><NIcon><ArrowBackOutline /></NIcon></template>
+          <template #icon
+            ><NIcon><ArrowBackOutline /></NIcon
+          ></template>
           Back
         </NButton>
       </div>
@@ -274,14 +304,13 @@ async function applyAria2Settings() {
             <h3>{{ t('settings.aiModel') }}</h3>
 
             <NAlert type="info" :bordered="false" style="margin-bottom: 16px">
-              Choose an AI provider for natural-language download parsing.
-              OpenCode is free with zero configuration; bring your own key for
-              Anthropic Claude or OpenAI GPT, or run Ollama locally.
+              Choose an AI provider for natural-language download parsing. OpenCode is free with zero configuration;
+              bring your own key for Anthropic Claude or OpenAI GPT, or run Ollama locally.
             </NAlert>
 
             <!-- BYOK Provider Selection -->
             <div class="setting-group">
-              <label>Provider</label>
+              <label>{{ t('settings.provider') }}</label>
               <NSelect
                 :value="aiProvider.config.value.provider"
                 :options="providerOptions"
@@ -291,7 +320,7 @@ async function applyAria2Settings() {
             </div>
 
             <div class="setting-group">
-              <label>Model</label>
+              <label>{{ t('settings.model') }}</label>
               <NSelect
                 :value="aiProvider.config.value.model"
                 :options="aiProvider.modelOptions.value"
@@ -300,7 +329,7 @@ async function applyAria2Settings() {
             </div>
 
             <div v-if="requiresApiKey" class="setting-group">
-              <label>API Key</label>
+              <label>{{ t('settings.apiKey') }}</label>
               <NInput
                 :value="aiProvider.config.value.apiKey"
                 type="password"
@@ -308,13 +337,11 @@ async function applyAria2Settings() {
                 placeholder="sk-..."
                 @update:value="aiProvider.setApiKey"
               />
-              <p class="setting-hint">
-                Your key is stored locally and never sent anywhere except the provider's API.
-              </p>
+              <p class="setting-hint">Your key is stored locally and never sent anywhere except the provider's API.</p>
             </div>
 
             <div v-if="needsBaseUrl" class="setting-group">
-              <label>Base URL</label>
+              <label>{{ t('settings.baseUrl') }}</label>
               <NInput
                 :value="aiProvider.config.value.baseUrl"
                 placeholder="http://127.0.0.1:11434"
@@ -324,12 +351,9 @@ async function applyAria2Settings() {
             </div>
 
             <div class="setting-group">
-              <label>Connection Status</label>
+              <label>{{ t('settings.connectionStatus') }}</label>
               <div class="status-indicator">
-                <span
-                  class="status-dot"
-                  :class="openCode.connected.value ? 'connected' : 'disconnected'"
-                ></span>
+                <span class="status-dot" :class="openCode.connected.value ? 'connected' : 'disconnected'"></span>
                 <span>{{ openCode.connected.value ? 'Ready' : 'Disconnected' }}</span>
               </div>
             </div>
@@ -340,39 +364,26 @@ async function applyAria2Settings() {
             <h4 style="margin-bottom: 16px">Advanced: Custom Endpoint</h4>
 
             <div class="setting-group">
-              <label>Current Mode</label>
+              <label>{{ t('settings.currentMode') }}</label>
               <NInput :value="currentModel" readonly />
               <p class="setting-hint">Leave empty Endpoint = heuristic mode; fill in = AI mode</p>
             </div>
 
             <div class="setting-group">
               <label>API Endpoint (OpenAI Compatible)</label>
-              <NInput
-                v-model:value="llmEndpoint"
-                placeholder="https://api.openai.com/v1/chat/completions"
-              />
-              <p class="setting-hint">
-                Supports OpenAI / DeepSeek / Ollama / any OpenAI-compatible API
-              </p>
+              <NInput v-model:value="llmEndpoint" placeholder="https://api.openai.com/v1/chat/completions" />
+              <p class="setting-hint">Supports OpenAI / DeepSeek / Ollama / any OpenAI-compatible API</p>
             </div>
 
             <div class="setting-group">
-              <label>API Key</label>
-              <NInput
-                v-model:value="llmApiKey"
-                type="password"
-                show-password-on="click"
-                placeholder="sk-..."
-              />
+              <label>{{ t('settings.apiKey') }}</label>
+              <NInput v-model:value="llmApiKey" type="password" show-password-on="click" placeholder="sk-..." />
               <p class="setting-hint">Local Ollama does not require a key.</p>
             </div>
 
             <div class="setting-group">
-              <label>Model</label>
-              <NInput
-                v-model:value="llmModel"
-                placeholder="gpt-4o-mini / deepseek-chat / qwen2.5:7b"
-              />
+              <label>{{ t('settings.model') }}</label>
+              <NInput v-model:value="llmModel" placeholder="gpt-4o-mini / deepseek-chat / qwen2.5:7b" />
             </div>
           </div>
         </NTabPane>
@@ -383,11 +394,13 @@ async function applyAria2Settings() {
             <h3>{{ t('settings.downloads') }}</h3>
 
             <div class="setting-group">
-              <label>Default Download Directory</label>
+              <label>{{ t('settings.downloadDir') }}</label>
               <div class="folder-picker">
                 <NInput v-model:value="downloadDir" placeholder="~/Downloads/Motrix AI" />
                 <NButton quaternary @click="pickDownloadDir">
-                  <template #icon><NIcon><FolderOpenOutline /></NIcon></template>
+                  <template #icon
+                    ><NIcon><FolderOpenOutline /></NIcon
+                  ></template>
                 </NButton>
               </div>
             </div>
@@ -431,7 +444,7 @@ async function applyAria2Settings() {
             </div>
 
             <div v-if="autoRetry" class="setting-group">
-              <label>Max Retries</label>
+              <label>{{ t('settings.maxRetries') }}</label>
               <div class="slider-row">
                 <NSlider v-model:value="maxRetries" :min="1" :max="20" :step="1" style="flex: 1" />
                 <span class="slider-value">{{ maxRetries }}</span>
@@ -449,7 +462,7 @@ async function applyAria2Settings() {
             </div>
 
             <div class="setting-group">
-              <NButton type="primary" @click="applyAria2Settings">Apply Settings Now</NButton>
+              <NButton type="primary" @click="applyAria2Settings">{{ t('settings.applyNow') }}</NButton>
             </div>
           </div>
         </NTabPane>
@@ -460,8 +473,7 @@ async function applyAria2Settings() {
             <h3>{{ t('settings.schedule') || 'Schedule' }}</h3>
 
             <NAlert type="info" :bordered="false" style="margin-bottom: 16px">
-              Automatically adjust download speed and concurrency based on the
-              time of day.
+              Automatically adjust download speed and concurrency based on the time of day.
             </NAlert>
 
             <ScheduleConfig />
@@ -480,12 +492,13 @@ async function applyAria2Settings() {
                   v-model:value="subtitleApiKey"
                   type="password"
                   show-password-on="click"
-                  placeholder="Enter your OpenSubtitles API key"
+                  :placeholder="t('settings.subtitleApiKeyPlaceholder')"
                 />
-                <NButton type="primary" size="small" @click="saveSubtitleApiKey">Save</NButton>
+                <NButton type="primary" size="small" @click="saveSubtitleApiKey">{{ t('btn.save') }}</NButton>
               </div>
               <p class="setting-hint">
-                Get your API key from <a href="https://opensubtitles.com/api" target="_blank" rel="noopener">opensubtitles.com/api</a>
+                Get your API key from
+                <a href="https://opensubtitles.com/api" target="_blank" rel="noopener">opensubtitles.com/api</a>
               </p>
             </div>
 
@@ -495,7 +508,7 @@ async function applyAria2Settings() {
                 v-model:value="subtitleLanguages"
                 multiple
                 :options="languageOptions"
-                placeholder="Select preferred subtitle languages"
+                :placeholder="t('settings.subtitleLangsPlaceholder')"
               />
             </div>
 
@@ -510,11 +523,13 @@ async function applyAria2Settings() {
             </div>
 
             <div class="setting-group">
-              <label>Subtitle Download Directory</label>
+              <label>{{ t('settings.subtitleDownloadDir') }}</label>
               <div class="folder-picker">
                 <NInput v-model:value="subtitleDir" placeholder="~/Downloads/Motrix AI/Subtitles" />
                 <NButton quaternary @click="pickSubtitleDir">
-                  <template #icon><NIcon><FolderOpenOutline /></NIcon></template>
+                  <template #icon
+                    ><NIcon><FolderOpenOutline /></NIcon
+                  ></template>
                 </NButton>
               </div>
             </div>
@@ -560,7 +575,7 @@ async function applyAria2Settings() {
                 v-model:value="aria2RpcSecret"
                 type="password"
                 show-password-on="click"
-                placeholder="Leave empty for no authentication"
+                :placeholder="t('settings.rpcSecretPlaceholder')"
               />
               <p class="setting-hint">Secret token for aria2 RPC authentication.</p>
             </div>
@@ -579,15 +594,17 @@ async function applyAria2Settings() {
             <NDivider />
 
             <div class="setting-group">
-              <label>Danger Zone</label>
+              <label>{{ t('settings.dangerZone') }}</label>
               <div class="danger-zone">
                 <div class="danger-item">
                   <div>
-                    <strong>Clear Download History</strong>
+                    <strong>{{ t('settings.clearHistory') }}</strong>
                     <p class="setting-hint">Remove all completed and failed download records from aria2.</p>
                   </div>
                   <NButton type="error" size="small" @click="clearDownloadHistory">
-                    <template #icon><NIcon><TrashOutline /></NIcon></template>
+                    <template #icon
+                      ><NIcon><TrashOutline /></NIcon
+                    ></template>
                     Clear History
                   </NButton>
                 </div>
@@ -718,11 +735,11 @@ async function applyAria2Settings() {
 }
 
 .status-dot.connected {
-  background: #10B981;
+  background: #10b981;
 }
 
 .status-dot.disconnected {
-  background: #EF4444;
+  background: #ef4444;
 }
 
 .danger-zone {
