@@ -19,6 +19,7 @@ import {
   CloseOutline,
 } from '@vicons/ionicons5'
 import { t } from '@/composables/useSettings'
+import QueueStats from '@/components/queue/QueueStats.vue'
 import { useAria2Manager, type DownloadItem } from '@/composables/useAria2Manager'
 import { useAria2, type TaskStatus } from '@/composables/useAria2'
 import TaskDetailModal from '@/components/TaskDetailModal.vue'
@@ -427,28 +428,13 @@ function toModalStatus(s: TaskStatus): 'downloading' | 'completed' | 'paused' | 
     </header>
 
     <!-- Stats -->
-    <div class="stats-bar">
-      <div class="stat-item">
-        <div class="stat-value">{{ stats.total }}</div>
-        <div class="stat-label">{{ t('queue.totalTasks') }}</div>
-      </div>
-      <div class="stat-item">
-        <div class="stat-value">{{ stats.active }}</div>
-        <div class="stat-label">{{ t('filter.active') }}</div>
-      </div>
-      <div class="stat-item">
-        <div class="stat-value">{{ stats.completed }}</div>
-        <div class="stat-label">{{ t('filter.completed') }}</div>
-      </div>
-      <div class="stat-item">
-        <div class="stat-value">{{ stats.failed }}</div>
-        <div class="stat-label">{{ t('filter.failed') }}</div>
-      </div>
-      <div class="stat-item stat-speed">
-        <div class="stat-value">{{ formatBytes(stats.totalSpeed) }}</div>
-        <div class="stat-label">/s Total</div>
-      </div>
-    </div>
+    <QueueStats
+      :total="stats.total"
+      :active="stats.active"
+      :completed="stats.completed"
+      :failed="stats.failed"
+      :total-speed="stats.totalSpeed"
+    />
 
     <!-- Filters -->
     <div class="filter-bar">
