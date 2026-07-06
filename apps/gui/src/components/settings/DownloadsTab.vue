@@ -1,0 +1,130 @@
+<script setup lang="ts">
+import { watch } from 'vue'
+import { NButton, NInput, NInputNumber, NSwitch } from 'naive-ui'
+import { FolderOpenOutline } from '@vicons/ionicons5'
+import { useAria2 } from '@/composables/useAria2'
+import { useLocalStorage } from '@/composables/useLocalStorage'
+import { t } from '@/composables/useSettings'
+import { useMessage } from 'naive-ui'
+
+const aria2 = useAria2()
+const message = useMessage()
+
+const downloadDir = useLocalStorage<string>('motrix-ai:download-dir', '~/Downloads/Motrix AI')
+const maxConcurrent = useLocalStorage<number>('motrix-ai:max-concurrent', 5)
+const downloadSpeedLimit = useLocalStorage<number>('motrix-ai:download-speed-limit', 0)
+const uploadSpeedLimit = useLocalStorage<number>('motrix-ai:upload-speed-limit', 0)
+const autoRetry = useLocalStorage<boolean>('motrix-ai:auto-retry', true)
+const maxRetries = useLocalStorage<number>('motrix-ai:max-retries', 3)
+
+watch(maxConcurrent, async (val) => {
+  try {
+    await aria2.changeGlobalOption({ 'max-concurrent-downloads': String(val) })
+  } catch (e) {
+    console.warn('Failed to apply maxConcurrent:', e)
+  }
+})
+watch(downloadSpeedLimit, async (val) => {
+  try {
+    await aria2.changeGlobalOption({ 'max-overall-download-limit': String(val * 1024) })
+  } catch (e) {
+    console.warn('Failed to apply downloadSpeedLimit:', e)
+  }
+})
+watch(uploadSpeedLimit, async (val) => {
+  try {
+    await aria2.changeGlobalOption({ 'max-overall-upload-limit': String(val * 1024) })
+  } catch (e) {
+    console.warn('Failed to apply uploadSpeedLimit:', e)
+  }
+})
+watch(autoRetry, async (val) => {
+  try {
+    await aria2.changeGlobalOption({ 'max-tries': val ? String(maxRetries.value) : '0' })
+  } catch (e) {
+    console.warn('Failed to apply autoRetry:', e)
+  }
+})
+watch(maxRetries, async (val) => {
+  if (autoRetry.value) {
+    try {
+      await aria2.changeGlobalOption({ 'max-tries': String(val) })
+    } catch (e) {
+      console.warn('Failed to apply maxRetries:', e)
+    }
+  }
+})
+
+async function pickDownloadDir() {
+  try {
+    const { open } = await import('@tauri-apps/plugin-dialog')
+    const selected = await open({ directory: true, multiple: false })
+    if (selected && typeof selected === 'string') downloadDir.value = selected
+  } catch (e) {
+    console.warn('Folder picker not available:', e)
+    message.info('Folder picker is only available in the desktop app')
+  }
+}
+
+async function applyAria2Settings() {
+  try {
+    await aria2.changeGlobalOption({
+      'max-concurrent-downloads': String(maxConcurrent.value),
+      'max-overall-download-limit': String(downloadSpeedLimit.value * 1024),
+      'max-overall-upload-limit': String(uploadSpeedLimit.value * 1024),
+      'max-tries': autoRetry.value ? String(maxRetries.value) : '0',
+    })
+    message.success('Settings applied to aria2')
+  } catch (e) {
+    message.error('Failed to apply settings: ' + (e instanceof Error ? e.message : String(e)))
+  }
+}
+</script>
+
+<template>
+  <div class="tab-content">
+    <h3>{{ t('settings.downloads') }}</h3>
+
+    <div class="setting-group">
+      <label>{{ t('settings.downloadDir') }}</label>
+      <div class="folder-row">
+        <NInput v-model:value="downloadDir" />
+        <NButton size="small" @click="pickDownloadDir">
+          <template #icon><FolderOpenOutline /></template>
+        </NButton>
+      </div>
+    </div>
+
+    <div class="setting-group">
+      <label>{{ t('settings.maxConcurrent') }}</label>
+      <NInputNumber v-model:value="maxConcurrent" :min="1" :max="20" />
+    </div>
+
+    <div class="setting-group">
+      <label>{{ t('settings.downloadSpeed') }}</label>
+      <NInputNumber v-model:value="downloadSpeedLimit" :min="0" />
+      <p class="setting-hint">{{ t('settings.unlimited') }}: 0</p>
+    </div>
+
+    <div class="setting-group">
+      <label>{{ t('settings.uploadSpeed') }}</label>
+      <NInputNumber v-model:value="uploadSpeedLimit" :min="0" />
+      <p class="setting-hint">{{ t('settings.unlimited') }}: 0</p>
+    </div>
+
+    <div class="setting-group toggle-row">
+      <div>
+        <label>{{ t('settings.autoRetry') }}</label>
+        <p class="setting-hint">Automatically retry failed downloads.</p>
+      </div>
+      <NSwitch v-model:value="autoRetry" />
+    </div>
+
+    <div v-if="autoRetry" class="setting-group">
+      <label>{{ t('settings.maxRetries') }}</label>
+      <NInputNumber v-model:value="maxRetries" :min="1" :max="10" />
+    </div>
+
+    <NButton type="primary" @click="applyAria2Settings">{{ t('settings.applyNow') }}</NButton>
+  </div>
+</template>
