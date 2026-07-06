@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { NButton, NInput, NSwitch } from 'naive-ui'
 import { FolderOpenOutline } from '@vicons/ionicons5'
 import { useLocalStorage } from '@/composables/useLocalStorage'
@@ -11,6 +12,19 @@ const subtitleApiKey = useLocalStorage<string>('motrix-ai:opensubtitles-api-key'
 const subtitleLanguages = useLocalStorage<string[]>('motrix-ai:subtitle-languages', ['zh', 'en'])
 const autoSearchSubtitles = useLocalStorage<boolean>('motrix-ai:auto-search-subtitles', true)
 const subtitleDir = useLocalStorage<string>('motrix-ai:subtitle-dir', '~/Downloads/Motrix AI/Subtitles')
+
+// NInput works on a single string; subtitleLanguages is string[] in storage.
+// Bridge with a computed that joins/splits on comma so the underlying
+// persistence shape stays an array (consumed elsewhere as an array).
+const subtitleLanguagesText = computed({
+  get: () => subtitleLanguages.value.join(','),
+  set: (v: string) => {
+    subtitleLanguages.value = v
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
+  },
+})
 
 async function pickSubtitleDir() {
   try {
@@ -46,10 +60,7 @@ function saveSubtitleApiKey() {
 
     <div class="setting-group">
       <label>{{ t('settings.subtitleLangs') }}</label>
-      <NInput
-        v-model:value="subtitleLanguages as unknown as string"
-        :placeholder="t('settings.subtitleLangsPlaceholder')"
-      />
+      <NInput v-model:value="subtitleLanguagesText" :placeholder="t('settings.subtitleLangsPlaceholder')" />
       <p class="setting-hint">Comma-separated language codes, e.g. zh,en,ja.</p>
     </div>
 
