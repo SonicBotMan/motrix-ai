@@ -50,29 +50,13 @@ function useLocalStorage<T>(key: string, defaultValue: T) {
 }
 
 // ---- AI Model settings ----
+// NOTE: Task 5 made `useOpenCode` read reactively from `useConfigStore().config.ai`,
+// so the BYOK fields below now back the Advanced Custom Endpoint inputs only.
+// Task 6 will replace this whole section with a store-backed rewrite.
 const llmEndpoint = useLocalStorage<string>('motrix-ai:llm-endpoint', '')
 const llmApiKey = useLocalStorage<string>('motrix-ai:llm-api-key', '')
 const llmModel = useLocalStorage<string>('motrix-ai:llm-model', 'gpt-4o-mini')
 const currentModel = computed(() => (llmEndpoint.value ? llmModel.value : '内置启发式解析器（零配置）'))
-
-// Sync to the LLM config format used by useOpenCode
-watch(
-  [llmEndpoint, llmApiKey, llmModel],
-  () => {
-    import('@/composables/useOpenCode').then(({ setLLMConfig }) => {
-      if (llmEndpoint.value) {
-        setLLMConfig({
-          endpoint: llmEndpoint.value,
-          api_key: llmApiKey.value,
-          model: llmModel.value,
-        })
-      } else {
-        setLLMConfig(null)
-      }
-    })
-  },
-  { immediate: true },
-)
 
 // ---- BYOK AI Provider options ----
 /** Provider options for the AI provider dropdown. */
@@ -86,38 +70,8 @@ const providerOptions = computed(() =>
 /** Whether the current provider requires an API key. */
 const requiresApiKey = computed(() => aiProvider.currentProvider.value.requiresKey)
 
-/** Whether the current provider uses a custom base URL (Ollama). */
-const needsBaseUrl = computed(() => aiProvider.config.value.provider === 'ollama')
-
-/**
- * Sync the BYOK provider configuration to the legacy LLM endpoint format
- * so the existing useOpenCode integration continues to function.
- */
-watch(
-  () => aiProvider.config.value,
-  (cfg) => {
-    if (cfg.provider === 'opencode') {
-      llmEndpoint.value = ''
-      return
-    }
-    if (cfg.provider === 'anthropic') {
-      llmEndpoint.value = 'https://api.anthropic.com/v1/chat/completions'
-      llmApiKey.value = cfg.apiKey ?? ''
-      llmModel.value = cfg.model
-    } else if (cfg.provider === 'openai') {
-      llmEndpoint.value = 'https://api.openai.com/v1/chat/completions'
-      llmApiKey.value = cfg.apiKey ?? ''
-      llmModel.value = cfg.model
-    } else if (cfg.provider === 'ollama') {
-      llmEndpoint.value = cfg.baseUrl
-        ? `${cfg.baseUrl.replace(/\/$/, '')}/v1/chat/completions`
-        : 'http://127.0.0.1:11434/v1/chat/completions'
-      llmApiKey.value = ''
-      llmModel.value = cfg.model
-    }
-  },
-  { deep: true, immediate: true },
-)
+/** Whether the current provider needs a custom base URL (Ollama or custom OpenAI-compatible). */
+const needsBaseUrl = computed(() => aiProvider.needsBaseUrl.value)
 
 // ---- Download settings ----
 const downloadDir = useLocalStorage<string>('motrix-ai:download-dir', '~/Downloads/Motrix AI')
@@ -363,7 +317,7 @@ async function applyAria2Settings() {
             <div v-if="requiresApiKey" class="setting-group">
               <label>API Key</label>
               <NInput
-                :value="aiProvider.config.value.apiKey"
+                :value="aiProvider.config.value.api_key"
                 type="password"
                 show-password-on="click"
                 placeholder="sk-..."
@@ -375,11 +329,11 @@ async function applyAria2Settings() {
             <div v-if="needsBaseUrl" class="setting-group">
               <label>Base URL</label>
               <NInput
-                :value="aiProvider.config.value.baseUrl"
+                :value="aiProvider.config.value.base_url"
                 placeholder="http://127.0.0.1:11434"
                 @update:value="aiProvider.setBaseUrl"
               />
-              <p class="setting-hint">Ollama server address. Default: http://127.0.0.1:11434</p>
+              <p class="setting-hint">Server address. For Ollama the default is http://127.0.0.1:11434.</p>
             </div>
 
             <div class="setting-group">
