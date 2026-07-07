@@ -3,89 +3,43 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { NCard, NButton, NInput, NInputNumber, NSwitch, NIcon, NTag, useMessage } from 'naive-ui'
 import { TimeOutline, SpeedometerOutline, SaveOutline, AddOutline, TrashOutline } from '@vicons/ionicons5'
 import { useSchedule, type ScheduleRule } from '@/composables/useSchedule'
+import { useConfigStore } from '@/stores/config'
 
 const message = useMessage()
+const store = useConfigStore()
 
-const STORAGE_KEY = 'motrix-ai:schedule-rules'
+// Local working copy of schedule rules, kept in sync with the config store.
+// Inline edits (time_start/time_end) mutate this ref; a deep watcher pushes
+// every change into the store, which auto-persists to the config file.
+const rules = ref<ScheduleRule[]>(store.config.schedule.rules)
 
-const DEFAULT_RULES: ScheduleRule[] = [
-  { name: '深夜全速', time_start: '23:00', time_end: '07:00', speed_limit: 0, max_concurrent: 5 },
-  { name: '白天让路', time_start: '07:00', time_end: '18:00', speed_limit: 5_000_000, max_concurrent: 2 },
-  { name: '晚间适度', time_start: '18:00', time_end: '23:00', speed_limit: 10_000_000, max_concurrent: 3 },
-]
-
-// ---- Load rules from localStorage ----
-function loadRules(): ScheduleRule[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (raw) {
-      const parsed = JSON.parse(raw) as ScheduleRule[]
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed
-    }
-  } catch {
-    // fall through to defaults
-  }
-  return [...DEFAULT_RULES]
-}
-
-function persistRules(rules: ScheduleRule[]): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(rules))
-  } catch {
-    // best-effort
-  }
-}
-
-const rules = ref<ScheduleRule[]>(loadRules())
-
-// ---- Enabled state stored separately (per-rule toggle) ----
-const STORAGE_KEY_ENABLED = 'motrix-ai:schedule-enabled'
-const enabledMap = ref<Record<number, boolean>>(loadEnabledMap())
-
-function loadEnabledMap(): Record<number, boolean> {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY_ENABLED)
-    if (raw) return JSON.parse(raw) as Record<number, boolean>
-  } catch {
-    // fall through
-  }
-  return {}
-}
-
-function persistEnabledMap(): void {
-  try {
-    localStorage.setItem(STORAGE_KEY_ENABLED, JSON.stringify(enabledMap.value))
-  } catch {
-    // best-effort
-  }
-}
-
+// Per-rule enabled flag lives on the rule itself (`enabled?: boolean`).
+// A missing flag is treated as enabled, matching the previous semantics.
 function isRuleEnabled(index: number): boolean {
-  return enabledMap.value[index] !== false
+  return rules.value[index]?.enabled !== false
 }
-
-function toggleRule(index: number, val: boolean): void {
-  enabledMap.value[index] = val
-  persistEnabledMap()
-  updateSchedulerRules()
-}
-
-// ---- Schedule scheduler ----
-const sched = useSchedule(getActiveRules())
 
 function getActiveRules(): ScheduleRule[] {
   return rules.value.filter((_, i) => isRuleEnabled(i))
 }
 
+// ---- Schedule scheduler ----
+const sched = useSchedule(getActiveRules())
+
 function updateSchedulerRules(): void {
   sched.setRules(getActiveRules())
 }
 
-// Persist on rules change
+function toggleRule(index: number, val: boolean): void {
+  rules.value[index] = { ...rules.value[index], enabled: val }
+}
+
+// Sync rule edits (inline time fields, enabled toggles, add/remove) into the
+// store. The store's deep watcher debounces the file write.
 watch(
   rules,
   (newRules) => {
-    persistRules(newRules)
+    store.updateSection('schedule', { rules: newRules })
     updateSchedulerRules()
   },
   { deep: true },
@@ -140,7 +94,7 @@ function addRule() {
     message.warning('最大并发至少为 1')
     return
   }
-  rules.value.push({ ...newRule.value })
+  rules.value.push({ ...newRule.value, enabled: true })
   showAddForm.value = false
   newRule.value = { name: '', time_start: '00:00', time_end: '23:59', speed_limit: 0, max_concurrent: 3 }
   message.success('规则已添加')
@@ -148,20 +102,10 @@ function addRule() {
 
 function removeRule(index: number) {
   rules.value.splice(index, 1)
-  // Shift enabled map entries
-  const newMap: Record<number, boolean> = {}
-  for (const [k, v] of Object.entries(enabledMap.value)) {
-    const idx = Number(k)
-    if (idx < index) newMap[idx] = v
-    else if (idx > index) newMap[idx - 1] = v
-  }
-  enabledMap.value = newMap
-  persistEnabledMap()
   message.success('规则已删除')
 }
 
 function saveRules() {
-  persistRules(rules.value)
   updateSchedulerRules()
   message.success('调度规则已保存并生效')
 }
