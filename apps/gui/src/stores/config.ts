@@ -11,7 +11,7 @@ import { defineStore } from 'pinia'
 // Types — mirror of packages/core/src/types.ts AppConfig
 // ---------------------------------------------------------------------------
 
-export type AIProvider = 'opencode' | 'anthropic' | 'openai' | 'ollama'
+export type AIProvider = 'opencode' | 'anthropic' | 'openai' | 'ollama' | 'custom'
 export type ResourceType = 'movie' | 'tv' | 'software' | 'music' | 'anime' | 'other'
 export type Quality = '4K' | '1080p' | '720p' | 'other'
 
@@ -22,6 +22,7 @@ export interface ScheduleRule {
   time_end: string // HH:mm
   speed_limit: number // bytes/s, 0 = unlimited
   max_concurrent: number
+  enabled?: boolean
 }
 
 /** Disk space protection thresholds */
@@ -37,6 +38,23 @@ export interface ArchiveTarget {
   host: string
   path: string
   match: { resource_type?: ResourceType }
+}
+
+/** Subtitle download configuration */
+export interface SubtitlesConfig {
+  enabled: boolean
+  preferred_languages: string[]
+  sources: { shooter: boolean; subhd: boolean; opensubtitles: boolean }
+  subtitle_dir?: string
+  opensubtitles_api_key?: string
+  auto_search: boolean
+}
+
+/** UI configuration */
+export interface UiConfig {
+  theme: 'dark' | 'light' | 'system'
+  language: 'en' | 'zh' | 'ja' | 'ko' | 'fr'
+  log_level: 'debug' | 'info' | 'warn' | 'error'
 }
 
 /** Full application configuration */
@@ -66,15 +84,12 @@ export interface AppConfig {
     enabled: boolean
     thresholds: DiskThresholds
   }
-  subtitles: {
-    enabled: boolean
-    preferred_languages: string[]
-    sources: { shooter: boolean; subhd: boolean; opensubtitles: boolean }
-  }
+  subtitles: SubtitlesConfig
   archive: {
     enabled: boolean
     targets: ArchiveTarget[]
   }
+  ui: UiConfig
 }
 
 // ---------------------------------------------------------------------------
@@ -115,10 +130,18 @@ export const DEFAULT_CONFIG: AppConfig = {
     enabled: true,
     preferred_languages: ['zh-Hans', 'en'],
     sources: { shooter: true, subhd: true, opensubtitles: false },
+    subtitle_dir: '~/Downloads/Motrix AI/Subtitles',
+    opensubtitles_api_key: '',
+    auto_search: true,
   },
   archive: {
     enabled: false,
     targets: [],
+  },
+  ui: {
+    theme: 'dark',
+    language: 'en',
+    log_level: 'info',
   },
 }
 
@@ -176,6 +199,7 @@ export const useConfigStore = defineStore('config', () => {
           disk: { ...DEFAULT_CONFIG.disk, ...parsed.disk },
           subtitles: { ...DEFAULT_CONFIG.subtitles, ...parsed.subtitles },
           archive: { ...DEFAULT_CONFIG.archive, ...parsed.archive },
+          ui: { ...DEFAULT_CONFIG.ui, ...parsed.ui },
         }
       } else {
         // First run: persist defaults
@@ -214,10 +238,7 @@ export const useConfigStore = defineStore('config', () => {
    * @param section - One of: 'ai' | 'aria2' | 'downloads' | 'schedule' | 'disk' | 'subtitles' | 'archive'
    * @param value - The partial or full value for that section
    */
-  function updateField<K extends keyof AppConfig>(
-    section: K,
-    value: Partial<AppConfig[K]>,
-  ): void {
+  function updateField<K extends keyof AppConfig>(section: K, value: Partial<AppConfig[K]>): void {
     config.value = {
       ...config.value,
       [section]: { ...config.value[section], ...value },
