@@ -3,19 +3,21 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { NButton, NInput, NSelect } from 'naive-ui'
 import { DownloadOutline, FlashOutline, ShieldCheckmarkOutline, FolderOutline } from '@vicons/ionicons5'
+import { useConfigStore } from '@/stores/config'
 
 const router = useRouter()
+const configStore = useConfigStore()
 const step = ref(1)
 const downloadDir = ref('~/Downloads/Motrix AI')
-const uiLanguage = ref('en')
+const uiLanguage = ref<'en' | 'zh' | 'ja' | 'ko' | 'fr'>('en')
 
 const nextStep = () => {
   if (step.value < 3) {
     step.value++
   } else {
     try {
-      localStorage.setItem('motrix-ai:download-dir', downloadDir.value)
-      localStorage.setItem('motrix-ai:language', uiLanguage.value)
+      configStore.updateSection('downloads', { base_dir: downloadDir.value })
+      configStore.updateSection('ui', { language: uiLanguage.value })
       localStorage.setItem('motrix-ai:onboarded', 'true')
     } catch {
       // localStorage may be unavailable in sandboxed contexts

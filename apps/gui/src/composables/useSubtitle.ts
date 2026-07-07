@@ -3,6 +3,7 @@
 
 import { ref, computed } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
+import { useConfigStore } from '@/stores/config'
 
 export interface SubtitleResult {
   id: string
@@ -20,22 +21,12 @@ export interface SubtitleResult {
 
 // ---- Settings ----
 
-const SETTINGS_KEY = 'motrix-ai:opensubtitles-api-key'
-
 function getApiKey(): string {
-  return localStorage.getItem(SETTINGS_KEY) || ''
-}
-
-export function setApiKey(key: string): void {
-  if (key) {
-    localStorage.setItem(SETTINGS_KEY, key)
-  } else {
-    localStorage.removeItem(SETTINGS_KEY)
-  }
+  return useConfigStore().config.subtitles.opensubtitles_api_key || ''
 }
 
 export function hasApiKey(): boolean {
-  return !!getApiKey()
+  return !!useConfigStore().config.subtitles.opensubtitles_api_key
 }
 
 // ---- Rate Limiter (max 5 requests/second for authenticated) ----
@@ -283,26 +274,19 @@ export function useSubtitle() {
 
       const lastSep = Math.max(videoPath.lastIndexOf('/'), videoPath.lastIndexOf('\\'))
       let targetDir = videoPath.substring(0, lastSep)
-      try {
-        const raw = localStorage.getItem('motrix-ai:subtitle-dir')
-        if (raw) {
-          const configured = JSON.parse(raw)
-          if (typeof configured === 'string' && configured.trim()) {
-            let resolvedDir = configured
-            if (configured === '~' || configured.startsWith('~/') || configured.startsWith('~\\')) {
-              try {
-                const { homeDir } = await import('@tauri-apps/api/path')
-                const home = await homeDir()
-                resolvedDir = configured === '~' ? home : home + configured.slice(1)
-              } catch {
-                /* not in Tauri */
-              }
-            }
-            targetDir = resolvedDir
+      const configured = useConfigStore().config.subtitles.subtitle_dir
+      if (configured && configured.trim()) {
+        let resolvedDir = configured
+        if (configured === '~' || configured.startsWith('~/') || configured.startsWith('~\\')) {
+          try {
+            const { homeDir } = await import('@tauri-apps/api/path')
+            const home = await homeDir()
+            resolvedDir = configured === '~' ? home : home + configured.slice(1)
+          } catch {
+            /* not in Tauri */
           }
         }
-      } catch {
-        /* use video dir */
+        targetDir = resolvedDir
       }
       const subtitlePath = `${targetDir}/${subtitle.fileName}`
 
@@ -369,7 +353,6 @@ export function useSubtitle() {
     downloadSubtitleFile,
     getBestSubtitle,
     clearResults,
-    setApiKey,
     hasApiKey,
   }
 }

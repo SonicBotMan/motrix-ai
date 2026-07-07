@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, type Ref } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   NButton,
@@ -20,43 +20,20 @@ import { useAria2 } from '@/composables/useAria2'
 import { useAria2Manager } from '@/composables/useAria2Manager'
 import { useOpenCode } from '@/composables/useOpenCode'
 import { useAIProvider } from '@/composables/useAIProvider'
+import { useConfigStore } from '@/stores/config'
 import { theme, language, t } from '@/composables/useSettings'
 import ScheduleConfig from '@/components/ScheduleConfig.vue'
 import NASConfig from '@/components/NASConfig.vue'
 
 const router = useRouter()
 const message = useMessage()
+const store = useConfigStore()
 const aria2 = useAria2()
 const manager = useAria2Manager()
 const openCode = useOpenCode()
 const aiProvider = useAIProvider()
 
 const activeTab = ref('ai-model')
-
-// ---- Settings persistence helpers ----
-function useLocalStorage<T>(key: string, defaultValue: T) {
-  const stored = localStorage.getItem(key)
-  const data = ref<T>(stored !== null ? (JSON.parse(stored) as T) : defaultValue)
-
-  watch(
-    data,
-    (newVal) => {
-      localStorage.setItem(key, JSON.stringify(newVal))
-    },
-    { deep: true },
-  )
-
-  return data
-}
-
-// ---- AI Model settings ----
-// NOTE: Task 5 made `useOpenCode` read reactively from `useConfigStore().config.ai`,
-// so the BYOK fields below now back the Advanced Custom Endpoint inputs only.
-// Task 6 will replace this whole section with a store-backed rewrite.
-const llmEndpoint = useLocalStorage<string>('motrix-ai:llm-endpoint', '')
-const llmApiKey = useLocalStorage<string>('motrix-ai:llm-api-key', '')
-const llmModel = useLocalStorage<string>('motrix-ai:llm-model', 'gpt-4o-mini')
-const currentModel = computed(() => (llmEndpoint.value ? llmModel.value : '内置启发式解析器（零配置）'))
 
 // ---- BYOK AI Provider options ----
 /** Provider options for the AI provider dropdown. */
@@ -73,28 +50,52 @@ const requiresApiKey = computed(() => aiProvider.currentProvider.value.requiresK
 /** Whether the current provider needs a custom base URL (Ollama or custom OpenAI-compatible). */
 const needsBaseUrl = computed(() => aiProvider.needsBaseUrl.value)
 
-// ---- Download settings ----
-const downloadDir = useLocalStorage<string>('motrix-ai:download-dir', '~/Downloads/Motrix AI')
-const maxConcurrent = useLocalStorage<number>('motrix-ai:max-concurrent', 5)
-const downloadSpeedLimit = useLocalStorage<number>('motrix-ai:download-speed-limit', 0)
-const uploadSpeedLimit = useLocalStorage<number>('motrix-ai:upload-speed-limit', 0)
-const autoRetry = useLocalStorage<boolean>('motrix-ai:auto-retry', true)
-const maxRetries = useLocalStorage<number>('motrix-ai:max-retries', 3)
+// ---- Download directory (store-backed) ----
+const downloadDir = computed({
+  get: () => store.config.downloads.base_dir,
+  set: (v: string) => store.updateSection('downloads', { base_dir: v }),
+})
 
-// ---- Subtitle settings ----
-const subtitleApiKey = useLocalStorage<string>('motrix-ai:opensubtitles-api-key', '')
-const subtitleLanguages = useLocalStorage<string[]>('motrix-ai:subtitle-languages', ['zh', 'en'])
-const autoSearchSubtitles = useLocalStorage<boolean>('motrix-ai:auto-search-subtitles', true)
-const subtitleDir = useLocalStorage<string>('motrix-ai:subtitle-dir', '~/Downloads/Motrix AI/Subtitles')
+// ---- aria2 runtime settings (local refs; applied to daemon, not persisted) ----
+const maxConcurrent = ref(5)
+const downloadSpeedLimit = ref(0)
+const uploadSpeedLimit = ref(0)
+const autoRetry = ref(true)
+const maxRetries = ref(3)
 
-// ---- Appearance settings ----
-// theme and language imported from useSettings (global store)
+// ---- Subtitle settings (store-backed) ----
+const subtitleApiKey = computed({
+  get: () => store.config.subtitles.opensubtitles_api_key ?? '',
+  set: (v: string) => store.updateSection('subtitles', { opensubtitles_api_key: v }),
+})
+const subtitleLanguages = computed({
+  get: () => store.config.subtitles.preferred_languages,
+  set: (v: string[]) => store.updateSection('subtitles', { preferred_languages: v }),
+})
+const autoSearchSubtitles = computed({
+  get: () => store.config.subtitles.auto_search,
+  set: (v: boolean) => store.updateSection('subtitles', { auto_search: v }),
+})
+const subtitleDir = computed({
+  get: () => store.config.subtitles.subtitle_dir ?? '',
+  set: (v: string) => store.updateSection('subtitles', { subtitle_dir: v }),
+})
 
-// ---- Advanced settings ----
-const aria2RpcUrl = useLocalStorage<string>('motrix-ai:aria2-rpc-url', 'http://127.0.0.1:6800/jsonrpc')
-const aria2RpcSecret = useLocalStorage<string>('motrix-ai:aria2-rpc-secret', '')
-const logLevel = useLocalStorage<'debug' | 'info' | 'warn' | 'error'>('motrix-ai:log-level', 'info')
+// ---- Advanced settings (store-backed) ----
+const aria2RpcUrl = computed({
+  get: () => store.config.aria2.rpc_url,
+  set: (v: string) => store.updateSection('aria2', { rpc_url: v }),
+})
+const aria2RpcSecret = computed({
+  get: () => store.config.aria2.rpc_secret ?? '',
+  set: (v: string) => store.updateSection('aria2', { rpc_secret: v }),
+})
+const logLevel = computed({
+  get: () => store.config.ui.log_level,
+  set: (v: 'debug' | 'info' | 'warn' | 'error') => store.updateSection('ui', { log_level: v }),
+})
 
+// ---- Log level filter ----
 const LOG_LEVELS: Record<string, number> = { debug: 0, info: 1, warn: 2, error: 3 }
 const originalMethods: Record<string, (...args: unknown[]) => void> = {}
 
@@ -122,15 +123,16 @@ function applyLogLevel(level: 'debug' | 'info' | 'warn' | 'error') {
 applyLogLevel(logLevel.value)
 watch(logLevel, (val) => applyLogLevel(val))
 
-// ---- Apply settings to aria2 when changed ----
+// ---- Apply aria2 RPC config to the client when the store changes ----
 watch(
-  [aria2RpcUrl, aria2RpcSecret],
+  [() => store.config.aria2.rpc_url, () => store.config.aria2.rpc_secret],
   () => {
-    useAria2({ rpcUrl: aria2RpcUrl.value, secret: aria2RpcSecret.value })
+    useAria2({ rpcUrl: store.config.aria2.rpc_url, secret: store.config.aria2.rpc_secret })
   },
   { immediate: true },
 )
 
+// ---- Apply aria2 runtime settings to the daemon when they change ----
 watch(maxConcurrent, async (val) => {
   try {
     await aria2.changeGlobalOption({ 'max-concurrent-downloads': String(val) })
@@ -214,7 +216,7 @@ const logLevelOptions = [
 ]
 
 // ---- Actions ----
-async function pickFolder(target: Ref<string>) {
+async function pickFolder(target: { value: string }) {
   try {
     const { open } = await import('@tauri-apps/plugin-dialog')
     const selected = await open({ directory: true, multiple: false })
@@ -342,34 +344,6 @@ async function applyAria2Settings() {
                 <span class="status-dot" :class="openCode.connected.value ? 'connected' : 'disconnected'"></span>
                 <span>{{ openCode.statusLabel.value }}</span>
               </div>
-            </div>
-
-            <NDivider />
-
-            <!-- Advanced: manual OpenAI-compatible endpoint -->
-            <h4 style="margin-bottom: 16px">Advanced: Custom Endpoint</h4>
-
-            <div class="setting-group">
-              <label>Current Mode</label>
-              <NInput :value="currentModel" readonly />
-              <p class="setting-hint">Leave empty Endpoint = heuristic mode; fill in = AI mode</p>
-            </div>
-
-            <div class="setting-group">
-              <label>API Endpoint (OpenAI Compatible)</label>
-              <NInput v-model:value="llmEndpoint" placeholder="https://api.openai.com/v1/chat/completions" />
-              <p class="setting-hint">Supports OpenAI / DeepSeek / Ollama / any OpenAI-compatible API</p>
-            </div>
-
-            <div class="setting-group">
-              <label>API Key</label>
-              <NInput v-model:value="llmApiKey" type="password" show-password-on="click" placeholder="sk-..." />
-              <p class="setting-hint">Local Ollama does not require a key.</p>
-            </div>
-
-            <div class="setting-group">
-              <label>Model</label>
-              <NInput v-model:value="llmModel" placeholder="gpt-4o-mini / deepseek-chat / qwen2.5:7b" />
             </div>
           </div>
         </NTabPane>

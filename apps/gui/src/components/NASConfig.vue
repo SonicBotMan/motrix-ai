@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { NCard, NButton, NInput, NSwitch, NIcon, useMessage } from 'naive-ui'
 import { FolderOpenOutline, CheckmarkCircleOutline, CloseCircleOutline } from '@vicons/ionicons5'
 import { invoke } from '@tauri-apps/api/core'
+import { useConfigStore } from '@/stores/config'
 
 interface NASConfig {
   enabled: boolean
@@ -16,6 +17,7 @@ interface NASConfig {
 }
 
 const message = useMessage()
+const store = useConfigStore()
 const testing = ref(false)
 
 const config = ref<NASConfig>({
@@ -58,17 +60,25 @@ async function testConnection() {
 }
 
 function saveConfig() {
-  localStorage.setItem('motrix-ai:nas-config', JSON.stringify(config.value))
+  store.updateSection('archive', {
+    enabled: config.value.enabled,
+    targets: [
+      {
+        name: 'NAS',
+        host: config.value.host,
+        path: config.value.moviePath,
+        match: {},
+      },
+    ],
+  })
   message.success('NAS 配置已保存')
 }
 
-const saved = localStorage.getItem('motrix-ai:nas-config')
-if (saved) {
-  try {
-    Object.assign(config.value, JSON.parse(saved))
-  } catch (e) {
-    console.warn('Failed to load NAS config:', e)
-  }
+const archive = store.config.archive
+if (archive.targets.length > 0) {
+  config.value.enabled = archive.enabled
+  config.value.host = archive.targets[0].host
+  config.value.moviePath = archive.targets[0].path
 }
 </script>
 
