@@ -4,6 +4,7 @@ import { NCard, NButton, NInput, NInputNumber, NSwitch, NIcon, NTag, useMessage 
 import { TimeOutline, SpeedometerOutline, SaveOutline, AddOutline, TrashOutline } from '@vicons/ionicons5'
 import { useSchedule, type ScheduleRule } from '@/composables/useSchedule'
 import { useConfigStore } from '@/stores/config'
+import { t } from '@/composables/useSettings'
 
 const message = useMessage()
 const store = useConfigStore()
@@ -75,44 +76,44 @@ function isValidTimeFormat(t: string): boolean {
 
 function addRule() {
   if (!newRule.value.name.trim()) {
-    message.warning('请输入规则名称')
+    message.warning(t('schedule.nameRequired'))
     return
   }
   if (!isValidTimeFormat(newRule.value.time_start)) {
-    message.warning('开始时间格式错误，请使用 HH:mm')
+    message.warning(t('schedule.invalidTimeFormat'))
     return
   }
   if (!isValidTimeFormat(newRule.value.time_end)) {
-    message.warning('结束时间格式错误，请使用 HH:mm')
+    message.warning(t('schedule.invalidTimeFormat'))
     return
   }
   if (newRule.value.speed_limit < 0) {
-    message.warning('速度限制不能为负数')
+    message.warning(t('schedule.speedLimitNegative'))
     return
   }
   if (newRule.value.max_concurrent < 1) {
-    message.warning('最大并发至少为 1')
+    message.warning(t('schedule.maxConcurrentMin'))
     return
   }
   rules.value.push({ ...newRule.value, enabled: true })
   showAddForm.value = false
   newRule.value = { name: '', time_start: '00:00', time_end: '23:59', speed_limit: 0, max_concurrent: 3 }
-  message.success('规则已添加')
+  message.success(t('schedule.ruleAdded'))
 }
 
 function removeRule(index: number) {
   rules.value.splice(index, 1)
-  message.success('规则已删除')
+  message.success(t('schedule.ruleDeleted'))
 }
 
 function saveRules() {
   updateSchedulerRules()
-  message.success('调度规则已保存并生效')
+  message.success(t('schedule.ruleSaved'))
 }
 
 // ---- Helpers ----
 function formatSpeed(bytes: number): string {
-  if (bytes === 0) return '无限制'
+  if (bytes === 0) return t('schedule.unlimited')
   return `${(bytes / 1024 / 1024).toFixed(0)} MB/s`
 }
 
@@ -120,10 +121,12 @@ const currentRule = computed(() => sched.currentRule.value)
 </script>
 
 <template>
-  <n-card title="⏰ 智能调度" class="schedule-card">
+  <n-card :title="'⏰ ' + t('schedule.title')" class="schedule-card">
     <template #header-extra>
-      <n-tag v-if="currentRule" type="success" size="small"> 当前: {{ currentRule.name }} </n-tag>
-      <n-tag v-else type="default" size="small"> 无匹配规则 </n-tag>
+      <n-tag v-if="currentRule" type="success" size="small">
+        {{ t('schedule.currentRule') }}: {{ currentRule.name }}
+      </n-tag>
+      <n-tag v-else type="default" size="small"> {{ t('schedule.noMatch') }} </n-tag>
     </template>
 
     <div class="rules-list">
@@ -152,34 +155,44 @@ const currentRule = computed(() => sched.currentRule.value)
           <div class="rule-speed">
             <n-icon :size="14"><SpeedometerOutline /></n-icon>
             <span>{{ formatSpeed(rule.speed_limit) }}</span>
-            <span class="rule-concurrent">最大并发: {{ rule.max_concurrent }}</span>
+            <span class="rule-concurrent">{{ t('schedule.maxConcurrent') }}: {{ rule.max_concurrent }}</span>
           </div>
         </div>
       </div>
     </div>
 
     <div v-if="showAddForm" class="add-form">
-      <n-input v-model:value="newRule.name" placeholder="规则名称" size="small" />
+      <n-input v-model:value="newRule.name" :placeholder="t('schedule.ruleName')" size="small" />
       <div class="form-row">
-        <n-input v-model:value="newRule.time_start" placeholder="开始 HH:mm" size="small" style="width: 100px" />
+        <n-input
+          v-model:value="newRule.time_start"
+          :placeholder="t('schedule.startTime')"
+          size="small"
+          style="width: 100px"
+        />
         <span>·</span>
-        <n-input v-model:value="newRule.time_end" placeholder="结束 HH:mm" size="small" style="width: 100px" />
+        <n-input
+          v-model:value="newRule.time_end"
+          :placeholder="t('schedule.endTime')"
+          size="small"
+          style="width: 100px"
+        />
       </div>
       <div class="form-row">
-        <label class="form-label">速度限制 (bytes/s, 0=无限)</label>
+        <label class="form-label">{{ t('schedule.speedLimit') }}</label>
         <n-input-number v-model:value="newRule.speed_limit" :min="0" size="small" style="width: 140px" />
       </div>
       <div class="form-row">
-        <label class="form-label">最大并发</label>
+        <label class="form-label">{{ t('schedule.maxConcurrent') }}</label>
         <n-input-number v-model:value="newRule.max_concurrent" :min="1" :max="20" size="small" style="width: 100px" />
       </div>
       <div class="form-actions">
-        <n-button size="small" @click="showAddForm = false">取消</n-button>
+        <n-button size="small" @click="showAddForm = false">{{ t('schedule.cancel') }}</n-button>
         <n-button size="small" type="primary" @click="addRule">
           <template #icon
             ><n-icon><AddOutline /></n-icon
           ></template>
-          添加
+          {{ t('schedule.add') }}
         </n-button>
       </div>
     </div>
@@ -189,13 +202,13 @@ const currentRule = computed(() => sched.currentRule.value)
         <template #icon
           ><n-icon><AddOutline /></n-icon
         ></template>
-        添加规则
+        {{ t('schedule.addRule') }}
       </n-button>
       <n-button size="small" type="primary" @click="saveRules">
         <template #icon
           ><n-icon><SaveOutline /></n-icon
         ></template>
-        保存并生效
+        {{ t('schedule.save') }}
       </n-button>
     </div>
   </n-card>

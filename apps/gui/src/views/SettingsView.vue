@@ -298,7 +298,7 @@ async function applyAria2Settings() {
 
             <!-- BYOK Provider Selection -->
             <div class="setting-group">
-              <label>Provider</label>
+              <label>{{ t('settings.provider') }}</label>
               <NSelect
                 :value="aiProvider.config.value.provider"
                 :options="providerOptions"
@@ -308,7 +308,7 @@ async function applyAria2Settings() {
             </div>
 
             <div class="setting-group">
-              <label>Model</label>
+              <label>{{ t('settings.model') }}</label>
               <NSelect
                 :value="aiProvider.config.value.model"
                 :options="aiProvider.modelOptions.value"
@@ -317,7 +317,7 @@ async function applyAria2Settings() {
             </div>
 
             <div v-if="requiresApiKey" class="setting-group">
-              <label>API Key</label>
+              <label>{{ t('settings.apiKey') }}</label>
               <NInput
                 :value="aiProvider.config.value.api_key"
                 type="password"
@@ -329,7 +329,7 @@ async function applyAria2Settings() {
             </div>
 
             <div v-if="needsBaseUrl" class="setting-group">
-              <label>Base URL</label>
+              <label>{{ t('settings.baseUrl') }}</label>
               <NInput
                 :value="aiProvider.config.value.base_url"
                 placeholder="http://127.0.0.1:11434"
@@ -339,7 +339,7 @@ async function applyAria2Settings() {
             </div>
 
             <div class="setting-group">
-              <label>Connection Status</label>
+              <label>{{ t('settings.connectionStatus') }}</label>
               <div class="status-indicator">
                 <span class="status-dot" :class="openCode.connected.value ? 'connected' : 'disconnected'"></span>
                 <span>{{ openCode.statusLabel.value }}</span>
@@ -354,7 +354,7 @@ async function applyAria2Settings() {
             <h3>{{ t('settings.downloads') }}</h3>
 
             <div class="setting-group">
-              <label>Default Download Directory</label>
+              <label>{{ t('settings.downloadDirLabel') }}</label>
               <div class="folder-picker">
                 <NInput v-model:value="downloadDir" placeholder="~/Downloads/Motrix AI" />
                 <NButton quaternary @click="pickDownloadDir">
@@ -374,21 +374,21 @@ async function applyAria2Settings() {
             </div>
 
             <div class="setting-group">
-              <label>Global Download Speed Limit (KB/s)</label>
+              <label>{{ t('settings.downloadSpeedLabel') }}</label>
               <div class="slider-row">
                 <NSlider v-model:value="downloadSpeedLimit" :min="0" :max="102400" :step="1024" style="flex: 1" />
                 <NInputNumber v-model:value="downloadSpeedLimit" :min="0" size="small" style="width: 120px" />
               </div>
-              <p class="setting-hint">0 = unlimited. Applies immediately.</p>
+              <p class="setting-hint">{{ t('settings.unlimitedHint') }}</p>
             </div>
 
             <div class="setting-group">
-              <label>Global Upload Speed Limit (KB/s)</label>
+              <label>{{ t('settings.uploadSpeedLabel') }}</label>
               <div class="slider-row">
                 <NSlider v-model:value="uploadSpeedLimit" :min="0" :max="102400" :step="1024" style="flex: 1" />
                 <NInputNumber v-model:value="uploadSpeedLimit" :min="0" size="small" style="width: 120px" />
               </div>
-              <p class="setting-hint">0 = unlimited. Applies immediately.</p>
+              <p class="setting-hint">{{ t('settings.unlimitedHint') }}</p>
             </div>
 
             <NDivider />
@@ -396,15 +396,15 @@ async function applyAria2Settings() {
             <div class="setting-group">
               <div class="setting-row">
                 <div>
-                  <label>Auto-Retry on Failure</label>
-                  <p class="setting-hint">Automatically retry failed downloads.</p>
+                  <label>{{ t('settings.autoRetryLabel') }}</label>
+                  <p class="setting-hint">{{ t('settings.autoRetryHint') }}</p>
                 </div>
                 <NSwitch v-model:value="autoRetry" />
               </div>
             </div>
 
             <div v-if="autoRetry" class="setting-group">
-              <label>Max Retries</label>
+              <label>{{ t('settings.maxRetriesLabel') }}</label>
               <div class="slider-row">
                 <NSlider v-model:value="maxRetries" :min="1" :max="20" :step="1" style="flex: 1" />
                 <span class="slider-value">{{ maxRetries }}</span>
@@ -414,7 +414,7 @@ async function applyAria2Settings() {
             <NDivider />
 
             <div class="setting-group">
-              <label>aria2 Connection</label>
+              <label>{{ t('settings.aria2Connection') }}</label>
               <div class="status-indicator">
                 <span class="status-dot" :class="aria2.connected.value ? 'connected' : 'disconnected'"></span>
                 <span>{{ aria2.connected.value ? 'Connected to aria2' : 'Disconnected' }}</span>
@@ -422,7 +422,7 @@ async function applyAria2Settings() {
             </div>
 
             <div class="setting-group">
-              <NButton type="primary" @click="applyAria2Settings">Apply Settings Now</NButton>
+              <NButton type="primary" @click="applyAria2Settings">{{ t('settings.applyNow') }}</NButton>
             </div>
           </div>
         </NTabPane>
@@ -472,7 +472,7 @@ async function applyAria2Settings() {
             <div class="setting-group">
               <div class="setting-row">
                 <div>
-                  <label>Auto-Search Subtitles on Download</label>
+                  <label>{{ t('settings.autoSearchLabel') }}</label>
                   <p class="setting-hint">Automatically search for subtitles when a video download completes.</p>
                 </div>
                 <NSwitch v-model:value="autoSearchSubtitles" />
@@ -480,7 +480,7 @@ async function applyAria2Settings() {
             </div>
 
             <div class="setting-group">
-              <label>Subtitle Download Directory</label>
+              <label>{{ t('settings.subtitleDirLabel') }}</label>
               <div class="folder-picker">
                 <NInput v-model:value="subtitleDir" placeholder="~/Downloads/Motrix AI/Subtitles" />
                 <NButton quaternary @click="pickSubtitleDir">
@@ -517,7 +517,7 @@ async function applyAria2Settings() {
             <h3>{{ t('settings.advanced') }}</h3>
 
             <NAlert type="warning" style="margin-bottom: 16px">
-              Changing these settings may require restarting aria2 to take effect.
+              {{ t('settings.advancedWarning') }}
             </NAlert>
 
             <div class="setting-group">
@@ -551,12 +551,12 @@ async function applyAria2Settings() {
             <NDivider />
 
             <div class="setting-group">
-              <label>Danger Zone</label>
+              <label>{{ t('settings.dangerZoneLabel') }}</label>
               <div class="danger-zone">
                 <div class="danger-item">
                   <div>
-                    <strong>Clear Download History</strong>
-                    <p class="setting-hint">Remove all completed and failed download records from aria2.</p>
+                    <strong>{{ t('settings.clearHistoryLabel') }}</strong>
+                    <p class="setting-hint">{{ t('settings.clearHistoryHint') }}</p>
                   </div>
                   <NButton type="error" size="small" @click="clearDownloadHistory">
                     <template #icon

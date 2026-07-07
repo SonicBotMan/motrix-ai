@@ -4,6 +4,7 @@ import { NCard, NButton, NInput, NSwitch, NIcon, useMessage } from 'naive-ui'
 import { FolderOpenOutline, CheckmarkCircleOutline, CloseCircleOutline } from '@vicons/ionicons5'
 import { invoke } from '@tauri-apps/api/core'
 import { useConfigStore } from '@/stores/config'
+import { t } from '@/composables/useSettings'
 
 interface NASConfig {
   enabled: boolean
@@ -41,17 +42,17 @@ async function testConnection() {
     })
     config.value.connected = result
     if (result) {
-      message.success('连接成功！')
+      message.success(t('nas.connectionSuccess'))
     } else {
-      message.error('连接失败')
+      message.error(t('nas.connectionFailed'))
     }
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     if (msg.includes('not found') || msg.includes('command') || msg.includes('invoke')) {
-      message.warning('NAS 连接测试功能暂不可用（需要更新后端）')
+      message.warning(t('nas.featureUnavailable'))
       config.value.connected = false
     } else {
-      message.error(`连接错误: ${msg}`)
+      message.error(`${t('nas.connectionError')}: ${msg}`)
       config.value.connected = false
     }
   } finally {
@@ -71,7 +72,7 @@ function saveConfig() {
       },
     ],
   })
-  message.success('NAS 配置已保存')
+  message.success(t('nas.configSaved'))
 }
 
 const archive = store.config.archive
@@ -83,48 +84,48 @@ if (archive.targets.length > 0) {
 </script>
 
 <template>
-  <n-card title="NAS 归档" class="nas-card">
+  <n-card :title="t('nas.title')" class="nas-card">
     <template #header-extra>
       <n-tag :type="config.connected ? 'success' : 'error'" size="small">
-        {{ config.connected ? '已连接' : '未连接' }}
+        {{ config.connected ? t('nas.connected') : t('nas.disconnected') }}
       </n-tag>
     </template>
 
     <div class="config-section">
       <div class="row">
-        <span class="label">启用 NAS 归档</span>
+        <span class="label">{{ t('nas.enable') }}</span>
         <n-switch v-model:value="config.enabled" />
       </div>
 
       <div v-if="config.enabled" class="nas-form">
         <div class="row">
-          <span class="label">主机地址</span>
+          <span class="label">{{ t('nas.host') }}</span>
           <n-input v-model:value="config.host" placeholder="192.168.1.100" size="small" />
         </div>
         <div class="row">
-          <span class="label">端口</span>
+          <span class="label">{{ t('nas.port') }}</span>
           <n-input v-model:value="config.port" placeholder="22" size="small" style="width: 80px" />
         </div>
         <div class="row">
-          <span class="label">用户名</span>
+          <span class="label">{{ t('nas.username') }}</span>
           <n-input v-model:value="config.username" placeholder="admin" size="small" />
         </div>
 
         <div class="section-title">
           <n-icon :size="16"><FolderOpenOutline /></n-icon>
-          <span>目录映射</span>
+          <span>{{ t('nas.dirMapping') }}</span>
         </div>
 
         <div class="row">
-          <span class="label">电影</span>
+          <span class="label">{{ t('nas.movies') }}</span>
           <n-input v-model:value="config.moviePath" placeholder="/volume1/Media/Movies" size="small" />
         </div>
         <div class="row">
-          <span class="label">软件</span>
+          <span class="label">{{ t('nas.software') }}</span>
           <n-input v-model:value="config.softwarePath" placeholder="/volume1/Software" size="small" />
         </div>
         <div class="row">
-          <span class="label">音乐</span>
+          <span class="label">{{ t('nas.music') }}</span>
           <n-input v-model:value="config.musicPath" placeholder="/volume1/Music" size="small" />
         </div>
 
@@ -136,9 +137,9 @@ if (archive.targets.length > 0) {
                 <CloseCircleOutline v-else />
               </n-icon>
             </template>
-            测试连接
+            {{ t('nas.testConnection') }}
           </n-button>
-          <n-button size="small" type="primary" @click="saveConfig">保存</n-button>
+          <n-button size="small" type="primary" @click="saveConfig">{{ t('nas.save') }}</n-button>
         </div>
       </div>
     </div>
