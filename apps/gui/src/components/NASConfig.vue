@@ -44,8 +44,14 @@ async function testConnection() {
       message.error('连接失败')
     }
   } catch (e) {
-    message.error(`连接错误: ${e}`)
-    config.value.connected = false
+    const msg = e instanceof Error ? e.message : String(e)
+    if (msg.includes('not found') || msg.includes('command') || msg.includes('invoke')) {
+      message.warning('NAS 连接测试功能暂不可用（需要更新后端）')
+      config.value.connected = false
+    } else {
+      message.error(`连接错误: ${msg}`)
+      config.value.connected = false
+    }
   } finally {
     testing.value = false
   }
@@ -60,7 +66,9 @@ const saved = localStorage.getItem('motrix-ai:nas-config')
 if (saved) {
   try {
     Object.assign(config.value, JSON.parse(saved))
-  } catch (e) { console.warn("Failed to load NAS config:", e) }
+  } catch (e) {
+    console.warn('Failed to load NAS config:', e)
+  }
 }
 </script>
 
@@ -128,11 +136,42 @@ if (saved) {
 </template>
 
 <style scoped>
-.nas-card { max-width: 500px; }
-.config-section { display: flex; flex-direction: column; gap: 12px; }
-.row { display: flex; align-items: center; gap: 12px; }
-.label { min-width: 80px; font-size: 14px; }
-.nas-form { display: flex; flex-direction: column; gap: 12px; padding: 12px; background: var(--bg-elevated); border-radius: 8px; }
-.section-title { display: flex; align-items: center; gap: 8px; font-weight: 500; padding-top: 8px; border-top: 1px solid var(--border); }
-.actions { display: flex; gap: 8px; justify-content: flex-end; }
+.nas-card {
+  max-width: 500px;
+}
+.config-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.label {
+  min-width: 80px;
+  font-size: 14px;
+}
+.nas-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  background: var(--bg-elevated);
+  border-radius: 8px;
+}
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+.actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
 </style>

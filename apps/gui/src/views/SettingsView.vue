@@ -2,8 +2,18 @@
 import { ref, computed, watch, type Ref } from 'vue'
 import { useRouter } from 'vue-router'
 import {
-  NButton, NIcon, NTabs, NTabPane, NInput, NSwitch, NSelect, NSlider,
-  NInputNumber, NDivider, NAlert, useMessage,
+  NButton,
+  NIcon,
+  NTabs,
+  NTabPane,
+  NInput,
+  NSwitch,
+  NSelect,
+  NSlider,
+  NInputNumber,
+  NDivider,
+  NAlert,
+  useMessage,
 } from 'naive-ui'
 import { ArrowBackOutline, SettingsOutline, TrashOutline, FolderOpenOutline } from '@vicons/ionicons5'
 import { useAria2 } from '@/composables/useAria2'
@@ -28,9 +38,13 @@ function useLocalStorage<T>(key: string, defaultValue: T) {
   const stored = localStorage.getItem(key)
   const data = ref<T>(stored !== null ? (JSON.parse(stored) as T) : defaultValue)
 
-  watch(data, (newVal) => {
-    localStorage.setItem(key, JSON.stringify(newVal))
-  }, { deep: true })
+  watch(
+    data,
+    (newVal) => {
+      localStorage.setItem(key, JSON.stringify(newVal))
+    },
+    { deep: true },
+  )
 
   return data
 }
@@ -39,22 +53,26 @@ function useLocalStorage<T>(key: string, defaultValue: T) {
 const llmEndpoint = useLocalStorage<string>('motrix-ai:llm-endpoint', '')
 const llmApiKey = useLocalStorage<string>('motrix-ai:llm-api-key', '')
 const llmModel = useLocalStorage<string>('motrix-ai:llm-model', 'gpt-4o-mini')
-const currentModel = computed(() => llmEndpoint.value ? llmModel.value : '内置启发式解析器（零配置）')
+const currentModel = computed(() => (llmEndpoint.value ? llmModel.value : '内置启发式解析器（零配置）'))
 
 // Sync to the LLM config format used by useOpenCode
-watch([llmEndpoint, llmApiKey, llmModel], () => {
-  import('@/composables/useOpenCode').then(({ setLLMConfig }) => {
-    if (llmEndpoint.value) {
-      setLLMConfig({
-        endpoint: llmEndpoint.value,
-        api_key: llmApiKey.value,
-        model: llmModel.value,
-      })
-    } else {
-      setLLMConfig(null)
-    }
-  })
-}, { immediate: true })
+watch(
+  [llmEndpoint, llmApiKey, llmModel],
+  () => {
+    import('@/composables/useOpenCode').then(({ setLLMConfig }) => {
+      if (llmEndpoint.value) {
+        setLLMConfig({
+          endpoint: llmEndpoint.value,
+          api_key: llmApiKey.value,
+          model: llmModel.value,
+        })
+      } else {
+        setLLMConfig(null)
+      }
+    })
+  },
+  { immediate: true },
+)
 
 // ---- BYOK AI Provider options ----
 /** Provider options for the AI provider dropdown. */
@@ -123,36 +141,81 @@ const aria2RpcUrl = useLocalStorage<string>('motrix-ai:aria2-rpc-url', 'http://1
 const aria2RpcSecret = useLocalStorage<string>('motrix-ai:aria2-rpc-secret', '')
 const logLevel = useLocalStorage<'debug' | 'info' | 'warn' | 'error'>('motrix-ai:log-level', 'info')
 
+const LOG_LEVELS: Record<string, number> = { debug: 0, info: 1, warn: 2, error: 3 }
+const originalMethods: Record<string, (...args: unknown[]) => void> = {}
+
+/* eslint-disable no-console */
+function applyLogLevel(level: 'debug' | 'info' | 'warn' | 'error') {
+  if (typeof console === 'undefined') return
+  const threshold = LOG_LEVELS[level] ?? 1
+  const methods: Array<{ name: 'log' | 'debug' | 'info' | 'warn' | 'error'; level: number }> = [
+    { name: 'log', level: 0 },
+    { name: 'debug', level: 0 },
+    { name: 'info', level: 1 },
+    { name: 'warn', level: 2 },
+    { name: 'error', level: 3 },
+  ]
+  for (const m of methods) {
+    if (!(m.name in originalMethods)) {
+      originalMethods[m.name] = console[m.name].bind(console)
+    }
+    const orig = originalMethods[m.name]
+    console[m.name] = m.level >= threshold ? orig : () => {}
+  }
+}
+/* eslint-enable no-console */
+
+applyLogLevel(logLevel.value)
+watch(logLevel, (val) => applyLogLevel(val))
+
 // ---- Apply settings to aria2 when changed ----
+watch(
+  [aria2RpcUrl, aria2RpcSecret],
+  () => {
+    useAria2({ rpcUrl: aria2RpcUrl.value, secret: aria2RpcSecret.value })
+  },
+  { immediate: true },
+)
+
 watch(maxConcurrent, async (val) => {
   try {
     await aria2.changeGlobalOption({ 'max-concurrent-downloads': String(val) })
-  } catch (e) { console.warn('Failed to apply maxConcurrent:', e) }
+  } catch (e) {
+    console.warn('Failed to apply maxConcurrent:', e)
+  }
 })
 
 watch(downloadSpeedLimit, async (val) => {
   try {
     await aria2.changeGlobalOption({ 'max-overall-download-limit': String(val * 1024) })
-  } catch (e) { console.warn('Failed to apply downloadSpeedLimit:', e) }
+  } catch (e) {
+    console.warn('Failed to apply downloadSpeedLimit:', e)
+  }
 })
 
 watch(uploadSpeedLimit, async (val) => {
   try {
     await aria2.changeGlobalOption({ 'max-overall-upload-limit': String(val * 1024) })
-  } catch (e) { console.warn('Failed to apply uploadSpeedLimit:', e) }
+  } catch (e) {
+    console.warn('Failed to apply uploadSpeedLimit:', e)
+  }
 })
 
 watch(autoRetry, async (val) => {
   try {
     await aria2.changeGlobalOption({ 'max-tries': val ? String(maxRetries.value) : '0' })
-  } catch (e) { console.warn('Failed to apply autoRetry:', e) }
+  } catch (e) {
+    console.warn('Failed to apply autoRetry:', e)
+  }
 })
 
 watch(maxRetries, async (val) => {
   if (autoRetry.value) {
     try {
       await aria2.changeGlobalOption({ 'max-tries': String(val) })
-    } catch (e) { console.warn('Failed to apply maxRetries:', e) }
+    } catch (e) {
+      console.warn('Failed to apply maxRetries:', e)
+    }
   }
 })
 
@@ -184,6 +247,9 @@ const themeOptions = computed(() => [
 const uiLanguageOptions = [
   { label: 'English', value: 'en' },
   { label: '简体中文', value: 'zh' },
+  { label: '日本語', value: 'ja' },
+  { label: '한국어', value: 'ko' },
+  { label: 'Français', value: 'fr' },
 ]
 
 const logLevelOptions = [
@@ -225,12 +291,6 @@ async function clearDownloadHistory() {
   }
 }
 
-function saveSubtitleApiKey() {
-  // Save to localStorage directly (useSubtitle reads from the same key)
-  localStorage.setItem('motrix-ai:opensubtitles-api-key', subtitleApiKey.value)
-  message.success('API key saved')
-}
-
 async function applyAria2Settings() {
   try {
     await aria2.changeGlobalOption({
@@ -259,7 +319,9 @@ async function applyAria2Settings() {
       <div class="chrome-center"></div>
       <div class="chrome-right">
         <NButton quaternary size="small" @click="router.push('/')">
-          <template #icon><NIcon><ArrowBackOutline /></NIcon></template>
+          <template #icon
+            ><NIcon><ArrowBackOutline /></NIcon
+          ></template>
           Back
         </NButton>
       </div>
@@ -274,9 +336,8 @@ async function applyAria2Settings() {
             <h3>{{ t('settings.aiModel') }}</h3>
 
             <NAlert type="info" :bordered="false" style="margin-bottom: 16px">
-              Choose an AI provider for natural-language download parsing.
-              OpenCode is free with zero configuration; bring your own key for
-              Anthropic Claude or OpenAI GPT, or run Ollama locally.
+              Choose an AI provider for natural-language download parsing. OpenCode is free with zero configuration;
+              bring your own key for Anthropic Claude or OpenAI GPT, or run Ollama locally.
             </NAlert>
 
             <!-- BYOK Provider Selection -->
@@ -308,9 +369,7 @@ async function applyAria2Settings() {
                 placeholder="sk-..."
                 @update:value="aiProvider.setApiKey"
               />
-              <p class="setting-hint">
-                Your key is stored locally and never sent anywhere except the provider's API.
-              </p>
+              <p class="setting-hint">Your key is stored locally and never sent anywhere except the provider's API.</p>
             </div>
 
             <div v-if="needsBaseUrl" class="setting-group">
@@ -326,11 +385,8 @@ async function applyAria2Settings() {
             <div class="setting-group">
               <label>Connection Status</label>
               <div class="status-indicator">
-                <span
-                  class="status-dot"
-                  :class="openCode.connected.value ? 'connected' : 'disconnected'"
-                ></span>
-                <span>{{ openCode.connected.value ? 'Ready' : 'Disconnected' }}</span>
+                <span class="status-dot" :class="openCode.connected.value ? 'connected' : 'disconnected'"></span>
+                <span>{{ openCode.statusLabel.value }}</span>
               </div>
             </div>
 
@@ -347,32 +403,19 @@ async function applyAria2Settings() {
 
             <div class="setting-group">
               <label>API Endpoint (OpenAI Compatible)</label>
-              <NInput
-                v-model:value="llmEndpoint"
-                placeholder="https://api.openai.com/v1/chat/completions"
-              />
-              <p class="setting-hint">
-                Supports OpenAI / DeepSeek / Ollama / any OpenAI-compatible API
-              </p>
+              <NInput v-model:value="llmEndpoint" placeholder="https://api.openai.com/v1/chat/completions" />
+              <p class="setting-hint">Supports OpenAI / DeepSeek / Ollama / any OpenAI-compatible API</p>
             </div>
 
             <div class="setting-group">
               <label>API Key</label>
-              <NInput
-                v-model:value="llmApiKey"
-                type="password"
-                show-password-on="click"
-                placeholder="sk-..."
-              />
+              <NInput v-model:value="llmApiKey" type="password" show-password-on="click" placeholder="sk-..." />
               <p class="setting-hint">Local Ollama does not require a key.</p>
             </div>
 
             <div class="setting-group">
               <label>Model</label>
-              <NInput
-                v-model:value="llmModel"
-                placeholder="gpt-4o-mini / deepseek-chat / qwen2.5:7b"
-              />
+              <NInput v-model:value="llmModel" placeholder="gpt-4o-mini / deepseek-chat / qwen2.5:7b" />
             </div>
           </div>
         </NTabPane>
@@ -387,7 +430,9 @@ async function applyAria2Settings() {
               <div class="folder-picker">
                 <NInput v-model:value="downloadDir" placeholder="~/Downloads/Motrix AI" />
                 <NButton quaternary @click="pickDownloadDir">
-                  <template #icon><NIcon><FolderOpenOutline /></NIcon></template>
+                  <template #icon
+                    ><NIcon><FolderOpenOutline /></NIcon
+                  ></template>
                 </NButton>
               </div>
             </div>
@@ -460,8 +505,7 @@ async function applyAria2Settings() {
             <h3>{{ t('settings.schedule') || 'Schedule' }}</h3>
 
             <NAlert type="info" :bordered="false" style="margin-bottom: 16px">
-              Automatically adjust download speed and concurrency based on the
-              time of day.
+              Automatically adjust download speed and concurrency based on the time of day.
             </NAlert>
 
             <ScheduleConfig />
@@ -475,17 +519,15 @@ async function applyAria2Settings() {
 
             <div class="setting-group">
               <label>{{ t('settings.subtitleApiKey') }}</label>
-              <div class="api-key-row">
-                <NInput
-                  v-model:value="subtitleApiKey"
-                  type="password"
-                  show-password-on="click"
-                  placeholder="Enter your OpenSubtitles API key"
-                />
-                <NButton type="primary" size="small" @click="saveSubtitleApiKey">Save</NButton>
-              </div>
+              <NInput
+                v-model:value="subtitleApiKey"
+                type="password"
+                show-password-on="click"
+                placeholder="Enter your OpenSubtitles API key"
+              />
               <p class="setting-hint">
-                Get your API key from <a href="https://opensubtitles.com/api" target="_blank" rel="noopener">opensubtitles.com/api</a>
+                Get your API key from
+                <a href="https://opensubtitles.com/api" target="_blank" rel="noopener">opensubtitles.com/api</a>
               </p>
             </div>
 
@@ -514,7 +556,9 @@ async function applyAria2Settings() {
               <div class="folder-picker">
                 <NInput v-model:value="subtitleDir" placeholder="~/Downloads/Motrix AI/Subtitles" />
                 <NButton quaternary @click="pickSubtitleDir">
-                  <template #icon><NIcon><FolderOpenOutline /></NIcon></template>
+                  <template #icon
+                    ><NIcon><FolderOpenOutline /></NIcon
+                  ></template>
                 </NButton>
               </div>
             </div>
@@ -587,7 +631,9 @@ async function applyAria2Settings() {
                     <p class="setting-hint">Remove all completed and failed download records from aria2.</p>
                   </div>
                   <NButton type="error" size="small" @click="clearDownloadHistory">
-                    <template #icon><NIcon><TrashOutline /></NIcon></template>
+                    <template #icon
+                      ><NIcon><TrashOutline /></NIcon
+                    ></template>
                     Clear History
                   </NButton>
                 </div>
@@ -718,11 +764,11 @@ async function applyAria2Settings() {
 }
 
 .status-dot.connected {
-  background: #10B981;
+  background: var(--accent);
 }
 
 .status-dot.disconnected {
-  background: #EF4444;
+  background: var(--error);
 }
 
 .danger-zone {

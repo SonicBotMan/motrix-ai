@@ -16,7 +16,7 @@ const nextStep = () => {
     try {
       localStorage.setItem('motrix-ai:download-dir', downloadDir.value)
       localStorage.setItem('motrix-ai:language', uiLanguage.value)
-      localStorage.setItem('motrix:onboarded', 'true')
+      localStorage.setItem('motrix-ai:onboarded', 'true')
     } catch {
       // localStorage may be unavailable in sandboxed contexts
     }

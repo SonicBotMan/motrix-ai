@@ -48,7 +48,7 @@ class RateLimiter {
   async acquire(): Promise<void> {
     const now = Date.now()
     // Remove timestamps older than 1 second
-    this.timestamps = this.timestamps.filter(t => now - t < 1000)
+    this.timestamps = this.timestamps.filter((t) => now - t < 1000)
 
     if (this.timestamps.length < this.maxPerSecond) {
       this.timestamps.push(now)
@@ -67,7 +67,7 @@ class RateLimiter {
 
   private processQueue(): void {
     const now = Date.now()
-    this.timestamps = this.timestamps.filter(t => now - t < 1000)
+    this.timestamps = this.timestamps.filter((t) => now - t < 1000)
 
     while (this.queue.length > 0 && this.timestamps.length < this.maxPerSecond) {
       const next = this.queue.shift()!
@@ -149,15 +149,10 @@ function detectFormat(fileName: string): 'srt' | 'ass' | 'sub' {
  * Search OpenSubtitles for subtitles matching the query.
  * Uses Tauri command to avoid CORS issues.
  */
-async function searchOpenSubtitles(
-  query: string,
-  languages: string[] = ['zh', 'en'],
-): Promise<SubtitleResult[]> {
+async function searchOpenSubtitles(query: string, languages: string[] = ['zh', 'en']): Promise<SubtitleResult[]> {
   const apiKey = getApiKey()
   if (!apiKey) {
-    throw new Error(
-      'OpenSubtitles API key not configured. Please set your API key in Settings.',
-    )
+    throw new Error('OpenSubtitles API key not configured. Please set your API key in Settings.')
   }
 
   await rateLimiter.acquire()
@@ -204,9 +199,7 @@ async function searchOpenSubtitles(
         downloadCount: Number(attributes['download_count'] ?? 0),
         source: 'opensubtitles',
         fps: attributes['fps'] ? Number(attributes['fps']) : undefined,
-        uploadDate: attributes['upload_date']
-          ? String(attributes['upload_date']).split(' ')[0]
-          : undefined,
+        uploadDate: attributes['upload_date'] ? String(attributes['upload_date']).split(' ')[0] : undefined,
       })
     } catch (parseErr) {
       console.warn('Failed to parse subtitle result:', parseErr, item)
@@ -232,10 +225,7 @@ export function useSubtitle() {
   /**
    * Search for subtitles matching the given title.
    */
-  const searchSubtitles = async (
-    title: string,
-    languages?: string[],
-  ): Promise<void> => {
+  const searchSubtitles = async (title: string, languages?: string[]): Promise<void> => {
     searching.value = true
     error.value = null
     subtitleResults.value = []
@@ -282,10 +272,7 @@ export function useSubtitle() {
    * Download a specific subtitle and save it alongside the video.
    * Uses OpenSubtitles download API via Tauri command.
    */
-  const downloadSubtitleFile = async (
-    subtitle: SubtitleResult,
-    videoPath: string,
-  ): Promise<string | null> => {
+  const downloadSubtitleFile = async (subtitle: SubtitleResult, videoPath: string): Promise<string | null> => {
     downloading.value = true
 
     try {
@@ -294,10 +281,30 @@ export function useSubtitle() {
         throw new Error('OpenSubtitles API key not configured.')
       }
 
-      // Get the directory of the video file
       const lastSep = Math.max(videoPath.lastIndexOf('/'), videoPath.lastIndexOf('\\'))
-      const videoDir = videoPath.substring(0, lastSep)
-      const subtitlePath = `${videoDir}/${subtitle.fileName}`
+      let targetDir = videoPath.substring(0, lastSep)
+      try {
+        const raw = localStorage.getItem('motrix-ai:subtitle-dir')
+        if (raw) {
+          const configured = JSON.parse(raw)
+          if (typeof configured === 'string' && configured.trim()) {
+            let resolvedDir = configured
+            if (configured === '~' || configured.startsWith('~/') || configured.startsWith('~\\')) {
+              try {
+                const { homeDir } = await import('@tauri-apps/api/path')
+                const home = await homeDir()
+                resolvedDir = configured === '~' ? home : home + configured.slice(1)
+              } catch {
+                /* not in Tauri */
+              }
+            }
+            targetDir = resolvedDir
+          }
+        }
+      } catch {
+        /* use video dir */
+      }
+      const subtitlePath = `${targetDir}/${subtitle.fileName}`
 
       // Use OpenSubtitles download API to get the subtitle file
       await rateLimiter.acquire()
@@ -314,9 +321,7 @@ export function useSubtitle() {
       }
 
       // Decode base64 and save via Tauri file command
-      const contentBytes = Uint8Array.from(atob(response.content_base64), c =>
-        c.charCodeAt(0),
-      )
+      const contentBytes = Uint8Array.from(atob(response.content_base64), (c) => c.charCodeAt(0))
 
       const savedPath = await invoke<string>('save_file', {
         path: subtitlePath,
@@ -338,9 +343,7 @@ export function useSubtitle() {
    */
   const getBestSubtitle = (language?: string): SubtitleResult | null => {
     const lang = language || selectedLanguage.value
-    const filtered = subtitleResults.value.filter(s =>
-      s.languageCode.startsWith(lang),
-    )
+    const filtered = subtitleResults.value.filter((s) => s.languageCode.startsWith(lang))
     if (filtered.length === 0) return null
     return filtered[0] // Already sorted by rating
   }

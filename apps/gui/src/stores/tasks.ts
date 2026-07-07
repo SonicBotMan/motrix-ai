@@ -221,11 +221,23 @@ export const useTasksStore = defineStore('tasks', () => {
           if (autoSub !== 'false') {
             const apiKey = localStorage.getItem('motrix-ai:opensubtitles-api-key') || ''
             if (apiKey) {
+              let langs: string | undefined
+              try {
+                const raw = localStorage.getItem('motrix-ai:subtitle-languages')
+                if (raw) {
+                  const parsed = JSON.parse(raw)
+                  if (Array.isArray(parsed) && parsed.length > 0) {
+                    langs = parsed.join(',')
+                  }
+                }
+              } catch {
+                /* use undefined (no filter) */
+              }
               const { invoke } = await import('@tauri-apps/api/core')
               await invoke('opensubtitles_search', {
                 apiKey,
                 query: filename.replace(/\.[^.]+$/, ''),
-                languages: undefined,
+                languages: langs,
               })
             }
           }
@@ -255,7 +267,29 @@ export const useTasksStore = defineStore('tasks', () => {
    */
   async function addTask(url: string, name?: string, intent?: DownloadIntentMeta): Promise<void> {
     if (aria2.connected.value) {
-      const gid = await aria2.addUri(url)
+      const opts: Record<string, string> = {}
+      try {
+        const raw = localStorage.getItem('motrix-ai:download-dir')
+        if (raw) {
+          const dir = JSON.parse(raw)
+          if (typeof dir === 'string' && dir.trim()) {
+            let resolvedDir = dir
+            if (dir === '~' || dir.startsWith('~/') || dir.startsWith('~\\')) {
+              try {
+                const { homeDir } = await import('@tauri-apps/api/path')
+                const home = await homeDir()
+                resolvedDir = dir === '~' ? home : home + dir.slice(1)
+              } catch {
+                /* not in Tauri context */
+              }
+            }
+            opts.dir = resolvedDir
+          }
+        }
+      } catch {
+        /* skip dir on parse failure */
+      }
+      const gid = Object.keys(opts).length > 0 ? await aria2.addUri(url, opts) : await aria2.addUri(url)
       if (intent && gid) intentByGid.set(gid, intent)
       return
     }

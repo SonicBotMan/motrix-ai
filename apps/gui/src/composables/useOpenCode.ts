@@ -1,7 +1,7 @@
 // src/composables/useOpenCode.ts
 // NL Intent Parsing — calls Rust backend (heuristic + optional LLM)
 
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 
 export interface DownloadIntent {
@@ -41,7 +41,9 @@ export function setLLMConfig(config: LLMConfig | null): void {
 }
 
 export function useOpenCode() {
-  const connected = ref(true) // Backend heuristic parser is always available
+  const llmConfigured = computed(() => getLLMConfig() !== null)
+  const connected = ref(true)
+  const statusLabel = computed(() => (llmConfigured.value ? 'LLM Connected' : 'Heuristic Mode'))
   const parsing = ref(false)
 
   const parseIntent = async (input: string): Promise<DownloadIntent> => {
@@ -72,6 +74,8 @@ export function useOpenCode() {
 
   return {
     connected,
+    statusLabel,
+    llmConfigured,
     parsing,
     parseIntent,
   }
