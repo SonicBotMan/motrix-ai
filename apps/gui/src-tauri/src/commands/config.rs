@@ -1,5 +1,5 @@
-use std::path::PathBuf;
 use serde_json::Value;
+use std::path::PathBuf;
 
 fn config_path() -> Result<PathBuf, String> {
     let home = dirs::home_dir().ok_or("Cannot find home directory")?;
@@ -49,25 +49,43 @@ pub async fn load_config() -> Result<Value, String> {
                 std::fs::create_dir_all(parent).map_err(|e| format!("Create dir failed: {}", e))?;
             }
             let defaults = default_config();
-            std::fs::write(&path, serde_json::to_string_pretty(&defaults).unwrap_or_default())
-                .map_err(|e| format!("Write failed: {}", e))?;
+            std::fs::write(
+                &path,
+                serde_json::to_string_pretty(&defaults).unwrap_or_default(),
+            )
+            .map_err(|e| format!("Write failed: {}", e))?;
             return Ok(defaults);
         }
         let raw = std::fs::read_to_string(&path).map_err(|e| format!("Read failed: {}", e))?;
         let mut config: Value = serde_json::from_str(&raw)
             .map_err(|e| format!("Parse failed: {}, using defaults", e))?;
         // Simple migration: ensure schemaVersion and ui section exist
-        if config.get("schemaVersion").and_then(|v| v.as_u64()).unwrap_or(0) < 2 {
+        if config
+            .get("schemaVersion")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0)
+            < 2
+        {
             if config.get("ui").is_none() {
-                config["ui"] = serde_json::json!({ "theme": "dark", "language": "en", "log_level": "info" });
+                config["ui"] =
+                    serde_json::json!({ "theme": "dark", "language": "en", "log_level": "info" });
             }
             if let Some(subs) = config.get_mut("subtitles") {
-                if subs.get("subtitle_dir").is_none() { subs["subtitle_dir"] = serde_json::json!(""); }
-                if subs.get("opensubtitles_api_key").is_none() { subs["opensubtitles_api_key"] = serde_json::json!(""); }
-                if subs.get("auto_search").is_none() { subs["auto_search"] = serde_json::json!(true); }
+                if subs.get("subtitle_dir").is_none() {
+                    subs["subtitle_dir"] = serde_json::json!("");
+                }
+                if subs.get("opensubtitles_api_key").is_none() {
+                    subs["opensubtitles_api_key"] = serde_json::json!("");
+                }
+                if subs.get("auto_search").is_none() {
+                    subs["auto_search"] = serde_json::json!(true);
+                }
             }
             config["schemaVersion"] = serde_json::json!(2);
-            let _ = std::fs::write(&path, serde_json::to_string_pretty(&config).unwrap_or_default());
+            let _ = std::fs::write(
+                &path,
+                serde_json::to_string_pretty(&config).unwrap_or_default(),
+            );
         }
         Ok(config)
     })
@@ -82,7 +100,8 @@ pub async fn save_config(config: Value) -> Result<(), String> {
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent).map_err(|e| format!("Create dir failed: {}", e))?;
         }
-        let json = serde_json::to_string_pretty(&config).map_err(|e| format!("Serialize failed: {}", e))?;
+        let json = serde_json::to_string_pretty(&config)
+            .map_err(|e| format!("Serialize failed: {}", e))?;
         std::fs::write(&path, json).map_err(|e| format!("Write failed: {}", e))?;
         Ok(())
     })
@@ -108,7 +127,8 @@ pub async fn update_config_section(section: String, value: Value) -> Result<Valu
         if let Some(parent) = path.parent() {
             let _ = std::fs::create_dir_all(parent);
         }
-        let json = serde_json::to_string_pretty(&config).map_err(|e| format!("Serialize failed: {}", e))?;
+        let json = serde_json::to_string_pretty(&config)
+            .map_err(|e| format!("Serialize failed: {}", e))?;
         std::fs::write(&path, json).map_err(|e| format!("Write failed: {}", e))?;
         Ok(config)
     })
