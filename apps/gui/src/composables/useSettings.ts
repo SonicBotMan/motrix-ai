@@ -803,6 +803,52 @@ const strings: Record<string, Record<Language, string>> = {
     ko: '이 설정을 변경하면 aria2를 재시작해야 할 수 있습니다.',
     fr: "Modifier ces paramètres peut nécessiter le redémarrage d'aria2 pour prendre effet.",
   },
+  'btn.save': { en: 'Save', zh: '保存', ja: '保存', ko: '저장', fr: 'Enregistrer' },
+  'btn.cancel': { en: 'Cancel', zh: '取消', ja: 'キャンセル', ko: '취소', fr: 'Annuler' },
+  'btn.reconnect': { en: 'Reconnect', zh: '重新连接', ja: '再接続', ko: '재연결', fr: 'Reconnecter' },
+  'queue.totalTasks': { en: 'Total Tasks', zh: '总任务数', ja: '総タスク数', ko: '전체 작업', fr: 'Total des tâches' },
+  'queue.searchTasksPlaceholder': {
+    en: 'Search tasks...',
+    zh: '搜索任务...',
+    ja: 'タスクを検索...',
+    ko: '작업 검색...',
+    fr: 'Rechercher des tâches...',
+  },
+  'settings.currentMode': {
+    en: 'Current Mode',
+    zh: '当前模式',
+    ja: '現在のモード',
+    ko: '현재 모드',
+    fr: 'Mode actuel',
+  },
+  'settings.subtitleApiKeyPlaceholder': {
+    en: 'Enter your OpenSubtitles API key',
+    zh: '输入 OpenSubtitles API 密钥',
+    ja: 'OpenSubtitles APIキーを入力',
+    ko: 'OpenSubtitles API 키 입력',
+    fr: 'Entrez votre clé API OpenSubtitles',
+  },
+  'settings.subtitleLangsPlaceholder': {
+    en: 'Select preferred subtitle languages',
+    zh: '选择首选字幕语言',
+    ja: '優先字幕言語を選択',
+    ko: '선호 자막 언어 선택',
+    fr: 'Sélectionnez les langues préférées',
+  },
+  'settings.subtitleDownloadDir': {
+    en: 'Subtitle Download Directory',
+    zh: '字幕下载目录',
+    ja: '字幕ダウンロード先',
+    ko: '자막 다운로드 경로',
+    fr: 'Répertoire de téléchargement des sous-titres',
+  },
+  'settings.rpcSecretPlaceholder': {
+    en: 'Leave empty for no authentication',
+    zh: '留空表示无认证',
+    ja: '認証なしの場合は空欄',
+    ko: '인증 없으면 비워두기',
+    fr: 'Laisser vide pour aucune authentification',
+  },
 }
 
 export function t(key: string): string {

@@ -65,16 +65,6 @@ pub async fn start_http_api(port: Option<u16>) -> Result<String, String> {
     Ok(url)
 }
 
-/// Stop the HTTP API server gracefully. In-flight connections finish;
-/// the accept loop stops accepting new ones.
-#[command]
-pub async fn stop_http_api() -> Result<String, String> {
-    if let Some(tx) = SHUTDOWN_TX.get() {
-        let _ = tx.send(true);
-    }
-    Ok("HTTP API stopped".to_string())
-}
-
 async fn handle_connection(stream: &mut tokio::net::TcpStream) -> Result<(), String> {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
@@ -144,11 +134,6 @@ fn err_body(msg: &str) -> String {
         "{{\"status\":\"error\",\"error\":\"{}\"}}",
         msg.replace('"', "\\\"")
     )
-}
-
-#[command]
-pub async fn handle_download_request(request: DownloadRequest) -> Result<String, String> {
-    aria2_add_uri(&request.url).await
 }
 
 #[cfg(test)]

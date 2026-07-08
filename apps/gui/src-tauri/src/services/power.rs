@@ -52,22 +52,25 @@ pub async fn prevent_sleep() -> Result<String, String> {
 /// it is currently a no-op (prevent_sleep does nothing either).
 #[command]
 pub async fn allow_sleep() -> Result<String, String> {
-    #[cfg(target_os = "macos")]
-    {
-        let _ = std::process::Command::new("pkill")
-            .args(["-f", "caffeinate"])
-            .output();
-    }
+    release_inhibitor_blocking();
+    Ok("Sleep prevention disabled".to_string())
+}
 
+/// Synchronous power-inhibitor release.
+///
+/// Use this (not the async [`allow_sleep`]) from non-async contexts such
+/// as tray menu handlers, where spawning a tokio task is unsafe because
+/// `app.exit(0)` may terminate the runtime before the task runs.
+///
+/// macOS: `caffeinate -w <pid>` auto-exits when this process dies, so no
+/// explicit cleanup is needed there. Linux requires an explicit pkill of
+/// the `systemd-inhibit` child we spawned in `prevent_sleep`. Windows is
+/// a no-op (prevent_sleep is also a no-op there).
+pub fn release_inhibitor_blocking() {
     #[cfg(target_os = "linux")]
     {
-        // Kill any systemd-inhibit blockers we spawned. We scope to the
-        // specific --what=idle invocation to avoid clobbering unrelated
-        // inhibitors held by other apps (e.g. PackageKit, media players).
         let _ = std::process::Command::new("pkill")
             .args(["-f", "systemd-inhibit.*--what=idle"])
             .output();
     }
-
-    Ok("Sleep prevention disabled".to_string())
 }

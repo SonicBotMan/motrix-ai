@@ -1,6 +1,5 @@
 mod commands;
 mod error;
-mod history;
 mod services;
 mod tray;
 
@@ -116,15 +115,8 @@ pub fn run() {
             commands::request_notification_permission,
             commands::send_notification,
             commands::http_api::start_http_api,
-            commands::http_api::stop_http_api,
-            commands::http_api::handle_download_request,
-            commands::protocol::handle_deep_link,
-            history::get_download_history,
-            history::clear_download_history,
-            services::port_guard::check_port,
             services::power::prevent_sleep,
             services::power::allow_sleep,
-            services::tracker::fetch_trackers,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
