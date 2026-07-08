@@ -43,13 +43,13 @@ describe('config loader', () => {
       expect(config.ai.provider).toBe(DEFAULT_CONFIG.ai.provider)
     })
 
-    it('writes config with schemaVersion = 1 on first creation', async () => {
+    it('writes config with schemaVersion = 2 on first creation', async () => {
       vi.mocked(existsSync).mockReturnValue(false)
 
       const { loadConfig } = await import('../config/loader.js')
       const config = loadConfig()
 
-      expect(config.schemaVersion).toBe(1)
+      expect(config.schemaVersion).toBe(2)
     })
 
     it('includes schedule rules by default', async () => {
@@ -127,10 +127,7 @@ describe('config loader', () => {
 
       saveConfig({ ...DEFAULT_CONFIG, schemaVersion: 1 })
 
-      expect(mkdirSync).toHaveBeenCalledWith(
-        expect.any(String),
-        { recursive: true },
-      )
+      expect(mkdirSync).toHaveBeenCalledWith(expect.any(String), { recursive: true })
     })
 
     it('serializes with indentation', async () => {
@@ -147,15 +144,7 @@ describe('config loader', () => {
     it('has all required top-level sections', async () => {
       const { DEFAULT_CONFIG } = await import('../config/loader.js')
 
-      const sections = [
-        'ai',
-        'aria2',
-        'downloads',
-        'schedule',
-        'disk',
-        'subtitles',
-        'archive',
-      ]
+      const sections = ['ai', 'aria2', 'downloads', 'schedule', 'disk', 'subtitles', 'archive']
       for (const section of sections) {
         expect(DEFAULT_CONFIG[section]).toBeDefined()
       }

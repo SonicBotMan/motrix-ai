@@ -1,21 +1,26 @@
 <script setup lang="ts">
-import { watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { NButton, NInput, NInputNumber, NSwitch } from 'naive-ui'
 import { FolderOpenOutline } from '@vicons/ionicons5'
 import { useAria2 } from '@/composables/useAria2'
-import { useLocalStorage } from '@/composables/useLocalStorage'
+import { useConfigStore } from '@/stores/config'
 import { t } from '@/composables/useSettings'
 import { useMessage } from 'naive-ui'
 
 const aria2 = useAria2()
 const message = useMessage()
+const store = useConfigStore()
 
-const downloadDir = useLocalStorage<string>('motrix-ai:download-dir', '~/Downloads/Motrix AI')
-const maxConcurrent = useLocalStorage<number>('motrix-ai:max-concurrent', 5)
-const downloadSpeedLimit = useLocalStorage<number>('motrix-ai:download-speed-limit', 0)
-const uploadSpeedLimit = useLocalStorage<number>('motrix-ai:upload-speed-limit', 0)
-const autoRetry = useLocalStorage<boolean>('motrix-ai:auto-retry', true)
-const maxRetries = useLocalStorage<number>('motrix-ai:max-retries', 3)
+const downloadDir = computed<string>({
+  get: () => store.config.downloads.base_dir,
+  set: (v: string) => store.updateSection('downloads', { base_dir: v }),
+})
+// aria2 daemon runtime options — applied via watchers below, not persisted to config.
+const maxConcurrent = ref(5)
+const downloadSpeedLimit = ref(0)
+const uploadSpeedLimit = ref(0)
+const autoRetry = ref(true)
+const maxRetries = ref(3)
 
 watch(maxConcurrent, async (val) => {
   try {

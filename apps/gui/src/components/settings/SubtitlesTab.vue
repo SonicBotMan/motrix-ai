@@ -2,16 +2,29 @@
 import { computed } from 'vue'
 import { NButton, NInput, NSwitch } from 'naive-ui'
 import { FolderOpenOutline } from '@vicons/ionicons5'
-import { useLocalStorage } from '@/composables/useLocalStorage'
+import { useConfigStore } from '@/stores/config'
 import { t } from '@/composables/useSettings'
 import { useMessage } from 'naive-ui'
 
 const message = useMessage()
+const store = useConfigStore()
 
-const subtitleApiKey = useLocalStorage<string>('motrix-ai:opensubtitles-api-key', '')
-const subtitleLanguages = useLocalStorage<string[]>('motrix-ai:subtitle-languages', ['zh', 'en'])
-const autoSearchSubtitles = useLocalStorage<boolean>('motrix-ai:auto-search-subtitles', true)
-const subtitleDir = useLocalStorage<string>('motrix-ai:subtitle-dir', '~/Downloads/Motrix AI/Subtitles')
+const subtitleApiKey = computed<string>({
+  get: () => store.config.subtitles.opensubtitles_api_key || '',
+  set: (v: string) => store.updateSection('subtitles', { opensubtitles_api_key: v }),
+})
+const subtitleLanguages = computed<string[]>({
+  get: () => store.config.subtitles.preferred_languages,
+  set: (v: string[]) => store.updateSection('subtitles', { preferred_languages: v }),
+})
+const autoSearchSubtitles = computed<boolean>({
+  get: () => store.config.subtitles.auto_search,
+  set: (v: boolean) => store.updateSection('subtitles', { auto_search: v }),
+})
+const subtitleDir = computed<string>({
+  get: () => store.config.subtitles.subtitle_dir || '',
+  set: (v: string) => store.updateSection('subtitles', { subtitle_dir: v }),
+})
 
 // NInput works on a single string; subtitleLanguages is string[] in storage.
 // Bridge with a computed that joins/splits on comma so the underlying
@@ -37,8 +50,10 @@ async function pickSubtitleDir() {
   }
 }
 
-function saveSubtitleApiKey() {
-  localStorage.setItem('motrix-ai:opensubtitles-api-key', subtitleApiKey.value)
+async function saveSubtitleApiKey() {
+  // Config store auto-persists on change; flush immediately so the user
+  // does not need to wait for the debounced watcher before quitting.
+  await store.save()
   message.success('API key saved')
 }
 </script>

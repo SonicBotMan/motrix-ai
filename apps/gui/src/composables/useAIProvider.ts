@@ -1,20 +1,5 @@
-import { ref, computed } from 'vue'
-
-/**
- * Supported AI provider identifiers.
- * Each maps to a different LLM backend with its own API conventions.
- */
-export type AIProvider = 'opencode' | 'anthropic' | 'openai' | 'ollama'
-
-/**
- * User-configurable AI configuration persisted to localStorage.
- */
-export interface AIConfig {
-  provider: AIProvider
-  model: string
-  apiKey?: string
-  baseUrl?: string
-}
+import { computed } from 'vue'
+import { useConfigStore, type AIProvider } from '@/stores/config'
 
 /**
  * Static metadata describing each provider's display name,
@@ -41,29 +26,21 @@ const PROVIDERS: Record<AIProvider, { name: string; models: string[]; requiresKe
     models: ['llama3', 'mistral', 'codellama'],
     requiresKey: false,
   },
-}
-
-/**
- * Load the saved AI configuration from localStorage.
- * Falls back to the free OpenCode provider when nothing is stored.
- */
-function loadConfig(): AIConfig {
-  try {
-    const saved = localStorage.getItem('motrix-ai:ai-config')
-    if (saved) return JSON.parse(saved) as AIConfig
-  } catch {
-    // ignore parse errors and fall through to defaults
-  }
-  return { provider: 'opencode', model: 'opencode/deepseek-v4-flash-free' }
+  custom: {
+    name: 'Custom (OpenAI Compatible)',
+    models: [],
+    requiresKey: true,
+  },
 }
 
 /**
  * Reactive composable for managing BYOK (Bring-Your-Own-Key) multi-model
- * AI provider selection. Persists configuration to localStorage and exposes
- * computed helpers for the current provider's metadata.
+ * AI provider selection. Reads/writes `useConfigStore().config.ai` — the
+ * store is the sole reactive entry point and handles persistence.
  */
 export function useAIProvider() {
-  const config = ref<AIConfig>(loadConfig())
+  const store = useConfigStore()
+  const config = computed(() => store.config.ai)
 
   /** All providers in a format suitable for Naive UI dropdowns. */
   const availableProviders = computed(() =>
@@ -84,36 +61,30 @@ export function useAIProvider() {
   /** Metadata for the currently selected provider. */
   const currentProvider = computed(() => PROVIDERS[config.value.provider])
 
-  /** Persist the current configuration to localStorage. */
-  function saveConfig() {
-    localStorage.setItem('motrix-ai:ai-config', JSON.stringify(config.value))
-  }
+  /** Whether the current provider requires an API key. */
+  const requiresApiKey = computed(() => currentProvider.value.requiresKey)
 
-  /**
-   * Switch the active provider and reset the model to that provider's default.
-   */
+  /** Whether the current provider needs a custom base URL (Ollama or custom OpenAI-compatible). */
+  const needsBaseUrl = computed(() => config.value.provider === 'ollama' || config.value.provider === 'custom')
+
+  /** Switch the active provider and reset the model to that provider's default. */
   function setProvider(provider: AIProvider) {
-    config.value.provider = provider
-    config.value.model = PROVIDERS[provider].models[0]
-    saveConfig()
+    store.updateSection('ai', { provider, model: PROVIDERS[provider].models[0] ?? '' })
   }
 
   /** Set the model for the current provider. */
   function setModel(model: string) {
-    config.value.model = model
-    saveConfig()
+    store.updateSection('ai', { model })
   }
 
-  /** Set the API key (used by Anthropic / OpenAI). */
+  /** Set the API key (used by Anthropic / OpenAI / custom). */
   function setApiKey(key: string) {
-    config.value.apiKey = key
-    saveConfig()
+    store.updateSection('ai', { api_key: key })
   }
 
   /** Set the base URL (used by Ollama or custom endpoints). */
   function setBaseUrl(url: string) {
-    config.value.baseUrl = url
-    saveConfig()
+    store.updateSection('ai', { base_url: url })
   }
 
   return {
@@ -121,6 +92,8 @@ export function useAIProvider() {
     availableProviders,
     modelOptions,
     currentProvider,
+    requiresApiKey,
+    needsBaseUrl,
     setProvider,
     setModel,
     setApiKey,

@@ -1,66 +1,16 @@
 <script setup lang="ts">
-import { computed, watch } from 'vue'
-import { NAlert, NDivider, NInput, NSelect } from 'naive-ui'
+import { computed } from 'vue'
+import { NAlert, NInput, NSelect } from 'naive-ui'
 import { useAIProvider } from '@/composables/useAIProvider'
 import { useOpenCode } from '@/composables/useOpenCode'
-import { useLocalStorage } from '@/composables/useLocalStorage'
 import { t } from '@/composables/useSettings'
 
 const aiProvider = useAIProvider()
 const openCode = useOpenCode()
 
-const llmEndpoint = useLocalStorage<string>('motrix-ai:llm-endpoint', '')
-const llmApiKey = useLocalStorage<string>('motrix-ai:llm-api-key', '')
-const llmModel = useLocalStorage<string>('motrix-ai:llm-model', 'gpt-4o-mini')
-const currentModel = computed(() => (llmEndpoint.value ? llmModel.value : '内置启发式解析器（零配置）'))
-
 const providerOptions = computed(() => aiProvider.availableProviders.value.map((p) => ({ label: p.name, value: p.id })))
-const requiresApiKey = computed(() => aiProvider.currentProvider.value.requiresKey)
-const needsBaseUrl = computed(() => aiProvider.config.value.provider === 'ollama')
-
-watch(
-  [llmEndpoint, llmApiKey, llmModel],
-  () => {
-    import('@/composables/useOpenCode').then(({ setLLMConfig }) => {
-      if (llmEndpoint.value) {
-        setLLMConfig({
-          endpoint: llmEndpoint.value,
-          api_key: llmApiKey.value,
-          model: llmModel.value,
-        })
-      } else {
-        setLLMConfig(null)
-      }
-    })
-  },
-  { immediate: true },
-)
-
-watch(
-  () => aiProvider.config.value,
-  (cfg) => {
-    if (cfg.provider === 'opencode') {
-      llmEndpoint.value = ''
-      return
-    }
-    if (cfg.provider === 'anthropic') {
-      llmEndpoint.value = 'https://api.anthropic.com/v1/chat/completions'
-      llmApiKey.value = cfg.apiKey ?? ''
-      llmModel.value = cfg.model
-    } else if (cfg.provider === 'openai') {
-      llmEndpoint.value = 'https://api.openai.com/v1/chat/completions'
-      llmApiKey.value = cfg.apiKey ?? ''
-      llmModel.value = cfg.model
-    } else if (cfg.provider === 'ollama') {
-      llmEndpoint.value = cfg.baseUrl
-        ? `${cfg.baseUrl.replace(/\/$/, '')}/v1/chat/completions`
-        : 'http://127.0.0.1:11434/v1/chat/completions'
-      llmApiKey.value = ''
-      llmModel.value = cfg.model
-    }
-  },
-  { deep: true, immediate: true },
-)
+const requiresApiKey = computed(() => aiProvider.requiresApiKey.value)
+const needsBaseUrl = computed(() => aiProvider.needsBaseUrl.value)
 </script>
 
 <template>
@@ -85,8 +35,15 @@ watch(
     <div class="setting-group">
       <label>{{ t('settings.model') }}</label>
       <NSelect
+        v-if="aiProvider.modelOptions.value.length > 0"
         :value="aiProvider.config.value.model"
         :options="aiProvider.modelOptions.value"
+        @update:value="aiProvider.setModel"
+      />
+      <NInput
+        v-else
+        :value="aiProvider.config.value.model"
+        placeholder="gpt-4o-mini / deepseek-chat / qwen2.5:7b"
         @update:value="aiProvider.setModel"
       />
     </div>
@@ -94,7 +51,7 @@ watch(
     <div v-if="requiresApiKey" class="setting-group">
       <label>{{ t('settings.apiKey') }}</label>
       <NInput
-        :value="aiProvider.config.value.apiKey"
+        :value="aiProvider.config.value.api_key"
         type="password"
         show-password-on="click"
         placeholder="sk-..."
@@ -106,46 +63,19 @@ watch(
     <div v-if="needsBaseUrl" class="setting-group">
       <label>{{ t('settings.baseUrl') }}</label>
       <NInput
-        :value="aiProvider.config.value.baseUrl"
+        :value="aiProvider.config.value.base_url"
         placeholder="http://127.0.0.1:11434"
         @update:value="aiProvider.setBaseUrl"
       />
-      <p class="setting-hint">Ollama server address. Default: http://127.0.0.1:11434</p>
+      <p class="setting-hint">Server address. Default: http://127.0.0.1:11434</p>
     </div>
 
     <div class="setting-group">
       <label>{{ t('settings.connectionStatus') }}</label>
       <div class="status-indicator">
         <span class="status-dot" :class="openCode.connected.value ? 'connected' : 'disconnected'"></span>
-        <span>{{ openCode.connected.value ? 'Ready' : 'Disconnected' }}</span>
+        <span>{{ openCode.statusLabel.value }}</span>
       </div>
-    </div>
-
-    <NDivider />
-
-    <h4 style="margin-bottom: 16px">Advanced: Custom Endpoint</h4>
-
-    <div class="setting-group">
-      <label>{{ t('settings.currentMode') }}</label>
-      <NInput :value="currentModel" readonly />
-      <p class="setting-hint">Leave empty Endpoint = heuristic mode; fill in = AI mode</p>
-    </div>
-
-    <div class="setting-group">
-      <label>API Endpoint (OpenAI Compatible)</label>
-      <NInput v-model:value="llmEndpoint" placeholder="https://api.openai.com/v1/chat/completions" />
-      <p class="setting-hint">Supports OpenAI / DeepSeek / Ollama / any OpenAI-compatible API</p>
-    </div>
-
-    <div class="setting-group">
-      <label>{{ t('settings.apiKey') }}</label>
-      <NInput v-model:value="llmApiKey" type="password" show-password-on="click" placeholder="sk-..." />
-      <p class="setting-hint">Local Ollama does not require a key.</p>
-    </div>
-
-    <div class="setting-group">
-      <label>{{ t('settings.model') }}</label>
-      <NInput v-model:value="llmModel" placeholder="gpt-4o-mini / deepseek-chat / qwen2.5:7b" />
     </div>
   </div>
 </template>

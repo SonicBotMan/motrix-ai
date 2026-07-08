@@ -1,19 +1,30 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { NButton, NInput, NSelect } from 'naive-ui'
 import { TrashOutline } from '@vicons/ionicons5'
 import { useAria2 } from '@/composables/useAria2'
 import { useAria2Manager } from '@/composables/useAria2Manager'
-import { useLocalStorage } from '@/composables/useLocalStorage'
+import { useConfigStore } from '@/stores/config'
 import { t } from '@/composables/useSettings'
 import { useMessage } from 'naive-ui'
 
 const aria2 = useAria2()
 const manager = useAria2Manager()
 const message = useMessage()
+const store = useConfigStore()
 
-const aria2RpcUrl = useLocalStorage<string>('motrix-ai:aria2-rpc-url', 'http://127.0.0.1:6800/jsonrpc')
-const aria2RpcSecret = useLocalStorage<string>('motrix-ai:aria2-rpc-secret', '')
-const logLevel = useLocalStorage<'debug' | 'info' | 'warn' | 'error'>('motrix-ai:log-level', 'info')
+const aria2RpcUrl = computed<string>({
+  get: () => store.config.aria2.rpc_url,
+  set: (v: string) => store.updateSection('aria2', { rpc_url: v }),
+})
+const aria2RpcSecret = computed<string>({
+  get: () => store.config.aria2.rpc_secret || '',
+  set: (v: string) => store.updateSection('aria2', { rpc_secret: v }),
+})
+const logLevel = computed<'debug' | 'info' | 'warn' | 'error'>({
+  get: () => store.config.ui.log_level,
+  set: (v: 'debug' | 'info' | 'warn' | 'error') => store.updateSection('ui', { log_level: v }),
+})
 
 const logLevelOptions = [
   { label: 'Debug', value: 'debug' },
