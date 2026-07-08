@@ -28,9 +28,9 @@ export const DEFAULT_CONFIG: AppConfig = {
   schedule: {
     enabled: true,
     rules: [
-      { name: '深夜全速', time_start: '23:00', time_end: '07:00', speed_limit: 0, max_concurrent: 5 },
-      { name: '白天让路', time_start: '07:00', time_end: '18:00', speed_limit: 5_000_000, max_concurrent: 2 },
-      { name: '晚间适度', time_start: '18:00', time_end: '23:00', speed_limit: 10_000_000, max_concurrent: 3 },
+      { name: 'Night Full Speed', time_start: '23:00', time_end: '07:00', speed_limit: 0, max_concurrent: 5 },
+      { name: 'Daytime Throttle', time_start: '07:00', time_end: '18:00', speed_limit: 5_000_000, max_concurrent: 2 },
+      { name: 'Evening Moderate', time_start: '18:00', time_end: '23:00', speed_limit: 10_000_000, max_concurrent: 3 },
     ],
   },
   disk: {
@@ -39,7 +39,7 @@ export const DEFAULT_CONFIG: AppConfig = {
   },
   subtitles: {
     enabled: true,
-    preferred_languages: ['zh-Hans', 'en'],
+    preferred_languages: ['zh', 'en'],
     sources: { shooter: true, subhd: true, opensubtitles: false },
     subtitle_dir: '~/Downloads/Motrix AI/Subtitles',
     opensubtitles_api_key: '',
@@ -48,6 +48,15 @@ export const DEFAULT_CONFIG: AppConfig = {
   archive: {
     enabled: false,
     targets: [],
+  },
+  nas: {
+    enabled: false,
+    host: '192.168.1.100',
+    port: '22',
+    username: '',
+    moviePath: '/volume1/Media/Movies',
+    softwarePath: '/volume1/Software',
+    musicPath: '/volume1/Music',
   },
   ui: {
     theme: 'dark',

@@ -4,7 +4,7 @@
  */
 
 /** Current schema version */
-export const SCHEMA_VERSION = 2
+export const SCHEMA_VERSION = 3
 
 /**
  * A single migration step that transforms config from one version to another.
@@ -49,6 +49,23 @@ export const migrations: Migration[] = [
         subtitles.auto_search = subtitles.auto_search ?? true
       }
       config.schemaVersion = 2
+      return config
+    },
+  },
+  {
+    from: 2,
+    to: 3,
+    migrate: (config) => {
+      config.nas = config.nas ?? {
+        enabled: false,
+        host: '192.168.1.100',
+        port: '22',
+        username: '',
+        moviePath: '/volume1/Media/Movies',
+        softwarePath: '/volume1/Software',
+        musicPath: '/volume1/Music',
+      }
+      config.schemaVersion = 3
       return config
     },
   },

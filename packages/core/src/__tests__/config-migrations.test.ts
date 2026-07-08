@@ -47,7 +47,7 @@ describe('config migrations', () => {
 
     it('runs migration from version 0', () => {
       const result = migrateConfig({})
-      expect(result.schemaVersion).toBe(2)
+      expect(result.schemaVersion).toBe(SCHEMA_VERSION)
       expect(result.ai).toBeDefined()
       expect(result.aria2).toBeDefined()
       expect(result.downloads).toBeDefined()

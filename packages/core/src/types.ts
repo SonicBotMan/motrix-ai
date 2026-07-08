@@ -109,6 +109,15 @@ export interface AppConfig {
     enabled: boolean
     targets: ArchiveTarget[]
   }
+  nas: {
+    enabled: boolean
+    host: string
+    port: string
+    username: string
+    moviePath: string
+    softwarePath: string
+    musicPath: string
+  }
   ui: UiConfig
 }
 

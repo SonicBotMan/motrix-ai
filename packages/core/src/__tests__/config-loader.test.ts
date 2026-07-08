@@ -156,10 +156,10 @@ describe('config loader', () => {
       expect(DEFAULT_CONFIG.ai.provider).toBe('opencode')
     })
 
-    it('default subtitles preferred languages include zh-Hans and en', async () => {
+    it('default subtitles preferred languages include zh and en', async () => {
       const { DEFAULT_CONFIG } = await import('../config/loader.js')
 
-      expect(DEFAULT_CONFIG.subtitles.preferred_languages).toContain('zh-Hans')
+      expect(DEFAULT_CONFIG.subtitles.preferred_languages).toContain('zh')
       expect(DEFAULT_CONFIG.subtitles.preferred_languages).toContain('en')
     })
 

@@ -456,6 +456,32 @@ export const configSchema = {
  * @returns 经过验证的、完整的 AppConfig
  * @throws Error 当配置值类型或格式不符合要求时
  */
+function validateNas(raw: unknown, defaults: AppConfig['nas']): AppConfig['nas'] {
+  if (!isObject(raw)) return { ...defaults }
+  const result = { ...defaults }
+  const fields: Array<keyof AppConfig['nas']> = [
+    'enabled',
+    'host',
+    'port',
+    'username',
+    'moviePath',
+    'softwarePath',
+    'musicPath',
+  ]
+  for (const field of fields) {
+    if (raw[field] !== undefined) {
+      if (field === 'enabled') {
+        assert(isBoolean(raw[field]), `nas.${field}`, 'must be a boolean')
+        result[field] = raw[field] as boolean
+      } else {
+        assert(isString(raw[field]), `nas.${field}`, 'must be a string')
+        result[field] = raw[field] as string
+      }
+    }
+  }
+  return result
+}
+
 export function validateConfig(raw: unknown): AppConfig {
   if (!isObject(raw)) {
     return { ...DEFAULT_CONFIG }
@@ -469,6 +495,7 @@ export function validateConfig(raw: unknown): AppConfig {
     disk: validateDisk(raw.disk, DEFAULT_CONFIG.disk),
     subtitles: validateSubtitles(raw.subtitles, DEFAULT_CONFIG.subtitles),
     archive: validateArchive(raw.archive, DEFAULT_CONFIG.archive),
+    nas: validateNas(raw.nas, DEFAULT_CONFIG.nas),
     ui: validateUi(raw.ui, DEFAULT_CONFIG.ui),
   }
 }

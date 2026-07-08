@@ -74,6 +74,15 @@ export interface AppConfig {
   disk: { enabled: boolean; thresholds: DiskThresholds }
   subtitles: SubtitlesConfig
   archive: { enabled: boolean; targets: ArchiveTarget[] }
+  nas: {
+    enabled: boolean
+    host: string
+    port: string
+    username: string
+    moviePath: string
+    softwarePath: string
+    musicPath: string
+  }
   ui: UiConfig
 }
 
@@ -95,9 +104,16 @@ export const DEFAULT_CONFIG: AppConfig = {
   schedule: {
     enabled: true,
     rules: [
-      { name: '深夜全速', time_start: '23:00', time_end: '07:00', speed_limit: 0, max_concurrent: 5, enabled: true },
       {
-        name: '白天让路',
+        name: 'Night Full Speed',
+        time_start: '23:00',
+        time_end: '07:00',
+        speed_limit: 0,
+        max_concurrent: 5,
+        enabled: true,
+      },
+      {
+        name: 'Daytime Throttle',
         time_start: '07:00',
         time_end: '18:00',
         speed_limit: 5_000_000,
@@ -105,7 +121,7 @@ export const DEFAULT_CONFIG: AppConfig = {
         enabled: true,
       },
       {
-        name: '晚间适度',
+        name: 'Evening Moderate',
         time_start: '18:00',
         time_end: '23:00',
         speed_limit: 10_000_000,
@@ -117,13 +133,22 @@ export const DEFAULT_CONFIG: AppConfig = {
   disk: { enabled: true, thresholds: { low_gb: 5, critical_gb: 2, resume_gb: 20 } },
   subtitles: {
     enabled: true,
-    preferred_languages: ['zh-Hans', 'en'],
+    preferred_languages: ['zh', 'en'],
     sources: { shooter: true, subhd: true, opensubtitles: false },
     subtitle_dir: '~/Downloads/Motrix AI/Subtitles',
     opensubtitles_api_key: '',
     auto_search: true,
   },
   archive: { enabled: false, targets: [] },
+  nas: {
+    enabled: false,
+    host: '192.168.1.100',
+    port: '22',
+    username: '',
+    moviePath: '/volume1/Media/Movies',
+    softwarePath: '/volume1/Software',
+    musicPath: '/volume1/Music',
+  },
   ui: { theme: 'dark', language: 'en', log_level: 'info' },
 }
 
@@ -241,6 +266,7 @@ export const useConfigStore = defineStore('config', () => {
         disk: { ...DEFAULT_CONFIG.disk, ...fileConfig.disk },
         subtitles: { ...DEFAULT_CONFIG.subtitles, ...fileConfig.subtitles },
         archive: { ...DEFAULT_CONFIG.archive, ...fileConfig.archive },
+        nas: { ...DEFAULT_CONFIG.nas, ...fileConfig.nas },
         ui: { ...DEFAULT_CONFIG.ui, ...fileConfig.ui },
       }
     } catch {

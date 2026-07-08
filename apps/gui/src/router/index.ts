@@ -26,4 +26,17 @@ const router = createRouter({
   ],
 })
 
+router.beforeEach((to) => {
+  if (to.name === 'main') {
+    try {
+      const onboarded = localStorage.getItem('motrix-ai:onboarded')
+      if (!onboarded) {
+        return { name: 'onboarding' }
+      }
+    } catch {
+      /* localStorage unavailable */
+    }
+  }
+})
+
 export default router
