@@ -1,17 +1,19 @@
 // src/stores/config.ts
 // Pinia store for application configuration.
-// Persists the full AppConfig to localStorage and loads on initialization.
-// Mirrors the core AppConfig interface (packages/core/src/types.ts) so the
-// GUI can operate without a direct workspace dependency on @motrix-ai/core.
+// Single reactive entry point: loads from file via Tauri commands,
+// auto-persists on change, migrates legacy localStorage keys on first run.
+// Mirrors packages/core/src/types.ts AppConfig so the GUI does not depend
+// on @motrix-ai/core at runtime.
 
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { defineStore } from 'pinia'
+import { invoke } from '@tauri-apps/api/core'
 
 // ---------------------------------------------------------------------------
 // Types — mirror of packages/core/src/types.ts AppConfig
 // ---------------------------------------------------------------------------
 
-export type AIProvider = 'opencode' | 'anthropic' | 'openai' | 'ollama'
+export type AIProvider = 'opencode' | 'anthropic' | 'openai' | 'ollama' | 'custom'
 export type ResourceType = 'movie' | 'tv' | 'software' | 'music' | 'anime' | 'other'
 export type Quality = '4K' | '1080p' | '720p' | 'other'
 
@@ -22,6 +24,7 @@ export interface ScheduleRule {
   time_end: string // HH:mm
   speed_limit: number // bytes/s, 0 = unlimited
   max_concurrent: number
+  enabled?: boolean
 }
 
 /** Disk space protection thresholds */
@@ -39,18 +42,27 @@ export interface ArchiveTarget {
   match: { resource_type?: ResourceType }
 }
 
+/** Subtitle download configuration */
+export interface SubtitlesConfig {
+  enabled: boolean
+  preferred_languages: string[]
+  sources: { shooter: boolean; subhd: boolean; opensubtitles: boolean }
+  subtitle_dir?: string
+  opensubtitles_api_key?: string
+  auto_search: boolean
+}
+
+/** UI configuration */
+export interface UiConfig {
+  theme: 'dark' | 'light' | 'system'
+  language: 'en' | 'zh' | 'ja' | 'ko' | 'fr'
+  log_level: 'debug' | 'info' | 'warn' | 'error'
+}
+
 /** Full application configuration */
 export interface AppConfig {
-  ai: {
-    provider: AIProvider
-    model: string
-    api_key?: string
-    base_url?: string
-  }
-  aria2: {
-    rpc_url: string
-    rpc_secret?: string
-  }
+  ai: { provider: AIProvider; model: string; api_key?: string; base_url?: string }
+  aria2: { rpc_url: string; rpc_secret?: string }
   downloads: {
     base_dir: string
     movie_dir: string
@@ -58,40 +70,30 @@ export interface AppConfig {
     other_dir: string
     rename_template: string
   }
-  schedule: {
+  schedule: { enabled: boolean; rules: ScheduleRule[] }
+  disk: { enabled: boolean; thresholds: DiskThresholds }
+  subtitles: SubtitlesConfig
+  archive: { enabled: boolean; targets: ArchiveTarget[] }
+  nas: {
     enabled: boolean
-    rules: ScheduleRule[]
+    host: string
+    port: string
+    username: string
+    moviePath: string
+    softwarePath: string
+    musicPath: string
   }
-  disk: {
-    enabled: boolean
-    thresholds: DiskThresholds
-  }
-  subtitles: {
-    enabled: boolean
-    preferred_languages: string[]
-    sources: { shooter: boolean; subhd: boolean; opensubtitles: boolean }
-  }
-  archive: {
-    enabled: boolean
-    targets: ArchiveTarget[]
-  }
+  ui: UiConfig
 }
 
 // ---------------------------------------------------------------------------
 // Defaults
 // ---------------------------------------------------------------------------
 
-const STORAGE_KEY = 'motrix-ai:config'
-
 /** Sensible defaults matching the core loader's DEFAULT_CONFIG */
 export const DEFAULT_CONFIG: AppConfig = {
-  ai: {
-    provider: 'opencode',
-    model: 'opencode/deepseek-v4-flash-free',
-  },
-  aria2: {
-    rpc_url: 'http://127.0.0.1:6800/jsonrpc',
-  },
+  ai: { provider: 'opencode', model: 'opencode/deepseek-v4-flash-free' },
+  aria2: { rpc_url: 'http://127.0.0.1:6800/jsonrpc' },
   downloads: {
     base_dir: '~/Downloads/Motrix AI',
     movie_dir: '~/Downloads/Motrix AI/Movies',
@@ -102,36 +104,134 @@ export const DEFAULT_CONFIG: AppConfig = {
   schedule: {
     enabled: true,
     rules: [
-      { name: '深夜全速', time_start: '23:00', time_end: '07:00', speed_limit: 0, max_concurrent: 5 },
-      { name: '白天让路', time_start: '07:00', time_end: '18:00', speed_limit: 5_000_000, max_concurrent: 2 },
-      { name: '晚间适度', time_start: '18:00', time_end: '23:00', speed_limit: 10_000_000, max_concurrent: 3 },
+      {
+        name: 'Night Full Speed',
+        time_start: '23:00',
+        time_end: '07:00',
+        speed_limit: 0,
+        max_concurrent: 5,
+        enabled: true,
+      },
+      {
+        name: 'Daytime Throttle',
+        time_start: '07:00',
+        time_end: '18:00',
+        speed_limit: 5_000_000,
+        max_concurrent: 2,
+        enabled: true,
+      },
+      {
+        name: 'Evening Moderate',
+        time_start: '18:00',
+        time_end: '23:00',
+        speed_limit: 10_000_000,
+        max_concurrent: 3,
+        enabled: true,
+      },
     ],
   },
-  disk: {
-    enabled: true,
-    thresholds: { low_gb: 5, critical_gb: 2, resume_gb: 20 },
-  },
+  disk: { enabled: true, thresholds: { low_gb: 5, critical_gb: 2, resume_gb: 20 } },
   subtitles: {
     enabled: true,
-    preferred_languages: ['zh-Hans', 'en'],
+    preferred_languages: ['zh', 'en'],
     sources: { shooter: true, subhd: true, opensubtitles: false },
+    subtitle_dir: '~/Downloads/Motrix AI/Subtitles',
+    opensubtitles_api_key: '',
+    auto_search: true,
   },
-  archive: {
+  archive: { enabled: false, targets: [] },
+  nas: {
     enabled: false,
-    targets: [],
+    host: '192.168.1.100',
+    port: '22',
+    username: '',
+    moviePath: '/volume1/Media/Movies',
+    softwarePath: '/volume1/Software',
+    musicPath: '/volume1/Music',
   },
+  ui: { theme: 'dark', language: 'en', log_level: 'info' },
 }
 
 // ---------------------------------------------------------------------------
-// Persistence helpers
+// Helpers
 // ---------------------------------------------------------------------------
 
 /** Deep clone a value via structured clone (with JSON fallback) */
 function deepClone<T>(value: T): T {
-  if (typeof structuredClone === 'function') {
-    return structuredClone(value)
-  }
+  if (typeof structuredClone === 'function') return structuredClone(value)
   return JSON.parse(JSON.stringify(value))
+}
+
+/**
+ * Read legacy `motrix-ai:*` localStorage keys and map them into an AppConfig.
+ * Best-effort: a parse failure leaves the corresponding section on defaults.
+ */
+function migrateFromLocalStorage(): AppConfig {
+  const config = deepClone(DEFAULT_CONFIG)
+  try {
+    const aiConfig = localStorage.getItem('motrix-ai:ai-config')
+    if (aiConfig) {
+      const parsed = JSON.parse(aiConfig)
+      config.ai = { ...config.ai, ...parsed }
+    }
+    const downloadDir = localStorage.getItem('motrix-ai:download-dir')
+    if (downloadDir) config.downloads.base_dir = JSON.parse(downloadDir)
+    const rpcUrl = localStorage.getItem('motrix-ai:aria2-rpc-url')
+    if (rpcUrl) config.aria2.rpc_url = JSON.parse(rpcUrl)
+    const rpcSecret = localStorage.getItem('motrix-ai:aria2-rpc-secret')
+    if (rpcSecret) config.aria2.rpc_secret = JSON.parse(rpcSecret)
+    const subLangs = localStorage.getItem('motrix-ai:subtitle-languages')
+    if (subLangs) config.subtitles.preferred_languages = JSON.parse(subLangs)
+    const subDir = localStorage.getItem('motrix-ai:subtitle-dir')
+    if (subDir) config.subtitles.subtitle_dir = JSON.parse(subDir)
+    const subApiKey = localStorage.getItem('motrix-ai:opensubtitles-api-key')
+    if (subApiKey) config.subtitles.opensubtitles_api_key = subApiKey
+    const autoSub = localStorage.getItem('motrix-ai:auto-search-subtitles')
+    if (autoSub !== null) config.subtitles.auto_search = JSON.parse(autoSub) !== false
+    const schedRules = localStorage.getItem('motrix-ai:schedule-rules')
+    if (schedRules) config.schedule.rules = JSON.parse(schedRules)
+    const logLevel = localStorage.getItem('motrix-ai:log-level')
+    if (logLevel) config.ui.log_level = JSON.parse(logLevel)
+    const theme = localStorage.getItem('motrix-ai:theme')
+    if (theme) config.ui.theme = JSON.parse(theme)
+    const lang = localStorage.getItem('motrix-ai:language')
+    if (lang) config.ui.language = JSON.parse(lang)
+  } catch {
+    /* best-effort */
+  }
+  return config
+}
+
+/** Remove legacy localStorage config keys after a successful migration. */
+function cleanupOldKeys(): void {
+  const keys = [
+    'motrix-ai:ai-config',
+    'motrix-ai:llm-endpoint',
+    'motrix-ai:llm-api-key',
+    'motrix-ai:llm-model',
+    'motrix-ai:llm-config',
+    'motrix-ai:download-dir',
+    'motrix-ai:aria2-rpc-url',
+    'motrix-ai:aria2-rpc-secret',
+    'motrix-ai:subtitle-languages',
+    'motrix-ai:subtitle-dir',
+    'motrix-ai:opensubtitles-api-key',
+    'motrix-ai:auto-search-subtitles',
+    'motrix-ai:schedule-rules',
+    'motrix-ai:schedule-enabled',
+    'motrix-ai:log-level',
+    'motrix-ai:theme',
+    'motrix-ai:language',
+    'motrix-ai:config',
+    'motrix-ai:nas-config',
+  ]
+  for (const key of keys) {
+    try {
+      localStorage.removeItem(key)
+    } catch {
+      /* ignore */
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -141,102 +241,78 @@ function deepClone<T>(value: T): T {
 /**
  * Pinia store for application configuration.
  *
- * The config is persisted to localStorage under `motrix-ai:config`.
- * On first use the store auto-loads from storage; if no saved config
- * exists the defaults are written and used.
- *
- * Use `updateField` for targeted section updates and `save` to persist.
+ * The store is the sole reactive entry point for config. Call `init()` once
+ * on app startup: it loads from the Tauri-backed config file, falling back
+ * to a one-time migration of legacy localStorage keys when the file is not
+ * available (e.g. during Vite dev without Tauri). After init, deep changes
+ * to `config` are auto-persisted to the file via a debounced watcher.
  */
 export const useConfigStore = defineStore('config', () => {
-  // -- state --------------------------------------------------------------
-
-  /** Current in-memory configuration */
   const config = ref<AppConfig>(deepClone(DEFAULT_CONFIG))
-
-  /** Whether the initial load from storage has completed */
   const loaded = ref(false)
+  const saving = ref(false)
 
-  // -- persistence --------------------------------------------------------
-
-  /**
-   * Load configuration from localStorage, merging with defaults.
-   * Called automatically on store initialization.
-   */
-  function load(): void {
+  /** Load from the config file via Tauri, falling back to localStorage migration. */
+  async function init(): Promise<void> {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY)
-      if (raw) {
-        const parsed = JSON.parse(raw)
-        // Shallow merge top-level sections, falling back to defaults
-        config.value = {
-          ai: { ...DEFAULT_CONFIG.ai, ...parsed.ai },
-          aria2: { ...DEFAULT_CONFIG.aria2, ...parsed.aria2 },
-          downloads: { ...DEFAULT_CONFIG.downloads, ...parsed.downloads },
-          schedule: { ...DEFAULT_CONFIG.schedule, ...parsed.schedule },
-          disk: { ...DEFAULT_CONFIG.disk, ...parsed.disk },
-          subtitles: { ...DEFAULT_CONFIG.subtitles, ...parsed.subtitles },
-          archive: { ...DEFAULT_CONFIG.archive, ...parsed.archive },
-        }
-      } else {
-        // First run: persist defaults
-        save()
+      const fileConfig = await invoke<AppConfig>('load_config')
+      config.value = {
+        ...DEFAULT_CONFIG,
+        ...fileConfig,
+        ai: { ...DEFAULT_CONFIG.ai, ...fileConfig.ai },
+        aria2: { ...DEFAULT_CONFIG.aria2, ...fileConfig.aria2 },
+        downloads: { ...DEFAULT_CONFIG.downloads, ...fileConfig.downloads },
+        schedule: { ...DEFAULT_CONFIG.schedule, ...fileConfig.schedule },
+        disk: { ...DEFAULT_CONFIG.disk, ...fileConfig.disk },
+        subtitles: { ...DEFAULT_CONFIG.subtitles, ...fileConfig.subtitles },
+        archive: { ...DEFAULT_CONFIG.archive, ...fileConfig.archive },
+        nas: { ...DEFAULT_CONFIG.nas, ...fileConfig.nas },
+        ui: { ...DEFAULT_CONFIG.ui, ...fileConfig.ui },
       }
-    } catch (e) {
-      console.error('Failed to load config from localStorage:', e)
-      config.value = deepClone(DEFAULT_CONFIG)
+    } catch {
+      config.value = migrateFromLocalStorage()
+      cleanupOldKeys()
     } finally {
       loaded.value = true
     }
   }
 
-  /**
-   * Persist the current configuration to localStorage.
-   */
-  function save(): void {
+  /** Persist the current config to the file via Tauri. */
+  async function save(): Promise<void> {
+    if (saving.value) return
+    saving.value = true
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(config.value))
+      await invoke('save_config', { config: config.value })
     } catch (e) {
-      console.error('Failed to save config to localStorage:', e)
+      console.error('Failed to save config:', e)
+    } finally {
+      saving.value = false
     }
   }
 
-  /**
-   * Reset configuration to defaults and persist.
-   */
-  function reset(): void {
+  /** Apply a partial update to one top-level section and let the watcher persist. */
+  function updateSection<K extends keyof AppConfig>(section: K, value: Partial<AppConfig[K]>): void {
+    config.value = { ...config.value, [section]: { ...config.value[section], ...value } }
+  }
+
+  /** Reset config to defaults and persist. */
+  async function reset(): Promise<void> {
     config.value = deepClone(DEFAULT_CONFIG)
-    save()
+    await save()
   }
 
-  /**
-   * Update a top-level config section in place and persist.
-   *
-   * @param section - One of: 'ai' | 'aria2' | 'downloads' | 'schedule' | 'disk' | 'subtitles' | 'archive'
-   * @param value - The partial or full value for that section
-   */
-  function updateField<K extends keyof AppConfig>(
-    section: K,
-    value: Partial<AppConfig[K]>,
-  ): void {
-    config.value = {
-      ...config.value,
-      [section]: { ...config.value[section], ...value },
-    }
-    save()
-  }
-
-  // -- auto-load on store initialization ----------------------------------
-
-  load()
-
-  return {
-    // state
+  // Debounced auto-persist on any deep change to config.
+  let saveTimer: ReturnType<typeof setTimeout> | null = null
+  watch(
     config,
-    loaded,
-    // actions
-    load,
-    save,
-    reset,
-    updateField,
-  }
+    () => {
+      if (saveTimer) clearTimeout(saveTimer)
+      saveTimer = setTimeout(() => {
+        void save()
+      }, 500)
+    },
+    { deep: true },
+  )
+
+  return { config, loaded, saving, init, save, updateSection, reset }
 })

@@ -25,6 +25,8 @@ export interface ScheduleRule {
   speed_limit: number
   /** Max concurrent downloads allowed during the window. */
   max_concurrent: number
+  /** Whether this rule is active. Missing = enabled (matches store semantics). */
+  enabled?: boolean
 }
 
 /** The check interval, once per minute (matches core TimeScheduler). */
