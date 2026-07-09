@@ -4,11 +4,7 @@
 // list, and SCHEMA_VERSION constant.
 
 import { describe, it, expect } from 'vitest'
-import {
-  SCHEMA_VERSION,
-  migrateConfig,
-  migrations,
-} from '../config/migrations.js'
+import { SCHEMA_VERSION, migrateConfig, migrations } from '../config/migrations.js'
 
 describe('config migrations', () => {
   describe('SCHEMA_VERSION', () => {
@@ -51,7 +47,7 @@ describe('config migrations', () => {
 
     it('runs migration from version 0', () => {
       const result = migrateConfig({})
-      expect(result.schemaVersion).toBe(1)
+      expect(result.schemaVersion).toBe(SCHEMA_VERSION)
       expect(result.ai).toBeDefined()
       expect(result.aria2).toBeDefined()
       expect(result.downloads).toBeDefined()
@@ -78,7 +74,7 @@ describe('config migrations', () => {
     })
 
     it('handles config that is already current with extra data', () => {
-      const config = { schemaVersion: 1, customField: 'hello' }
+      const config = { schemaVersion: 2, customField: 'hello' }
       const result = migrateConfig({ ...config })
       expect(result.customField).toBe('hello')
     })
