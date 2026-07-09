@@ -16,7 +16,7 @@ jobs:
     outputs:
       release_id: ${{ steps.create_release.outputs.id }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Create Release
         id: create_release
         uses: softprops/action-gh-release@v3
@@ -46,7 +46,7 @@ jobs:
             name: Linux-x64
     runs-on: ${{ matrix.platform }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install system dependencies (Linux)
         if: matrix.platform == 'ubuntu-22.04'
@@ -89,7 +89,7 @@ jobs:
     needs: [create-release, build-tauri]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Publish Release
         uses: softprops/action-gh-release@v3
         with:
