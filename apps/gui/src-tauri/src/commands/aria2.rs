@@ -38,12 +38,18 @@ pub async fn start_aria2(app: tauri::AppHandle, rpc_port: Option<u16>) -> Result
         }
     }
 
-    // Find bundled aria2c binary
+    // Find bundled aria2c binary — name depends on the host platform.
+    // All three platform binaries are bundled via tauri.conf.json's
+    // resources glob so a single install works out-of-the-box.
     let resource_path = app
         .path()
         .resource_dir()
         .map_err(|e| format!("Resource dir error: {}", e))?;
-    let aria2c_path = resource_path.join("resources").join("bin").join("aria2c");
+    let binary_name = bundled_aria2c_name();
+    let aria2c_path = resource_path
+        .join("resources")
+        .join("bin")
+        .join(binary_name);
 
     if !aria2c_path.exists() {
         return Err(format!(
@@ -225,7 +231,10 @@ pub async fn check_aria2_binary(app: tauri::AppHandle) -> Result<serde_json::Val
         .path()
         .resource_dir()
         .map_err(|e| format!("Resource dir error: {}", e))?;
-    let aria2c_path = resource_path.join("resources").join("bin").join("aria2c");
+    let aria2c_path = resource_path
+        .join("resources")
+        .join("bin")
+        .join(bundled_aria2c_name());
     let aria2c_path_for_blocking = aria2c_path.clone();
     // stat() on a network mount or slow disk blocks; do it on a worker.
     let metadata =
@@ -332,4 +341,50 @@ pub async fn add_torrent_file(path: String) -> Result<String, String> {
                 .map(String::from)
                 .ok_or_else(|| "aria2 returned non-string gid".to_string())
         })
+}
+
+/// Return the bundled aria2c binary filename for the current target platform.
+///
+/// Three platform-specific binaries live under `resources/bin/`:
+///   * `aria2c-macos` — Mach-O arm64 (Apple Silicon; Intel Macs fall back to
+///     the system PATH via the frontend's `pickDefaultAria2Path()`)
+///   * `aria2c-linux` — ELF x86_64 statically linked against musl
+///   * `aria2c.exe`  — PE x86_64 (MinGW build)
+///
+/// All three are packaged into every install via `tauri.conf.json`'s
+/// `resources` glob so a single release artifact works on its target
+/// platform without a network fetch. The runtime cost is ~10 MB of
+/// non-native binaries the user will never execute; acceptable for a
+/// desktop download manager that already weighs 80+ MB.
+fn bundled_aria2c_name() -> &'static str {
+    if cfg!(target_os = "windows") {
+        "aria2c.exe"
+    } else if cfg!(target_os = "macos") {
+        "aria2c-macos"
+    } else {
+        "aria2c-linux"
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn bundled_binary_name_matches_target_os() {
+        let name = bundled_aria2c_name();
+        if cfg!(target_os = "windows") {
+            assert_eq!(name, "aria2c.exe");
+        } else if cfg!(target_os = "macos") {
+            assert_eq!(name, "aria2c-macos");
+        } else {
+            assert_eq!(name, "aria2c-linux");
+        }
+    }
+
+    #[test]
+    fn bundled_binary_name_is_static_str() {
+        let name: &'static str = bundled_aria2c_name();
+        assert!(!name.is_empty());
+    }
 }

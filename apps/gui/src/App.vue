@@ -1,11 +1,12 @@
 <script setup lang="ts">
-/**
- * App.vue — root component.
- *
- * Renders the active route inside <router-view />. We removed the
- * Naive UI NConfigProvider because the design system is built on
- * tokens.css, not Naive's theming. See docs/design/handoff/HANDOFF.md.
- */
+import { onMounted } from 'vue'
+import { useConfigStore } from '@/stores/config'
+
+const configStore = useConfigStore()
+
+onMounted(async () => {
+  await configStore.init()
+})
 </script>
 
 <template>
