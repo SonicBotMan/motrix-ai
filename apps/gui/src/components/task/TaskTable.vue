@@ -27,6 +27,8 @@
 
 import { computed, nextTick, ref, watch } from 'vue'
 import type { Task, TaskStatus, TaskType } from '@/stores/tasks'
+import FilterTabs from './FilterTabs.vue'
+import EmptyState from './EmptyState.vue'
 
 interface Props {
   tasks: Task[]
@@ -50,20 +52,6 @@ const emit = defineEmits<{
   trySample: []
 }>()
 
-// --- Filter tabs (spec: All / Active / Paused / Completed) ---
-
-interface FilterTab {
-  label: string
-  value: string
-}
-
-const filterTabs: FilterTab[] = [
-  { label: 'All', value: 'all' },
-  { label: 'Active', value: 'active' },
-  { label: 'Paused', value: 'paused' },
-  { label: 'Completed', value: 'completed' },
-]
-
 // --- State ---
 
 const flashingRowId = ref<number | null>(null)
@@ -74,12 +62,6 @@ const rowRefs = ref<Array<HTMLTableRowElement | null>>([])
 
 const setRowRef = (el: Element | null | undefined, i: number) => {
   rowRefs.value[i] = (el as HTMLTableRowElement | null) ?? null
-}
-
-// --- Filter change ---
-
-function setFilter(value: string): void {
-  emit('update:filter', value)
 }
 
 // --- Keyboard-index visual feedback (BUG-2 fix) ---
@@ -111,43 +93,6 @@ const filteredTasks = computed<Task[]>(() => {
     if (props.activeFilter === 'paused') return t.status === 'paused'
     return t.status === props.activeFilter
   })
-})
-
-// --- Empty state copy ---
-
-interface EmptyState {
-  heading: string
-  sub: string
-}
-
-const emptyState = computed<EmptyState>(() => {
-  switch (props.activeFilter) {
-    case 'all':
-      return {
-        heading: 'No downloads yet',
-        sub: 'Add a magnet link, HTTP URL, or YouTube link to get started.',
-      }
-    case 'active':
-      return {
-        heading: 'Nothing downloading',
-        sub: 'All your downloads are paused or completed.',
-      }
-    case 'completed':
-      return {
-        heading: 'Nothing completed yet',
-        sub: 'Downloads appear here once they finish.',
-      }
-    case 'paused':
-      return {
-        heading: 'No paused downloads',
-        sub: 'Paused downloads will appear here.',
-      }
-    default:
-      return {
-        heading: 'No tasks',
-        sub: '',
-      }
-  }
 })
 
 // --- Helpers ---
@@ -230,26 +175,7 @@ function handleMenuToggle(taskId: number, event: MouseEvent): void {
 <template>
   <div class="task-table-wrapper">
     <!-- Filter tabs -->
-    <div class="filter-tabs" role="tablist" aria-label="Filter tasks">
-      <button
-        v-for="tab in filterTabs"
-        :key="tab.value"
-        type="button"
-        class="filter-tab"
-        :class="{ active: activeFilter === tab.value }"
-        role="tab"
-        :aria-selected="activeFilter === tab.value ? 'true' : 'false'"
-        @click="setFilter(tab.value)"
-      >
-        {{ tab.label }}
-      </button>
-    </div>
-
-    <!-- Connecting state -->
-    <div v-if="props.connecting && filteredTasks.length === 0" class="state-banner connecting">
-      <div class="state-spinner" />
-      <span>Connecting to download engine…</span>
-    </div>
+    <FilterTabs :active-filter="activeFilter" @update:active-filter="emit('update:filter', $event)" />
 
     <!-- Table -->
     <table v-if="filteredTasks.length > 0" class="task-table">
@@ -351,19 +277,15 @@ function handleMenuToggle(taskId: number, event: MouseEvent): void {
       </tbody>
     </table>
 
-    <!-- Empty state with actionable CTAs -->
-    <div v-else-if="!props.connecting" class="empty-state">
-      <div v-if="!props.connected" class="empty-disconnected">
-        <p class="empty-heading">Download engine offline</p>
-        <p class="empty-sub">aria2 isn't running. Downloads will be queued locally.</p>
-        <button class="empty-action" type="button" @click="$emit('retryConnect')">Retry connection</button>
-      </div>
-      <template v-else>
-        <h3 class="empty-heading">{{ emptyState.heading }}</h3>
-        <p class="empty-sub">{{ emptyState.sub }}</p>
-        <button class="empty-action" type="button" @click="$emit('trySample')">Try a sample download</button>
-      </template>
-    </div>
+    <!-- Empty state with actionable CTAs (connecting banner / offline / no tasks) -->
+    <EmptyState
+      v-else
+      :connecting="connecting"
+      :connected="connected"
+      :active-filter="activeFilter"
+      @retry-connect="emit('retryConnect')"
+      @try-sample="emit('trySample')"
+    />
   </div>
 </template>
 

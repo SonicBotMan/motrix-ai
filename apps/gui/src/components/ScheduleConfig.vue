@@ -1,25 +1,60 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { NCard, NButton, NInput, NSwitch, NIcon, useMessage } from 'naive-ui'
-import { TimeOutline, SpeedometerOutline, SaveOutline } from '@vicons/ionicons5'
-
-interface ScheduleRule {
-  name: string
-  time_start: string
-  time_end: string
-  speed_limit: number
-  max_concurrent: number
-  enabled: boolean
-}
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { NCard, NButton, NInput, NInputNumber, NSwitch, NIcon, NTag, useMessage } from 'naive-ui'
+import { TimeOutline, SpeedometerOutline, SaveOutline, AddOutline, TrashOutline } from '@vicons/ionicons5'
+import { useSchedule, type ScheduleRule } from '@/composables/useSchedule'
+import { useConfigStore } from '@/stores/config'
+import { t } from '@/composables/useSettings'
 
 const message = useMessage()
+const store = useConfigStore()
 
-const rules = ref<ScheduleRule[]>([
-  { name: '深夜全速', time_start: '23:00', time_end: '07:00', speed_limit: 0, max_concurrent: 5, enabled: true },
-  { name: '白天让路', time_start: '07:00', time_end: '18:00', speed_limit: 5000000, max_concurrent: 2, enabled: true },
-  { name: '晚间适度', time_start: '18:00', time_end: '23:00', speed_limit: 10000000, max_concurrent: 3, enabled: true },
-])
+// Local working copy of schedule rules, kept in sync with the config store.
+// Inline edits (time_start/time_end) mutate this ref; a deep watcher pushes
+// every change into the store, which auto-persists to the config file.
+const rules = ref<ScheduleRule[]>(store.config.schedule.rules)
 
+// Per-rule enabled flag lives on the rule itself (`enabled?: boolean`).
+// A missing flag is treated as enabled, matching the previous semantics.
+function isRuleEnabled(index: number): boolean {
+  return rules.value[index]?.enabled !== false
+}
+
+function getActiveRules(): ScheduleRule[] {
+  return rules.value.filter((_, i) => isRuleEnabled(i))
+}
+
+// ---- Schedule scheduler ----
+const sched = useSchedule(getActiveRules())
+
+function updateSchedulerRules(): void {
+  sched.setRules(getActiveRules())
+}
+
+function toggleRule(index: number, val: boolean): void {
+  rules.value[index] = { ...rules.value[index], enabled: val }
+}
+
+// Sync rule edits (inline time fields, enabled toggles, add/remove) into the
+// store. The store's deep watcher debounces the file write.
+watch(
+  rules,
+  (newRules) => {
+    store.updateSection('schedule', { rules: newRules })
+    updateSchedulerRules()
+  },
+  { deep: true },
+)
+
+onMounted(() => {
+  sched.start()
+})
+
+onUnmounted(() => {
+  sched.stop()
+})
+
+// ---- Add form ----
 const showAddForm = ref(false)
 const newRule = ref<ScheduleRule>({
   name: '',
@@ -27,62 +62,88 @@ const newRule = ref<ScheduleRule>({
   time_end: '23:59',
   speed_limit: 0,
   max_concurrent: 3,
-  enabled: true,
 })
 
-function formatSpeed(bytes: number): string {
-  if (bytes === 0) return '无限制'
-  return `${(bytes / 1024 / 1024).toFixed(0)} MB/s`
+function isValidTimeFormat(t: string): boolean {
+  return (
+    /^\d{2}:\d{2}$/.test(t) &&
+    (() => {
+      const [h, m] = t.split(':').map(Number)
+      return h >= 0 && h <= 23 && m >= 0 && m <= 59
+    })()
+  )
 }
 
 function addRule() {
-  if (!newRule.value.name) {
-    message.warning('请输入规则名称')
+  if (!newRule.value.name.trim()) {
+    message.warning(t('schedule.nameRequired'))
     return
   }
-  rules.value.push({ ...newRule.value })
+  if (!isValidTimeFormat(newRule.value.time_start)) {
+    message.warning(t('schedule.invalidTimeFormat'))
+    return
+  }
+  if (!isValidTimeFormat(newRule.value.time_end)) {
+    message.warning(t('schedule.invalidTimeFormat'))
+    return
+  }
+  if (newRule.value.speed_limit < 0) {
+    message.warning(t('schedule.speedLimitNegative'))
+    return
+  }
+  if (newRule.value.max_concurrent < 1) {
+    message.warning(t('schedule.maxConcurrentMin'))
+    return
+  }
+  rules.value.push({ ...newRule.value, enabled: true })
   showAddForm.value = false
-  newRule.value = { name: '', time_start: '00:00', time_end: '23:59', speed_limit: 0, max_concurrent: 3, enabled: true }
-  message.success('规则已添加')
+  newRule.value = { name: '', time_start: '00:00', time_end: '23:59', speed_limit: 0, max_concurrent: 3 }
+  message.success(t('schedule.ruleAdded'))
 }
 
 function removeRule(index: number) {
   rules.value.splice(index, 1)
-  message.success('规则已删除')
+  message.success(t('schedule.ruleDeleted'))
 }
 
 function saveRules() {
-  message.success('调度规则已保存')
+  updateSchedulerRules()
+  message.success(t('schedule.ruleSaved'))
 }
 
-const currentRule = computed(() => {
-  const now = new Date()
-  const hh = String(now.getHours()).padStart(2, '0')
-  const mm = String(now.getMinutes()).padStart(2, '0')
-  const current = `${hh}:${mm}`
-  return rules.value.find(r => {
-    if (r.time_start <= r.time_end) {
-      return current >= r.time_start && current < r.time_end
-    }
-    return current >= r.time_start || current < r.time_end
-  })
-})
+// ---- Helpers ----
+function formatSpeed(bytes: number): string {
+  if (bytes === 0) return t('schedule.unlimited')
+  return `${(bytes / 1024 / 1024).toFixed(0)} MB/s`
+}
+
+const currentRule = computed(() => sched.currentRule.value)
 </script>
 
 <template>
-  <n-card title="⏰ 智能调度" class="schedule-card">
+  <n-card :title="'⏰ ' + t('schedule.title')" class="schedule-card">
     <template #header-extra>
       <n-tag v-if="currentRule" type="success" size="small">
-        当前: {{ currentRule.name }}
+        {{ t('schedule.currentRule') }}: {{ currentRule.name }}
       </n-tag>
+      <n-tag v-else type="default" size="small"> {{ t('schedule.noMatch') }} </n-tag>
     </template>
 
     <div class="rules-list">
-      <div v-for="(rule, index) in rules" :key="index" class="rule-item" :class="{ active: rule === currentRule }">
+      <div
+        v-for="(rule, index) in rules"
+        :key="index"
+        class="rule-item"
+        :class="{ active: currentRule?.name === rule.name }"
+      >
         <div class="rule-header">
-          <n-switch v-model:value="rule.enabled" size="small" />
+          <n-switch :value="isRuleEnabled(index)" size="small" @update:value="(v: boolean) => toggleRule(index, v)" />
           <span class="rule-name">{{ rule.name }}</span>
-          <n-button size="tiny" quaternary type="error" @click="removeRule(index)">删除</n-button>
+          <n-button size="tiny" quaternary type="error" @click="removeRule(index)">
+            <template #icon
+              ><n-icon><TrashOutline /></n-icon
+            ></template>
+          </n-button>
         </div>
         <div class="rule-details">
           <div class="rule-time">
@@ -94,47 +155,137 @@ const currentRule = computed(() => {
           <div class="rule-speed">
             <n-icon :size="14"><SpeedometerOutline /></n-icon>
             <span>{{ formatSpeed(rule.speed_limit) }}</span>
-            <span class="rule-concurrent">最大并发: {{ rule.max_concurrent }}</span>
+            <span class="rule-concurrent">{{ t('schedule.maxConcurrent') }}: {{ rule.max_concurrent }}</span>
           </div>
         </div>
       </div>
     </div>
 
     <div v-if="showAddForm" class="add-form">
-      <n-input v-model:value="newRule.name" placeholder="规则名称" size="small" />
+      <n-input v-model:value="newRule.name" :placeholder="t('schedule.ruleName')" size="small" />
       <div class="form-row">
-        <n-input v-model:value="newRule.time_start" placeholder="开始时间" size="small" style="width: 70px" />
+        <n-input
+          v-model:value="newRule.time_start"
+          :placeholder="t('schedule.startTime')"
+          size="small"
+          style="width: 100px"
+        />
         <span>·</span>
-        <n-input v-model:value="newRule.time_end" placeholder="结束时间" size="small" style="width: 70px" />
+        <n-input
+          v-model:value="newRule.time_end"
+          :placeholder="t('schedule.endTime')"
+          size="small"
+          style="width: 100px"
+        />
+      </div>
+      <div class="form-row">
+        <label class="form-label">{{ t('schedule.speedLimit') }}</label>
+        <n-input-number v-model:value="newRule.speed_limit" :min="0" size="small" style="width: 140px" />
+      </div>
+      <div class="form-row">
+        <label class="form-label">{{ t('schedule.maxConcurrent') }}</label>
+        <n-input-number v-model:value="newRule.max_concurrent" :min="1" :max="20" size="small" style="width: 100px" />
       </div>
       <div class="form-actions">
-        <n-button size="small" @click="showAddForm = false">取消</n-button>
-        <n-button size="small" type="primary" @click="addRule">添加</n-button>
+        <n-button size="small" @click="showAddForm = false">{{ t('schedule.cancel') }}</n-button>
+        <n-button size="small" type="primary" @click="addRule">
+          <template #icon
+            ><n-icon><AddOutline /></n-icon
+          ></template>
+          {{ t('schedule.add') }}
+        </n-button>
       </div>
     </div>
 
     <div class="card-footer">
-      <n-button size="small" @click="showAddForm = true">+ 添加规则</n-button>
+      <n-button size="small" @click="showAddForm = true">
+        <template #icon
+          ><n-icon><AddOutline /></n-icon
+        ></template>
+        {{ t('schedule.addRule') }}
+      </n-button>
       <n-button size="small" type="primary" @click="saveRules">
-        <template #icon><n-icon><SaveOutline /></n-icon></template>
-        保存
+        <template #icon
+          ><n-icon><SaveOutline /></n-icon
+        ></template>
+        {{ t('schedule.save') }}
       </n-button>
     </div>
   </n-card>
 </template>
 
 <style scoped>
-.schedule-card { max-width: 500px; }
-.rules-list { display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px; }
-.rule-item { padding: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-elevated); }
-.rule-item.active { border-color: #3B82F6; background: rgba(59, 130, 246, 0.1); }
-.rule-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
-.rule-name { flex: 1; font-weight: 500; }
-.rule-details { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--fg-muted); }
-.rule-time, .rule-speed { display: flex; align-items: center; gap: 6px; }
-.rule-concurrent { margin-left: auto; }
-.add-form { display: flex; flex-direction: column; gap: 12px; padding: 16px; border: 1px dashed var(--border); border-radius: 8px; margin-bottom: 16px; }
-.form-row { display: flex; align-items: center; gap: 8px; }
-.form-actions { display: flex; justify-content: flex-end; gap: 8px; }
-.card-footer { display: flex; justify-content: space-between; }
+.schedule-card {
+  max-width: 500px;
+}
+.rules-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.rule-item {
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-elevated);
+}
+.rule-item.active {
+  border-color: var(--primary);
+  background: var(--primary-muted);
+}
+.rule-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.rule-name {
+  flex: 1;
+  font-weight: 500;
+}
+.rule-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--fg-secondary);
+}
+.rule-time,
+.rule-speed {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.rule-concurrent {
+  margin-left: auto;
+}
+.add-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+.form-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.form-label {
+  font-size: 12px;
+  color: var(--fg-secondary);
+  white-space: nowrap;
+}
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.card-footer {
+  display: flex;
+  justify-content: space-between;
+}
 </style>
