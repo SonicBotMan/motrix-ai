@@ -6,6 +6,7 @@
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
 import { useAria2, type Aria2Status } from '@/composables/useAria2'
+import { useConfigStore } from '@/stores/config'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -123,6 +124,7 @@ export const useTasksStore = defineStore('tasks', () => {
   // useAria2 is instantiated once; its onMounted/onUnmounted hooks are
   // no-ops inside a Pinia setup store so we expose an explicit init().
   const aria2 = useAria2()
+  const configStore = useConfigStore()
 
   // -- local fallback state ----------------------------------------------
   /** Tasks created while aria2 is disconnected */
@@ -217,15 +219,16 @@ export const useTasksStore = defineStore('tasks', () => {
       // 3. Auto-search subtitles for video files
       if (filePath && isVideoFile(filename)) {
         try {
-          const autoSub = localStorage.getItem('motrix-ai:auto-search-subtitles')
-          if (autoSub !== 'false') {
-            const apiKey = localStorage.getItem('motrix-ai:opensubtitles-api-key') || ''
+          if (configStore.config.subtitles.auto_search) {
+            const apiKey = configStore.config.subtitles.opensubtitles_api_key || ''
             if (apiKey) {
+              const langsArr = configStore.config.subtitles.preferred_languages
+              const langs = langsArr.length > 0 ? langsArr.join(',') : undefined
               const { invoke } = await import('@tauri-apps/api/core')
               await invoke('opensubtitles_search', {
                 apiKey,
                 query: filename.replace(/\.[^.]+$/, ''),
-                languages: undefined,
+                languages: langs,
               })
             }
           }
@@ -255,7 +258,22 @@ export const useTasksStore = defineStore('tasks', () => {
    */
   async function addTask(url: string, name?: string, intent?: DownloadIntentMeta): Promise<void> {
     if (aria2.connected.value) {
-      const gid = await aria2.addUri(url)
+      const opts: Record<string, string> = {}
+      const dir = configStore.config.downloads.base_dir
+      if (dir.trim()) {
+        let resolvedDir = dir
+        if (dir === '~' || dir.startsWith('~/') || dir.startsWith('~\\')) {
+          try {
+            const { homeDir } = await import('@tauri-apps/api/path')
+            const home = await homeDir()
+            resolvedDir = dir === '~' ? home : home + dir.slice(1)
+          } catch {
+            /* not in Tauri context */
+          }
+        }
+        opts.dir = resolvedDir
+      }
+      const gid = Object.keys(opts).length > 0 ? await aria2.addUri(url, opts) : await aria2.addUri(url)
       if (intent && gid) intentByGid.set(gid, intent)
       return
     }

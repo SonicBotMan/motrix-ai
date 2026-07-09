@@ -70,7 +70,9 @@ describe('Download lifecycle', () => {
     const { useTasksStore } = await import('../stores/tasks')
     const store = useTasksStore()
     await store.addTask('https://example.com/file.zip')
-    expect(addUriSpy).toHaveBeenCalledWith('https://example.com/file.zip')
+    expect(addUriSpy).toHaveBeenCalledWith('https://example.com/file.zip', {
+      dir: '~/Downloads/Motrix AI',
+    })
   })
 
   test('addTask stores intent by GID', async () => {
@@ -82,7 +84,9 @@ describe('Download lifecycle', () => {
       quality: '4K',
       resourceType: 'movie',
     })
-    expect(addUriSpy).toHaveBeenCalledWith('magnet:?xt=urn:btih:def456')
+    expect(addUriSpy).toHaveBeenCalledWith('magnet:?xt=urn:btih:def456', {
+      dir: '~/Downloads/Motrix AI',
+    })
   })
 
   test('pauseTask calls aria2.pause with GID', async () => {
