@@ -15,6 +15,9 @@ apps/gui/src-tauri/target/
 *.rpm
 *.AppImage
 
+# Bundled aria2c binaries (cross-platform, intentionally tracked)
+!apps/gui/src-tauri/resources/bin/aria2c.exe
+
 # Tauri generated schemas (auto-regenerated)
 apps/gui/src-tauri/gen/
 

@@ -34,12 +34,13 @@ AI:  Found -> Queued -> Downloaded -> Subtitled -> Organized ✅
 
 - **Natural language download** — describe what you want, AI parses intent and finds resources
 - **aria2 engine** — HTTP / FTP / BitTorrent / Magnet support with 16-connection parallel download
+- **Bundled for all platforms** — macOS / Linux / Windows aria2c binaries included, no manual install required
 - **Auto subtitle matching** — searches shooter.cn / subhd.tv after download completes
 - **Auto file organization** — renames and categorizes files into Movies / TV / Software folders
 - **Smart scheduling** — adapts to time of day, available disk space, and network conditions
-- **Desktop GUI** — Tauri 2 + Vue 3 + Naive UI, lightweight native install (~7 MB)
+- **Desktop GUI** — Tauri 2 + Vue 3 + Naive UI, lightweight native install
 - **MCP Server** — 7 tools for AI agent integration (Claude Desktop, Hermes, etc.)
-- **Cross-platform** — macOS (ARM64/x64), Windows (x64), Linux (x64)
+- **Cross-platform** — macOS (ARM64/x64), Windows (x64), Linux (x64) — all out-of-the-box
 
 ### AI and Models
 
@@ -67,7 +68,7 @@ AI:  Found -> Queued -> Downloaded -> Subtitled -> Organized ✅
 
 - **CLI mode** — `motrix-ai ask "下 XX"` from terminal
 - **MCP Server** — expose download capabilities to AI agents
-- **603 tests** — TypeScript (Vitest), 10 Rust (cargo test), ~45% coverage
+- **682 tests** — TypeScript (Vitest) + Rust (cargo test), ~50% coverage
 - **Structured errors** — typed error hierarchy with cause chaining
 - **Structured logging** — level-filtered logger replacing console.*
 
@@ -75,38 +76,32 @@ AI:  Found -> Queued -> Downloaded -> Subtitled -> Organized ✅
 
 ## Installation
 
+> **No prerequisites.** aria2 download engine is bundled for all platforms — just install and run.
+
 ### macOS
 
 ```bash
-# Homebrew (recommended)
-brew tap SonicBotMan/motrix-ai
-brew install --cask motrix-ai
-
-# Or download .dmg from Releases
+# Download .dmg from Releases (Apple Silicon or Intel)
+# Apple Silicon: bundled aria2c works out of the box
+# Intel Macs:    aria2c is bundled as arm64; if it doesn't run, install via
+#                `brew install aria2` and the app will use that automatically
 ```
 
 ### Windows
 
 ```bash
-# Scoop (recommended)
-scoop bucket add extras
-scoop install motrix-ai
-
-# Or download .exe from Releases
+# Download .exe or .msi from Releases
+# aria2c.exe is bundled — no additional installation required
 ```
 
 ### Linux
 
 ```bash
-# Debian/Ubuntu
-sudo dpkg -i motrix-ai_*.deb
-
-# Fedora/RHEL
-sudo rpm -i motrix-ai-*.rpm
-
-# Universal
-chmod +x motrix-ai_*.AppImage
-./motrix-ai_*.AppImage
+# Download from Releases:
+#   .deb for Debian/Ubuntu     sudo dpkg -i motrix-ai_*.deb
+#   .rpm for Fedora/RHEL       sudo rpm -i motrix-ai-*.rpm
+#   .AppImage (universal)      chmod +x motrix-ai_*.AppImage && ./motrix-ai_*.AppImage
+# aria2c is bundled (static musl binary) — works on any x86_64 distro
 ```
 
 > Download the latest release from [GitHub Releases](https://github.com/SonicBotMan/motrix-ai/releases)
