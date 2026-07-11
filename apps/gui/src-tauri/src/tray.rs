@@ -25,7 +25,7 @@ pub fn create_tray<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
     let _tray = TrayIconBuilder::new()
         .icon(
             app.default_window_icon()
-                .ok_or("No default window icon configured")?
+                .expect("Tauri app must have a default window icon")
                 .clone(),
         )
         .tooltip("Motrix AI")
