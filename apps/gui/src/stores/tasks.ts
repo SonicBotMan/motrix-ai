@@ -88,15 +88,29 @@ function getTypeFromFilename(filename: string): TaskType {
 }
 
 /** Convert a raw aria2 status object into the normalized Task shape */
-function fromAria2Status(s: Aria2Status, idx: number): Task {
+const gidToId = new Map<string, number>()
+let nextAria2Id = 1
+
+export function _resetGidMapForTesting(): void {
+  gidToId.clear()
+  nextAria2Id = 1
+}
+
+function fromAria2Status(s: Aria2Status): Task {
   const total = Number(s.totalLength) || 0
   const completed = Number(s.completedLength) || 0
   const progress = total > 0 ? Math.round((completed / total) * 100) : 0
   const speed = Number(s.downloadSpeed) || 0
   const filename = s.files?.[0]?.path?.split('/').pop() || s.bittorrent?.info?.name || `Task ${s.gid}`
 
+  let id = gidToId.get(s.gid)
+  if (id === undefined) {
+    id = nextAria2Id++
+    gidToId.set(s.gid, id)
+  }
+
   return {
-    id: idx + 1,
+    id,
     gid: s.gid,
     name: filename,
     source: s.files?.[0]?.uris?.[0]?.uri || (s.bittorrent?.info?.name ? `torrent://${s.bittorrent.info.name}` : ''),
@@ -158,7 +172,7 @@ export const useTasksStore = defineStore('tasks', () => {
    */
   const tasks = computed<Task[]>(() => {
     if (aria2.connected.value && aria2.tasks.value.length > 0) {
-      return aria2.tasks.value.map((s, i) => fromAria2Status(s, i))
+      return aria2.tasks.value.map((s) => fromAria2Status(s))
     }
     return localTasks.value
   })

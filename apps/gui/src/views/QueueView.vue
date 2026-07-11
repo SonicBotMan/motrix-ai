@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { NButton, NIcon, NCheckbox, NEmpty, NSpin } from 'naive-ui'
+import { NButton, NIcon, NCheckbox, NEmpty, NSpin, useMessage } from 'naive-ui'
 import {
   ArrowBackOutline,
   PauseOutline,
@@ -27,6 +27,12 @@ import TaskDetailModal from '@/components/TaskDetailModal.vue'
 const router = useRouter()
 const manager = useAria2Manager()
 const _aria2 = useAria2()
+const message = useMessage()
+
+function opError(e: unknown, action: string): void {
+  const detail = e instanceof Error ? e.message : String(e)
+  message.error(`${action}: ${detail.slice(0, 80)}`)
+}
 
 // ---- Selection & Filter state ----
 const selectedGids = ref<Set<string>>(new Set())
@@ -200,7 +206,7 @@ async function handlePause(gid: string) {
   try {
     await manager.pauseDownload(gid)
   } catch (e) {
-    console.error(e)
+    opError(e, 'Pause failed')
   }
 }
 
@@ -208,7 +214,7 @@ async function handleResume(gid: string) {
   try {
     await manager.resumeDownload(gid)
   } catch (e) {
-    console.error(e)
+    opError(e, 'Resume failed')
   }
 }
 
@@ -216,7 +222,7 @@ async function handleRemove(gid: string) {
   try {
     await manager.cancelDownload(gid)
   } catch (e) {
-    console.error(e)
+    opError(e, 'Remove failed')
   }
 }
 
@@ -226,7 +232,7 @@ async function handleOpenFolder(task: DownloadItem) {
     const filePath = task.dir ? `${task.dir}/${task.name}` : task.name
     await invoke('show_in_folder', { path: filePath })
   } catch (e) {
-    console.error('Failed to open folder:', e)
+    opError(e, 'Open folder failed')
   }
 }
 
@@ -236,7 +242,7 @@ async function handleReconnect() {
     const store = useTasksStore()
     await store.init()
   } catch (e) {
-    console.error('Reconnect failed:', e)
+    opError(e, 'Reconnect failed')
   }
 }
 
@@ -248,7 +254,7 @@ async function handleRetry(item: DownloadItem) {
       await manager.addDownload(uri, { dir: item.dir })
     }
   } catch (e) {
-    console.error(e)
+    opError(e, 'Retry failed')
   }
 }
 
@@ -256,7 +262,7 @@ async function handlePauseAll() {
   try {
     await manager.pauseAllDownloads()
   } catch (e) {
-    console.error(e)
+    opError(e, 'Pause all failed')
   }
 }
 
@@ -264,7 +270,7 @@ async function handleResumeAll() {
   try {
     await manager.resumeAllDownloads()
   } catch (e) {
-    console.error(e)
+    opError(e, 'Resume all failed')
   }
 }
 
@@ -298,7 +304,7 @@ async function handleBulkPause() {
     try {
       await manager.pauseDownload(gid)
     } catch (e) {
-      console.error(e)
+      opError(e, 'Bulk pause failed')
     }
   }
   selectedGids.value.clear()
@@ -309,7 +315,7 @@ async function handleBulkResume() {
     try {
       await manager.resumeDownload(gid)
     } catch (e) {
-      console.error(e)
+      opError(e, 'Bulk resume failed')
     }
   }
   selectedGids.value.clear()
@@ -320,7 +326,7 @@ async function handleBulkRemove() {
     try {
       await manager.cancelDownload(gid)
     } catch (e) {
-      console.error(e)
+      opError(e, 'Bulk remove failed')
     }
   }
   selectedGids.value.clear()

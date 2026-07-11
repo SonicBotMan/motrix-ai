@@ -21,6 +21,7 @@ import { useRouter } from 'vue-router'
 import { invoke } from '@tauri-apps/api/core'
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import { theme, toggleTheme as settingsToggleTheme } from '@/composables/useSettings'
+import { useOpenCode } from '@/composables/useOpenCode'
 import ChromeBar from '@/components/chrome/ChromeBar.vue'
 import TaskTable from '@/components/task/TaskTable.vue'
 import DetailPanel from '@/components/task/DetailPanel.vue'
@@ -33,6 +34,7 @@ import { useTasksStore, type Task } from '@/stores/tasks'
 import type { SearchResult } from '@/composables/useSearch'
 
 const tasksStore = useTasksStore()
+const openCode = useOpenCode()
 
 // ---------------------------------------------------------------------------
 // Task list comes from the Pinia store (aria2-backed with local fallback)
@@ -210,7 +212,7 @@ async function handleSendMessage(message: string): Promise<void> {
       search_keywords: string[]
       quality: string
       year?: number
-    }>('parse_nl_intent', { input: trimmed, llmConfig: null })
+    }>('parse_nl_intent', { input: trimmed, llmConfig: openCode.getLLMConfig() })
 
     pendingIntent.value = intent
     searchQuery.value = intent.search_keywords[0] || intent.title

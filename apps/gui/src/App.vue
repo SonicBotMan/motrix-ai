@@ -2,8 +2,10 @@
 import { onMounted, onUnmounted, watch } from 'vue'
 import { useConfigStore } from '@/stores/config'
 import { useSchedule, type ScheduleRule } from '@/composables/useSchedule'
+import { useTasksStore } from '@/stores/tasks'
 
 const configStore = useConfigStore()
+const tasksStore = useTasksStore()
 
 const activeRules = (): ScheduleRule[] => (configStore.config.schedule.rules ?? []).filter((r) => r.enabled !== false)
 
@@ -15,18 +17,39 @@ watch(
   { deep: true },
 )
 
+let unlistenDeepLink: (() => void) | null = null
+
 onMounted(async () => {
   await configStore.init()
   sched.start()
+
+  try {
+    const { listen } = await import('@tauri-apps/api/event')
+    const { confirm } = await import('@tauri-apps/plugin-dialog')
+    unlistenDeepLink = await listen<string>('deep-link-download', async (event) => {
+      const url = event.payload
+      const accepted = await confirm(`Add this download?\n\n${url.slice(0, 200)}`, {
+        title: 'Download Request',
+        kind: 'info',
+      })
+      if (accepted) {
+        await tasksStore.addTask(url)
+      }
+    })
+  } catch {
+    /* not in Tauri context */
+  }
 })
 
 onUnmounted(() => {
   sched.stop()
+  unlistenDeepLink?.()
 })
 </script>
-
 <template>
-  <router-view />
+  <n-message-provider>
+    <router-view />
+  </n-message-provider>
 </template>
 
 <style>

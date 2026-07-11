@@ -1,13 +1,38 @@
 // commands/aria2.rs — Bundled aria2c process management.
 // Start/stop/diagnose the aria2c daemon with RPC enabled.
 
-use std::sync::Mutex;
+use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 use tauri::command;
 use tauri::Manager;
 
 /// Global store for the aria2c child PID
 static ARIA2_CHILD: Mutex<Option<u32>> = Mutex::new(None);
+
+/// Random secret generated on first start, reused across restarts within
+/// a single app session. Passed to aria2 via --rpc-secret and included
+/// in every JSON-RPC call as the first param ("token:<secret>").
+static ARIA2_SECRET: OnceLock<String> = OnceLock::new();
+
+/// Return the current session's aria2 RPC secret, generating one if needed.
+pub fn get_aria2_secret() -> &'static str {
+    ARIA2_SECRET.get_or_init(|| {
+        use std::time::{SystemTime, UNIX_EPOCH};
+        let seed = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0);
+        let pid = std::process::id();
+        format!("{:x}{:x}", seed, pid)
+    })
+}
+
+/// Tauri command exposing the secret to the frontend so it can include
+/// the token in its own JSON-RPC calls to aria2.
+#[command]
+pub fn get_rpc_secret() -> String {
+    get_aria2_secret().to_string()
+}
 
 /// Start the bundled aria2c daemon with RPC enabled.
 #[command]
@@ -23,11 +48,15 @@ pub async fn start_aria2(app: tauri::AppHandle, rpc_port: Option<u16>) -> Result
         child.is_some()
     };
     if already_running {
+        let secret = get_aria2_secret();
         let client = reqwest::Client::new();
         if let Ok(resp) = client
             .post(&rpc_url)
             .header("Content-Type", "application/json")
-            .body(r#"{"jsonrpc":"2.0","id":"check","method":"aria2.getVersion"}"#)
+            .body(format!(
+                r#"{{"jsonrpc":"2.0","id":"check","method":"aria2.getVersion","params":["token:{}"]}}"#,
+                secret
+            ))
             .timeout(Duration::from_secs(2))
             .send()
             .await
@@ -64,7 +93,7 @@ pub async fn start_aria2(app: tauri::AppHandle, rpc_port: Option<u16>) -> Result
     let home = dirs::home_dir().ok_or("Cannot find home directory")?;
     let prep = tokio::task::spawn_blocking(
         move || -> Result<(std::path::PathBuf, std::path::PathBuf, std::fs::File), String> {
-            let download_dir = home.join("Downloads").join("Motrix AI");
+            let download_dir = super::configured_download_dir();
             std::fs::create_dir_all(&download_dir)
                 .map_err(|e| format!("Create download dir failed: {}", e))?;
 
@@ -93,13 +122,15 @@ pub async fn start_aria2(app: tauri::AppHandle, rpc_port: Option<u16>) -> Result
         .map(|p| p.to_path_buf())
         .unwrap_or_else(|| std::path::PathBuf::from(".motrix-ai"));
 
-    // Start aria2c (detached from parent process)
+    let secret = get_aria2_secret().clone();
+
     let mut cmd = std::process::Command::new(&aria2c_path);
     cmd.args([
         &format!("--rpc-listen-port={}", port),
         "--enable-rpc=true",
         "--rpc-allow-origin-all=true",
         "--rpc-listen-all=false",
+        &format!("--rpc-secret={}", secret),
         "--daemon=false",
         "--continue=true",
         "--max-connection-per-server=16",
@@ -116,7 +147,11 @@ pub async fn start_aria2(app: tauri::AppHandle, rpc_port: Option<u16>) -> Result
         &format!("--save-session={}", session_file.display()),
         "--auto-save-interval=30",
     ])
-    .stdout(std::process::Stdio::null())
+    .stdout(std::process::Stdio::from(
+        log_file
+            .try_clone()
+            .map_err(|e| format!("Clone log fd: {}", e))?,
+    ))
     .stderr(std::process::Stdio::from(log_file));
 
     // Detach from parent so process survives when Child handle is dropped
@@ -147,7 +182,10 @@ pub async fn start_aria2(app: tauri::AppHandle, rpc_port: Option<u16>) -> Result
     let check = client
         .post(&rpc_url)
         .header("Content-Type", "application/json")
-        .body(r#"{"jsonrpc":"2.0","id":"check","method":"aria2.getVersion"}"#)
+        .body(format!(
+            r#"{{"jsonrpc":"2.0","id":"check","method":"aria2.getVersion","params":["token:{}"]}}"#,
+            secret
+        ))
         .timeout(Duration::from_secs(3))
         .send()
         .await;
@@ -203,20 +241,48 @@ pub async fn stop_aria2() -> Result<String, String> {
     };
 
     if let Some(p) = pid {
+        let secret = get_aria2_secret();
         let client = reqwest::Client::new();
         let _ = client
             .post("http://127.0.0.1:6800/jsonrpc")
             .header("Content-Type", "application/json")
-            .body(r#"{"jsonrpc":"2.0","id":"shutdown","method":"aria2.shutdown"}"#)
+            .body(format!(
+                r#"{{"jsonrpc":"2.0","id":"shutdown","method":"aria2.shutdown","params":["token:{}"]}}"#,
+                secret
+            ))
             .timeout(Duration::from_secs(2))
             .send()
             .await;
 
-        tokio::time::sleep(Duration::from_millis(500)).await;
+        let deadline = Duration::from_secs(5);
+        let interval = Duration::from_millis(200);
+        let start = std::time::Instant::now();
+        let mut exited = false;
+        while start.elapsed() < deadline {
+            #[cfg(unix)]
+            {
+                let result = std::process::Command::new("kill")
+                    .args(["-0", &p.to_string()])
+                    .output();
+                let alive = result.map(|o| o.status.success()).unwrap_or(false);
+                if !alive {
+                    exited = true;
+                    break;
+                }
+            }
+            #[cfg(not(unix))]
+            {
+                break;
+            }
+            tokio::time::sleep(interval).await;
+        }
 
-        let _ = std::process::Command::new("kill")
-            .args(["-9", &p.to_string()])
-            .output();
+        if !exited {
+            log::warn!("aria2c did not exit gracefully after 5s, sending SIGKILL");
+            let _ = std::process::Command::new("kill")
+                .args(["-9", &p.to_string()])
+                .output();
+        }
 
         Ok(format!("aria2c (PID {}) stopped", p))
     } else {
