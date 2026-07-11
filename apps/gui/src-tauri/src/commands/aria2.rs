@@ -260,7 +260,10 @@ pub async fn stop_aria2() -> Result<String, String> {
             .send()
             .await;
 
+        #[cfg(unix)]
         let mut exited = false;
+        #[cfg(not(unix))]
+        let exited = true;
 
         #[cfg(unix)]
         {
@@ -283,7 +286,6 @@ pub async fn stop_aria2() -> Result<String, String> {
         #[cfg(not(unix))]
         {
             tokio::time::sleep(Duration::from_millis(500)).await;
-            exited = true;
         }
 
         if !exited {
