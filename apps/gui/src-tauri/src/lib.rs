@@ -39,6 +39,7 @@ pub fn run() {
             {
                 use tauri::Emitter;
                 use tauri_plugin_deep_link::DeepLinkExt;
+                let dl_handle = app.handle().clone();
                 app.deep_link().on_open_url(move |event| {
                     for url in event.urls() {
                         let url_str = url.to_string();
@@ -47,7 +48,7 @@ pub fn run() {
                             || url_str.starts_with("ed2k://")
                             || url_str.starts_with("thunder://")
                         {
-                            let _ = event.window().emit("deep-link-download", &url_str);
+                            let _ = dl_handle.emit("deep-link-download", &url_str);
                         }
                     }
                 });

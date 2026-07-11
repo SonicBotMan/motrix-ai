@@ -48,11 +48,15 @@ pub async fn start_aria2(app: tauri::AppHandle, rpc_port: Option<u16>) -> Result
         child.is_some()
     };
     if already_running {
+        let secret = get_aria2_secret();
         let client = reqwest::Client::new();
         if let Ok(resp) = client
             .post(&rpc_url)
             .header("Content-Type", "application/json")
-            .body(r#"{"jsonrpc":"2.0","id":"check","method":"aria2.getVersion"}"#)
+            .body(format!(
+                r#"{{"jsonrpc":"2.0","id":"check","method":"aria2.getVersion","params":["token:{}"]}}"#,
+                secret
+            ))
             .timeout(Duration::from_secs(2))
             .send()
             .await
