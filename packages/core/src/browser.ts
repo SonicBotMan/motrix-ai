@@ -35,7 +35,6 @@ export type {
   AppConfig,
 } from './types.js'
 
-export { IntentParser } from './ai/intent-parser.js'
 export { KeywordGenerator } from './ai/keyword-generator.js'
 export { ResultEvaluator } from './ai/result-evaluator.js'
 
