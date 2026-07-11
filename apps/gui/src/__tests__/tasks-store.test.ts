@@ -1,6 +1,7 @@
 import { describe, expect, vi, beforeEach, test } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { ref, type Ref } from 'vue'
+import { _resetGidMapForTesting } from '../stores/tasks'
 
 // --- Shared mock state for useAria2 -----------------------------------
 // We use a hoisted vi.mock so the mock is in place *before* the store
@@ -90,11 +91,11 @@ function makeRawStatus(overrides: Record<string, unknown> = {}) {
 describe('tasks store — aria2 status mapping', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
+    _resetGidMapForTesting()
     mockState.connected = false
     mockState.tasks = []
     mockState.changeOption = vi.fn().mockResolvedValue(undefined)
   })
-
   test('maps active/complete/paused/error/waiting/removed onto the UI status enum', async () => {
     mockState.connected = true
     mockState.tasks = [

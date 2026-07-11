@@ -2,7 +2,7 @@
 // save_file, download_subtitle, opensubtitles_search/download,
 // get_download_path, organize_file, show_in_folder.
 
-use super::build_http_client;
+use super::{build_http_client, configured_download_dir};
 use std::path::{Path, PathBuf};
 use tauri::command;
 
@@ -241,8 +241,7 @@ pub async fn opensubtitles_download(
 #[command]
 pub async fn get_download_path() -> Result<String, String> {
     tokio::task::spawn_blocking(|| {
-        let home = dirs::home_dir().ok_or("Cannot find home directory")?;
-        let download_dir = home.join("Downloads").join("Motrix AI");
+        let download_dir = configured_download_dir();
 
         std::fs::create_dir_all(&download_dir).map_err(|e| format!("Create dir failed: {}", e))?;
 
@@ -288,8 +287,7 @@ pub async fn organize_file(
                 .unwrap_or_else(|| "Unknown".to_string())
         }));
 
-        let home = dirs::home_dir().ok_or("Cannot find home")?;
-        let base_dir = home.join("Downloads").join("Motrix AI");
+        let base_dir = configured_download_dir();
 
         let (target_dir, new_filename) = match rtype.as_str() {
             "movie" => {

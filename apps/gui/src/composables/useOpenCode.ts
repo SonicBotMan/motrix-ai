@@ -87,5 +87,6 @@ export function useOpenCode() {
     llmConfigured,
     parsing,
     parseIntent,
+    getLLMConfig,
   }
 }

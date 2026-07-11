@@ -64,7 +64,7 @@ pub async fn start_aria2(app: tauri::AppHandle, rpc_port: Option<u16>) -> Result
     let home = dirs::home_dir().ok_or("Cannot find home directory")?;
     let prep = tokio::task::spawn_blocking(
         move || -> Result<(std::path::PathBuf, std::path::PathBuf, std::fs::File), String> {
-            let download_dir = home.join("Downloads").join("Motrix AI");
+            let download_dir = super::configured_download_dir();
             std::fs::create_dir_all(&download_dir)
                 .map_err(|e| format!("Create download dir failed: {}", e))?;
 

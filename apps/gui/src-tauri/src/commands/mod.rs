@@ -80,6 +80,45 @@ pub(crate) fn build_http_client() -> Result<reqwest::Client, String> {
         .map_err(|e| format!("Client build failed: {}", e))
 }
 
+/// Read the user-configured download directory from config.json.
+/// Falls back to ~/Downloads/Motrix AI when config is missing or the
+/// downloads.base_dir field is empty.
+pub(crate) fn configured_download_dir() -> std::path::PathBuf {
+    let home = match dirs::home_dir() {
+        Some(h) => h,
+        None => return std::path::PathBuf::from("~/Downloads/Motrix AI"),
+    };
+    let default = home.join("Downloads").join("Motrix AI");
+    let config_path = home.join(".motrix-ai").join("config.json");
+    match std::fs::read_to_string(&config_path) {
+        Ok(content) => {
+            if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
+                if let Some(base) = json
+                    .get("downloads")
+                    .and_then(|d| d.get("base_dir"))
+                    .and_then(|v| v.as_str())
+                {
+                    let trimmed = base.trim();
+                    if !trimmed.is_empty() {
+                        let expanded = if trimmed == "~" {
+                            home.clone()
+                        } else if trimmed.starts_with("~/") {
+                            home.join(&trimmed[2..])
+                        } else if trimmed.starts_with("~\\") {
+                            home.join(&trimmed[3..])
+                        } else {
+                            std::path::PathBuf::from(trimmed)
+                        };
+                        return expanded;
+                    }
+                }
+            }
+            default
+        }
+        Err(_) => default,
+    }
+}
+
 /// Forward a download URL to the local aria2 daemon via JSON-RPC addUri.
 /// Shared by the HTTP API server (browser extension bridge) and the deep
 /// link handler (magnet:// protocol) so behaviour stays consistent.
