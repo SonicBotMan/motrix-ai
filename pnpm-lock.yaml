@@ -63,6 +63,9 @@ importers:
 
   apps/gui:
     dependencies:
+      '@motrix-ai/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       '@opencode-ai/sdk':
         specifier: ^1.17.4
         version: 1.17.4

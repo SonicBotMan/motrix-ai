@@ -22,6 +22,7 @@ import { invoke } from '@tauri-apps/api/core'
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import { theme, toggleTheme as settingsToggleTheme } from '@/composables/useSettings'
 import { useOpenCode } from '@/composables/useOpenCode'
+import { KeywordGenerator, ResultEvaluator } from '@motrix-ai/core/browser'
 import ChromeBar from '@/components/chrome/ChromeBar.vue'
 import TaskTable from '@/components/task/TaskTable.vue'
 import DetailPanel from '@/components/task/DetailPanel.vue'
@@ -35,6 +36,8 @@ import type { SearchResult } from '@/composables/useSearch'
 
 const tasksStore = useTasksStore()
 const openCode = useOpenCode()
+const keywordGen = new KeywordGenerator()
+const evaluator = new ResultEvaluator()
 
 // ---------------------------------------------------------------------------
 // Task list comes from the Pinia store (aria2-backed with local fallback)
@@ -215,7 +218,15 @@ async function handleSendMessage(message: string): Promise<void> {
     }>('parse_nl_intent', { input: trimmed, llmConfig: openCode.getLLMConfig() })
 
     pendingIntent.value = intent
-    searchQuery.value = intent.search_keywords[0] || intent.title
+    const expandedKeywords = keywordGen.generate({
+      title: intent.title,
+      resource_type: intent.resource_type as 'movie' | 'tv' | 'software' | 'music' | 'anime' | 'other',
+      year: intent.year,
+      quality: intent.quality as '4K' | '1080p' | '720p' | 'other',
+      need_subtitle: false,
+      search_keywords: intent.search_keywords,
+    })
+    searchQuery.value = expandedKeywords[0] || intent.search_keywords[0] || intent.title
     searching.value = true
     showSearchResults.value = true
     searchResults.value = []
@@ -245,8 +256,15 @@ async function handleSendMessage(message: string): Promise<void> {
           }
         }
       }
-      allResults.sort((a, b) => b.seeders - a.seeders)
-      searchResults.value = allResults
+      const ranked = evaluator.evaluate(allResults, {
+        title: intent.title,
+        resource_type: intent.resource_type as 'movie' | 'tv' | 'software' | 'music' | 'anime' | 'other',
+        year: intent.year,
+        quality: intent.quality as '4K' | '1080p' | '720p' | 'other',
+        need_subtitle: false,
+        search_keywords: expandedKeywords,
+      })
+      searchResults.value = ranked
       if (searchResults.value.length === 0) {
         addToast({
           id: generateToastId(),
