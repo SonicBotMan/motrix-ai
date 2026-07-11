@@ -10,8 +10,7 @@ const router = createRouter({
     },
     {
       path: '/queue',
-      name: 'queue',
-      component: () => import('@/views/QueueView.vue'),
+      redirect: '/',
     },
     {
       path: '/settings',

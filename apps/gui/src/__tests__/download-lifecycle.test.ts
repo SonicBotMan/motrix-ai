@@ -194,7 +194,9 @@ describe('Download lifecycle', () => {
     const store = useTasksStore()
     await store.retryTask('old-gid')
     expect(removeSpy).toHaveBeenCalledWith('old-gid')
-    expect(addUriSpy).toHaveBeenCalledWith('https://example.com/f.zip')
+    expect(addUriSpy).toHaveBeenCalledWith('https://example.com/f.zip', {
+      dir: '~/Downloads/Motrix AI',
+    })
   })
 
   test('bumpPriority calls changeOption with pri-high', async () => {

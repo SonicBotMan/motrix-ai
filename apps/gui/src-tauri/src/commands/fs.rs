@@ -54,6 +54,33 @@ fn safe_join(base: &Path, components: &[&str]) -> Result<PathBuf, String> {
     Ok(out)
 }
 
+/// Read a configured subdirectory name from the `downloads` section of
+/// config.json (e.g. `movie_dir`, `software_dir`, `other_dir`).
+/// Returns `fallback` when the field is missing or empty, so callers keep
+/// the historical hardcoded behaviour when the user has not customised it.
+fn configured_subdir(field: &str, fallback: &str) -> String {
+    let home = match dirs::home_dir() {
+        Some(h) => h,
+        None => return fallback.to_string(),
+    };
+    let config_path = home.join(".motrix-ai").join("config.json");
+    if let Ok(content) = std::fs::read_to_string(&config_path) {
+        if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
+            if let Some(v) = json
+                .get("downloads")
+                .and_then(|d| d.get(field))
+                .and_then(|v| v.as_str())
+            {
+                let trimmed = v.trim();
+                if !trimmed.is_empty() {
+                    return trimmed.to_string();
+                }
+            }
+        }
+    }
+    fallback.to_string()
+}
+
 /// Save file to disk. Validates the path stays within the user's home directory.
 #[command]
 pub async fn save_file(path: String, content: Vec<u8>) -> Result<String, String> {
@@ -296,13 +323,16 @@ pub async fn organize_file(
         }));
 
         let base_dir = configured_download_dir();
+        let movie_dir = configured_subdir("movie_dir", "Movies");
+        let software_dir = configured_subdir("software_dir", "Software");
+        let other_dir = configured_subdir("other_dir", "Other");
 
         let (target_dir, new_filename) = match rtype.as_str() {
             "movie" => {
                 let dir = safe_join(
                     &base_dir,
                     &[
-                        "Movies",
+                        &movie_dir,
                         &format!(
                             "{}{}",
                             title,
@@ -335,11 +365,11 @@ pub async fn organize_file(
                 (dir, filename)
             }
             "software" => {
-                let dir = safe_join(&base_dir, &["Software", &title])?;
+                let dir = safe_join(&base_dir, &[&software_dir, &title])?;
                 (dir, filename)
             }
             _ => {
-                let dir = base_dir.join("Other");
+                let dir = base_dir.join(&other_dir);
                 (dir, filename)
             }
         };

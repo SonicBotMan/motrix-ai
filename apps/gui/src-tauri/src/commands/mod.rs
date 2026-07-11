@@ -188,11 +188,16 @@ pub(crate) async fn aria2_add_uri(url: &str) -> Result<String, String> {
 
     let secret = crate::commands::aria2::get_aria2_secret();
     let client = build_http_client()?;
+    let download_dir = configured_download_dir();
     let body = serde_json::json!({
         "jsonrpc": "2.0",
         "id": "motrix-internal",
         "method": "aria2.addUri",
-        "params": [format!("token:{}", secret), [url]],
+        "params": [
+            format!("token:{}", secret),
+            [url],
+            serde_json::json!({ "dir": download_dir.display().to_string() })
+        ],
     });
     let resp = client
         .post("http://127.0.0.1:6800/jsonrpc")

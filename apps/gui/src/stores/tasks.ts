@@ -215,23 +215,26 @@ export const useTasksStore = defineStore('tasks', () => {
     await aria2.dispose()
   }
 
+  async function resolveDownloadDir(): Promise<string | null> {
+    const dir = configStore.config.downloads.base_dir
+    if (!dir.trim()) return null
+    if (dir === '~' || dir.startsWith('~/') || dir.startsWith('~\\')) {
+      try {
+        const { homeDir } = await import('@tauri-apps/api/path')
+        const home = await homeDir()
+        return dir === '~' ? home : home + dir.slice(1)
+      } catch {
+        /* not in Tauri context */
+      }
+    }
+    return dir
+  }
+
   async function addTask(url: string, name?: string, intent?: DownloadIntentMeta): Promise<void> {
     if (aria2.connected.value) {
       const opts: Record<string, string> = {}
-      const dir = configStore.config.downloads.base_dir
-      if (dir.trim()) {
-        let resolvedDir = dir
-        if (dir === '~' || dir.startsWith('~/') || dir.startsWith('~\\')) {
-          try {
-            const { homeDir } = await import('@tauri-apps/api/path')
-            const home = await homeDir()
-            resolvedDir = dir === '~' ? home : home + dir.slice(1)
-          } catch {
-            /* not in Tauri context */
-          }
-        }
-        opts.dir = resolvedDir
-      }
+      const resolvedDir = await resolveDownloadDir()
+      if (resolvedDir) opts.dir = resolvedDir
       const gid = Object.keys(opts).length > 0 ? await aria2.addUri(url, opts) : await aria2.addUri(url)
       if (intent && gid) intentByGid.set(gid, intent)
       return
@@ -320,7 +323,10 @@ export const useTasksStore = defineStore('tasks', () => {
       try {
         await aria2.remove(task.gid)
         if (task.source.startsWith('magnet:') || /^https?:\/\//.test(task.source) || task.source.startsWith('ftp://')) {
-          await aria2.addUri(task.source)
+          const opts: Record<string, string> = {}
+          const resolvedDir = await resolveDownloadDir()
+          if (resolvedDir) opts.dir = resolvedDir
+          await aria2.addUri(task.source, opts)
         } else {
           throw new Error('Cannot retry BitTorrent task without original magnet or HTTP URL')
         }
