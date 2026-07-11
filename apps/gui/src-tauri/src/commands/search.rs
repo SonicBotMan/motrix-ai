@@ -15,87 +15,110 @@ use tokio::task::JoinSet;
 
 // Btdig
 static BTDIG_MAGNET_RE: LazyLock<regex::Regex> = LazyLock::new(|| {
-    regex::Regex::new(r#"class="torrent_magnet"[^>]*>\s*<a[^>]*href="(magnet:[^"]+)""#).unwrap()
+    regex::Regex::new(r#"class="torrent_magnet"[^>]*>\s*<a[^>]*href="(magnet:[^"]+)""#)
+        .expect("regex compile error")
 });
-static BTDIG_TITLE_RE: LazyLock<regex::Regex> =
-    LazyLock::new(|| regex::Regex::new(r#"class="torrent_name"[^>]*>([^<]+)"#).unwrap());
-static BTDIG_SIZE_RE: LazyLock<regex::Regex> =
-    LazyLock::new(|| regex::Regex::new(r#"class="torrent_size"[^>]*>([^<]+)"#).unwrap());
+static BTDIG_TITLE_RE: LazyLock<regex::Regex> = LazyLock::new(|| {
+    regex::Regex::new(r#"class="torrent_name"[^>]*>([^<]+)"#).expect("regex compile error")
+});
+static BTDIG_SIZE_RE: LazyLock<regex::Regex> = LazyLock::new(|| {
+    regex::Regex::new(r#"class="torrent_size"[^>]*>([^<]+)"#).expect("regex compile error")
+});
 static BTDIG_SEEDER_RE: LazyLock<regex::Regex> =
-    LazyLock::new(|| regex::Regex::new(r#"(\d+)\s*seeds?"#).unwrap());
+    LazyLock::new(|| regex::Regex::new(r#"(\d+)\s*seeds?"#).expect("regex compile error"));
 static BTDIG_LEECHER_RE: LazyLock<regex::Regex> =
-    LazyLock::new(|| regex::Regex::new(r#"(\d+)\s*leech?"#).unwrap());
+    LazyLock::new(|| regex::Regex::new(r#"(\d+)\s*leech?"#).expect("regex compile error"));
 
 // Mikan
 static MIKAN_ITEM_RE: LazyLock<regex::Regex> =
-    LazyLock::new(|| regex::Regex::new(r#"<item>([\s\S]*?)</item>"#).unwrap());
+    LazyLock::new(|| regex::Regex::new(r#"<item>([\s\S]*?)</item>"#).expect("regex compile error"));
 static MIKAN_TITLE_RE: LazyLock<regex::Regex> =
-    LazyLock::new(|| regex::Regex::new(r#"<title>([^<]+)</title>"#).unwrap());
+    LazyLock::new(|| regex::Regex::new(r#"<title>([^<]+)</title>"#).expect("regex compile error"));
 static MIKAN_ENCLOSURE_RE: LazyLock<regex::Regex> = LazyLock::new(|| {
-    regex::Regex::new(r#"<enclosure[^>]*url="([^"]+)"[^>]*length="(\d+)""#).unwrap()
+    regex::Regex::new(r#"<enclosure[^>]*url="([^"]+)"[^>]*length="(\d+)""#)
+        .expect("regex compile error")
 });
 static MIKAN_MAGNET_RE: LazyLock<regex::Regex> =
-    LazyLock::new(|| regex::Regex::new(r#"(magnet:\?[\\<\s"]+)"#).unwrap());
+    LazyLock::new(|| regex::Regex::new(r#"(magnet:\?[\\<\s"]+)"#).expect("regex compile error"));
 
 // 1337x
 static X1337_ROW_RE: LazyLock<regex::Regex> =
-    LazyLock::new(|| regex::Regex::new(r#"<tr>([\s\S]*?)</tr>"#).unwrap());
+    LazyLock::new(|| regex::Regex::new(r#"<tr>([\s\S]*?)</tr>"#).expect("regex compile error"));
 static X1337_TITLE_LINK_RE: LazyLock<regex::Regex> = LazyLock::new(|| {
-    regex::Regex::new(r#"<a[^>]*href="(/torrent/[^"]+)"[^>]*>(.*?)</a>"#).unwrap()
+    regex::Regex::new(r#"<a[^>]*href="(/torrent/[^"]+)"[^>]*>(.*?)</a>"#)
+        .expect("regex compile error")
 });
-static X1337_SEEDER_RE: LazyLock<regex::Regex> =
-    LazyLock::new(|| regex::Regex::new(r#"<td[^>]*class="seeds?"[^>]*>(\d+)</td>"#).unwrap());
-static X1337_LEECHER_RE: LazyLock<regex::Regex> =
-    LazyLock::new(|| regex::Regex::new(r#"<td[^>]*class="leeches?"[^>]*>(\d+)</td>"#).unwrap());
-static X1337_SIZE_RE: LazyLock<regex::Regex> =
-    LazyLock::new(|| regex::Regex::new(r#"<td[^>]*class="size"[^>]*>([\s\S]*?)</td>"#).unwrap());
+static X1337_SEEDER_RE: LazyLock<regex::Regex> = LazyLock::new(|| {
+    regex::Regex::new(r#"<td[^>]*class="seeds?"[^>]*>(\d+)</td>"#).expect("regex compile error")
+});
+static X1337_LEECHER_RE: LazyLock<regex::Regex> = LazyLock::new(|| {
+    regex::Regex::new(r#"<td[^>]*class="leeches?"[^>]*>(\d+)</td>"#).expect("regex compile error")
+});
+static X1337_SIZE_RE: LazyLock<regex::Regex> = LazyLock::new(|| {
+    regex::Regex::new(r#"<td[^>]*class="size"[^>]*>([\s\S]*?)</td>"#).expect("regex compile error")
+});
 // Detail-page magnet regex — 1337x puts the magnet link inside a dropdown
 // block on the torrent's detail page (e.g. /torrent/12345/). Format:
 //   <a href="magnet:?xt=urn:btih:<40-hex>&dn=...&tr=...">
 static X1337_DETAIL_MAGNET_RE: LazyLock<regex::Regex> = LazyLock::new(|| {
-    regex::Regex::new(r#"href="(magnet:\?xt=urn:btih:[a-fA-F0-9]{40}[^"]*)""#).unwrap()
+    regex::Regex::new(r#"href="(magnet:\?xt=urn:btih:[a-fA-F0-9]{40}[^"]*)""#)
+        .expect("regex compile error")
 });
 
 // Nyaa
 static NYAA_ROW_RE: LazyLock<regex::Regex> = LazyLock::new(|| {
-    regex::Regex::new(r#"<tr[^>]*class="(?:default|success|danger)"[^>]*>([\s\S]*?)</tr>"#).unwrap()
+    regex::Regex::new(r#"<tr[^>]*class="(?:default|success|danger)"[^>]*>([\s\S]*?)</tr>"#)
+        .expect("regex compile error")
 });
 static NYAA_TITLE_RE: LazyLock<regex::Regex> = LazyLock::new(|| {
-    regex::Regex::new(r#"<a[^>]*href="(/view/[^"]+)"[^>]*title="([^"]*)"[^>]*>"#).unwrap()
+    regex::Regex::new(r#"<a[^>]*href="(/view/[^"]+)"[^>]*title="([^"]*)"[^>]*>"#)
+        .expect("regex compile error")
 });
 static NYAA_TITLE_FALLBACK_RE: LazyLock<regex::Regex> = LazyLock::new(|| {
-    regex::Regex::new(r#"<a[^>]*href="(/view/[^"]+)"[^>]*>([\s\S]*?)</a>"#).unwrap()
+    regex::Regex::new(r#"<a[^>]*href="(/view/[^"]+)"[^>]*>([\s\S]*?)</a>"#)
+        .expect("regex compile error")
 });
-static NYAA_MAGNET_RE: LazyLock<regex::Regex> =
-    LazyLock::new(|| regex::Regex::new(r#"<a[^>]*href="(magnet:\?[^"]+)"[^>]*>"#).unwrap());
+static NYAA_MAGNET_RE: LazyLock<regex::Regex> = LazyLock::new(|| {
+    regex::Regex::new(r#"<a[^>]*href="(magnet:\?[^"]+)"[^>]*>"#).expect("regex compile error")
+});
 static NYAA_SIZE_RE: LazyLock<regex::Regex> = LazyLock::new(|| {
-    regex::Regex::new(r#"<td[^>]*class="text-center"[^>]*>([\d.]+\s*[KMGT]?i?B)</td>"#).unwrap()
+    regex::Regex::new(r#"<td[^>]*class="text-center"[^>]*>([\d.]+\s*[KMGT]?i?B)</td>"#)
+        .expect("regex compile error")
 });
-static NYAA_NUM_RE: LazyLock<regex::Regex> =
-    LazyLock::new(|| regex::Regex::new(r#"<td[^>]*class="text-center"[^>]*>(\d+)</td>"#).unwrap());
+static NYAA_NUM_RE: LazyLock<regex::Regex> = LazyLock::new(|| {
+    regex::Regex::new(r#"<td[^>]*class="text-center"[^>]*>(\d+)</td>"#)
+        .expect("regex compile error")
+});
 
 // TorrentGalaxy
 static TG_ROW_RE: LazyLock<regex::Regex> = LazyLock::new(|| {
-    regex::Regex::new(r#"<div[^>]*class="tgxtable[^"]*"[^>]*>([\s\S]*?)</div>\s*</div>"#).unwrap()
+    regex::Regex::new(r#"<div[^>]*class="tgxtable[^"]*"[^>]*>([\s\S]*?)</div>\s*</div>"#)
+        .expect("regex compile error")
 });
 static TG_TITLE_RE: LazyLock<regex::Regex> = LazyLock::new(|| {
-    regex::Regex::new(r#"<a[^>]*href="(/torrent/[^"]+)"[^>]*>([\s\S]*?)</a>"#).unwrap()
+    regex::Regex::new(r#"<a[^>]*href="(/torrent/[^"]+)"[^>]*>([\s\S]*?)</a>"#)
+        .expect("regex compile error")
 });
-static TG_MAGNET_RE: LazyLock<regex::Regex> =
-    LazyLock::new(|| regex::Regex::new(r#"<a[^>]*href="(magnet:\?[^"]+)"[^>]*>"#).unwrap());
-static TG_SIZE_RE: LazyLock<regex::Regex> =
-    LazyLock::new(|| regex::Regex::new(r#"Size:\s*([\d.]+\s*[KMGT]?i?B)"#).unwrap());
-static TG_SEEDER_RE: LazyLock<regex::Regex> =
-    LazyLock::new(|| regex::Regex::new(r#"(?:Seeders?|S(?:hd)?):\s*(\d+)"#).unwrap());
-static TG_LEECHER_RE: LazyLock<regex::Regex> =
-    LazyLock::new(|| regex::Regex::new(r#"(?:Leechers?|L(?:hd)?):\s*(\d+)"#).unwrap());
+static TG_MAGNET_RE: LazyLock<regex::Regex> = LazyLock::new(|| {
+    regex::Regex::new(r#"<a[^>]*href="(magnet:\?[^"]+)"[^>]*>"#).expect("regex compile error")
+});
+static TG_SIZE_RE: LazyLock<regex::Regex> = LazyLock::new(|| {
+    regex::Regex::new(r#"Size:\s*([\d.]+\s*[KMGT]?i?B)"#).expect("regex compile error")
+});
+static TG_SEEDER_RE: LazyLock<regex::Regex> = LazyLock::new(|| {
+    regex::Regex::new(r#"(?:Seeders?|S(?:hd)?):\s*(\d+)"#).expect("regex compile error")
+});
+static TG_LEECHER_RE: LazyLock<regex::Regex> = LazyLock::new(|| {
+    regex::Regex::new(r#"(?:Leechers?|L(?:hd)?):\s*(\d+)"#).expect("regex compile error")
+});
 
 // Shared helpers
 static STRIP_TAGS_RE: LazyLock<regex::Regex> =
-    LazyLock::new(|| regex::Regex::new(r"<[^>]*>").unwrap());
+    LazyLock::new(|| regex::Regex::new(r"<[^>]*>").expect("regex compile error"));
 
-static PARSE_SIZE_UNIT_RE: LazyLock<regex::Regex> =
-    LazyLock::new(|| regex::Regex::new(r"^([\d.]+)\s*([KMGT]?I?B|BYTES?)$").unwrap());
+static PARSE_SIZE_UNIT_RE: LazyLock<regex::Regex> = LazyLock::new(|| {
+    regex::Regex::new(r"^([\d.]+)\s*([KMGT]?I?B|BYTES?)$").expect("regex compile error")
+});
 
 // ---------------------------------------------------------------------------
 // Search proxy command
