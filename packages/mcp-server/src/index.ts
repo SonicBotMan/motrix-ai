@@ -23,7 +23,7 @@ import {
 const config = loadConfig()
 const aria2 = new Aria2Client({ rpcUrl: config.aria2.rpc_url, rpcSecret: config.aria2.rpc_secret })
 const queue = new QueueManager(aria2)
-const intentParser = new IntentParser()
+const intentParser = new IntentParser({ baseUrl: config.ai.base_url })
 
 const server = new McpServer({
   name: 'motrix-ai',
@@ -98,7 +98,7 @@ server.tool(
   { url: z.string().describe('URL or magnet link (HTTP/FTP/magnet/torrent)') },
   async ({ url }) => {
     try {
-      const task = await queue.add(url)
+      const task = await queue.add(url, url, { dir: config.downloads.base_dir })
       return {
         content: [
           {

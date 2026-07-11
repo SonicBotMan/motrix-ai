@@ -43,13 +43,13 @@ describe('config loader', () => {
       expect(config.ai.provider).toBe(DEFAULT_CONFIG.ai.provider)
     })
 
-    it('writes config with schemaVersion = 2 on first creation', async () => {
+    it('writes config with schemaVersion = 3 on first creation', async () => {
       vi.mocked(existsSync).mockReturnValue(false)
 
       const { loadConfig } = await import('../config/loader.js')
       const config = loadConfig()
 
-      expect(config.schemaVersion).toBe(2)
+      expect(config.schemaVersion).toBe(3)
     })
 
     it('includes schedule rules by default', async () => {

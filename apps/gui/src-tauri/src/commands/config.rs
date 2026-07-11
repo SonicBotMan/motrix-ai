@@ -65,7 +65,7 @@ pub async fn load_config() -> Result<Value, String> {
             .get("schemaVersion")
             .and_then(|v| v.as_u64())
             .unwrap_or(0)
-            < 2
+            < 3
         {
             if config.get("ui").is_none() {
                 config["ui"] =
@@ -81,6 +81,17 @@ pub async fn load_config() -> Result<Value, String> {
                 if subs.get("auto_search").is_none() {
                     subs["auto_search"] = serde_json::json!(true);
                 }
+            }
+            if config.get("nas").is_none() {
+                config["nas"] = serde_json::json!({
+                    "enabled": false,
+                    "host": "192.168.1.100",
+                    "port": "22",
+                    "username": "",
+                    "moviePath": "/volume1/Media/Movies",
+                    "softwarePath": "/volume1/Software",
+                    "musicPath": "/volume1/Music"
+                });
             }
             config["schemaVersion"] = serde_json::json!(3);
             let _ = std::fs::write(

@@ -85,7 +85,7 @@ export function deepMerge<T>(defaults: T, override: unknown): T {
 export function loadConfig(): AppConfig {
   if (!existsSync(CONFIG_FILE)) {
     mkdirSync(CONFIG_DIR, { recursive: true })
-    const initial = deepMerge(DEFAULT_CONFIG, { schemaVersion: 2 })
+    const initial = deepMerge(DEFAULT_CONFIG, { schemaVersion: 3 })
     writeFileSync(CONFIG_FILE, JSON.stringify(initial, null, 2), 'utf-8')
     return initial
   }

@@ -211,7 +211,9 @@ describe('E2E: Add URL → task appears → pause → resume → complete', () =
     const store = useTasksStore()
     await store.retryTask('g-retry-e2e')
     expect(mockState.remove).toHaveBeenCalledWith('g-retry-e2e')
-    expect(mockState.addUri).toHaveBeenCalledWith('https://example.com/failed.zip')
+    expect(mockState.addUri).toHaveBeenCalledWith('https://example.com/failed.zip', {
+      dir: '~/Downloads/Motrix AI',
+    })
   })
 
   test('retry BT task without valid URL → throws', async () => {

@@ -466,8 +466,13 @@ async function start(): Promise<void> {
       await invoke<string>('start_aria2', { rpcPort: 6800 })
       try {
         secretRef.value = await invoke<string>('get_rpc_secret')
-      } catch {
-        /* secret not available — legacy aria2 without token */
+        if (!secretRef.value) {
+          throw new Error('RPC secret is empty')
+        }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e)
+        emitConnection('error', `Failed to retrieve RPC secret: ${msg}`)
+        throw e
       }
       aria2Running.value = true
     }
