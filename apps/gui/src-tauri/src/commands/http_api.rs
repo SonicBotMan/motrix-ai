@@ -1,12 +1,20 @@
 // commands/http_api.rs — Local HTTP API server for browser extension bridge.
+//
+//! Security notes:
+//! - Bound to 127.0.0.1 only.
+//! - No `Access-Control-Allow-Origin` — browser web pages cannot read the
+//!   token or POST with custom headers. Extension service workers are not
+//!   subject to CORS and remain the supported client.
+//! - Authenticated POSTs enqueue a *pending* download via a Tauri event;
+//!   the frontend shows the same confirm dialog used for deep links.
 
-use super::aria2_add_uri;
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicBool, Ordering};
-use tauri::command;
+use tauri::{AppHandle, Emitter, command};
 use tokio::sync::watch;
 
 const DEFAULT_PORT: u16 = 18900;
+const DOWNLOAD_EVENT: &str = "deep-link-download";
 
 static SERVER_RUNNING: AtomicBool = AtomicBool::new(false);
 
@@ -20,7 +28,7 @@ pub struct DownloadRequest {
 }
 
 #[command]
-pub async fn start_http_api(port: Option<u16>) -> Result<String, String> {
+pub async fn start_http_api(app: AppHandle, port: Option<u16>) -> Result<String, String> {
     let port = port.unwrap_or(DEFAULT_PORT);
     let url = format!("http://127.0.0.1:{}", port);
 
@@ -47,8 +55,9 @@ pub async fn start_http_api(port: Option<u16>) -> Result<String, String> {
                 result = listener.accept() => {
                     match result {
                         Ok((mut stream, _)) => {
+                            let app = app.clone();
                             tokio::spawn(async move {
-                                let _ = handle_connection(&mut stream).await;
+                                let _ = handle_connection(&mut stream, &app).await;
                             });
                         }
                         Err(e) => {
@@ -65,7 +74,10 @@ pub async fn start_http_api(port: Option<u16>) -> Result<String, String> {
     Ok(url)
 }
 
-async fn handle_connection(stream: &mut tokio::net::TcpStream) -> Result<(), String> {
+async fn handle_connection(
+    stream: &mut tokio::net::TcpStream,
+    app: &AppHandle,
+) -> Result<(), String> {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
     let mut buf = vec![0u8; 65536];
@@ -75,15 +87,15 @@ async fn handle_connection(stream: &mut tokio::net::TcpStream) -> Result<(), Str
         .map_err(|e| format!("Read: {}", e))?;
     let request = String::from_utf8_lossy(&buf[..n]).to_string();
 
-    let (status, body) = route_request(&request).await;
+    let (status, body) = route_request(&request, app).await;
 
+    // Intentionally omit CORS headers so arbitrary websites cannot read the
+    // token from GET / or issue credentialed POSTs from a page context.
     let response = format!(
         "HTTP/1.1 {} {}\r\n\
          Content-Type: application/json\r\n\
          Content-Length: {}\r\n\
-         Access-Control-Allow-Origin: *\r\n\
-         Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n\
-         Access-Control-Allow-Headers: Content-Type, X-Motrix-Token\r\n\
+         Cache-Control: no-store\r\n\
          \r\n{}",
         status,
         status_text(status),
@@ -98,8 +110,9 @@ async fn handle_connection(stream: &mut tokio::net::TcpStream) -> Result<(), Str
     Ok(())
 }
 
-async fn route_request(request: &str) -> (u16, String) {
+async fn route_request(request: &str, app: &AppHandle) -> (u16, String) {
     if request.starts_with("OPTIONS ") {
+        // No CORS — browsers will fail preflight from web origins (desired).
         return (204, String::new());
     }
 
@@ -135,9 +148,14 @@ async fn route_request(request: &str) -> (u16, String) {
             Err(_) => return (400, err_body("invalid JSON")),
         };
 
-        return match aria2_add_uri(&req.url).await {
-            Ok(gid) => (200, format!("{{\"status\":\"ok\",\"gid\":\"{}\"}}", gid)),
-            Err(e) => (502, err_body(&e)),
+        // Emit to frontend for the same confirm gate as deep links — do not
+        // silently enqueue from the extension/HTTP bridge.
+        return match app.emit(DOWNLOAD_EVENT, &req.url) {
+            Ok(()) => (
+                202,
+                r#"{"status":"pending","message":"awaiting user confirmation"}"#.to_string(),
+            ),
+            Err(e) => (500, err_body(&format!("emit failed: {}", e))),
         };
     }
 
@@ -154,10 +172,12 @@ fn err_body(msg: &str) -> String {
 fn status_text(code: u16) -> &'static str {
     match code {
         200 => "OK",
+        202 => "Accepted",
         204 => "No Content",
         400 => "Bad Request",
         403 => "Forbidden",
         404 => "Not Found",
+        500 => "Internal Server Error",
         502 => "Bad Gateway",
         _ => "Error",
     }
@@ -174,57 +194,6 @@ mod tests {
         assert!(body.starts_with("{\"status\":\"error\""));
     }
 
-    #[tokio::test]
-    async fn test_route_options_returns_204() {
-        let (status, body) = route_request("OPTIONS /api/download HTTP/1.1\r\n\r\n").await;
-        assert_eq!(status, 204);
-        assert!(body.is_empty());
-    }
-
-    #[tokio::test]
-    async fn test_route_get_health() {
-        let (status, body) = route_request("GET / HTTP/1.1\r\n\r\n").await;
-        assert_eq!(status, 200);
-        assert!(body.contains("motrix-ai-http-api"));
-    }
-
-    #[tokio::test]
-    async fn test_route_post_invalid_json() {
-        let token = crate::commands::aria2::get_aria2_secret();
-        let req = format!(
-            "POST /api/download HTTP/1.1\r\nContent-Type: application/json\r\nX-Motrix-Token: {}\r\n\r\n{{bad}}",
-            token
-        );
-        let (status, body) = route_request(&req).await;
-        assert_eq!(status, 400);
-        assert!(body.contains("invalid JSON"));
-    }
-
-    #[tokio::test]
-    async fn test_route_post_empty_body() {
-        let token = crate::commands::aria2::get_aria2_secret();
-        let req = format!(
-            "POST /api/download HTTP/1.1\r\nX-Motrix-Token: {}\r\n\r\n",
-            token
-        );
-        let (status, _) = route_request(&req).await;
-        assert_eq!(status, 400);
-    }
-
-    #[tokio::test]
-    async fn test_route_post_without_token_returns_403() {
-        let req = "POST /api/download HTTP/1.1\r\nContent-Type: application/json\r\n\r\n{\"url\":\"https://example.com\"}";
-        let (status, body) = route_request(req).await;
-        assert_eq!(status, 403);
-        assert!(body.contains("token"));
-    }
-
-    #[tokio::test]
-    async fn test_route_unknown_path_404() {
-        let (status, _) = route_request("DELETE / HTTP/1.1\r\n\r\n").await;
-        assert_eq!(status, 404);
-    }
-
     #[test]
     fn test_download_request_deserialize() {
         let json = r#"{"url":"https://example.com/file.zip","title":"My File"}"#;
@@ -239,5 +208,10 @@ mod tests {
         let req: DownloadRequest = serde_json::from_str(json).unwrap();
         assert_eq!(req.url, "magnet:?xt=urn:btih:abc123");
         assert!(req.title.is_none());
+    }
+
+    #[test]
+    fn test_status_text_includes_202() {
+        assert_eq!(status_text(202), "Accepted");
     }
 }

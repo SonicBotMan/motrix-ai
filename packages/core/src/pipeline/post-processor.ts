@@ -1,24 +1,18 @@
 // pipeline/post-processor.ts — 下载后处理管线
 // 对应 PRD §6.4–6.6 字幕 → 重命名 → 归类 → 归档
 
-import { promises as fs } from "node:fs"
-import path from "node:path"
+import { promises as fs } from 'node:fs'
+import path from 'node:path'
 
-import type {
-  AppConfig,
-  DownloadIntent,
-  ResourceType,
-  SubtitleEntry,
-  Task,
-} from "../types.js"
-import type { SubtitleFinder } from "../subtitle/finder.js"
-import type { FileRenamer } from "../file/renamer.js"
-import type { FileOrganizer } from "../file/organizer.js"
-import type { TemplateEngine } from "../file/templates.js"
-import type { ArchiveSync } from "../archive/sync.js"
-import { createLogger } from "../logger.js"
+import type { AppConfig, DownloadIntent, ResourceType, SubtitleEntry, Task } from '../types.js'
+import type { SubtitleFinder } from '../subtitle/finder.js'
+import type { FileRenamer } from '../file/renamer.js'
+import type { FileOrganizer } from '../file/organizer.js'
+import type { TemplateEngine } from '../file/templates.js'
+import type { ArchiveSync } from '../archive/sync.js'
+import { createLogger } from '../logger.js'
 
-const logger = createLogger("post-processor")
+const logger = createLogger('post-processor')
 
 /** PostProcessor 所需的依赖集合（依赖注入） */
 export interface PostProcessorDeps {
@@ -30,7 +24,7 @@ export interface PostProcessorDeps {
 }
 
 /** 视频文件扩展名集合 */
-const VIDEO_EXTS = new Set(["mkv", "mp4", "avi", "ts", "mov"])
+const VIDEO_EXTS = new Set(['mkv', 'mp4', 'avi', 'ts', 'mov'])
 
 /**
  * 下载后处理管线。
@@ -68,17 +62,14 @@ export class PostProcessor {
    * @returns 更新后的 Task
    */
   async process(task: Task): Promise<Task> {
-    const resourceType = task.intent?.resource_type ?? "other"
+    const resourceType = task.intent?.resource_type ?? 'other'
 
     // ── Step 1: 字幕发现 ──────────────────────────────────────
     let subtitle: SubtitleEntry | null = null
     if (task.intent?.need_subtitle) {
       const video = this.findVideoFile(task.files)
       if (video) {
-        subtitle = await this.findSubtitle(
-          video.name,
-          this.config.subtitles.preferred_languages,
-        )
+        subtitle = await this.findSubtitle(video.name, this.config.subtitles.preferred_languages, video.path)
       }
     }
 
@@ -95,11 +86,7 @@ export class PostProcessor {
 
       // Step 3: 归类移动
       if (task.intent) {
-        currentPath = await this.organizeFile(
-          currentPath,
-          task.intent,
-          this.config,
-        )
+        currentPath = await this.organizeFile(currentPath, task.intent, this.config)
       }
 
       // Step 4: 归档同步
@@ -128,12 +115,9 @@ export class PostProcessor {
    * @param languages 偏好语言列表（如 `["zh-Hans", "en"]`）
    * @returns 字幕条目；未找到返回 `null`
    */
-  private async findSubtitle(
-    filename: string,
-    languages: string[],
-  ): Promise<SubtitleEntry | null> {
+  private async findSubtitle(filename: string, languages: string[], videoPath?: string): Promise<SubtitleEntry | null> {
     try {
-      return await this.deps.subtitleFinder.findBest(filename, languages)
+      return await this.deps.subtitleFinder.findBest(filename, languages, videoPath)
     } catch (err) {
       logger.warn(`字幕查找失败: ${filename} — ${String(err)}`)
       return null
@@ -151,30 +135,23 @@ export class PostProcessor {
    * @param intent   下载意图
    * @returns 重命名后的路径；渲染结果为空或重命名失败时返回原路径
    */
-  private async renameFile(
-    filePath: string,
-    intent: DownloadIntent,
-  ): Promise<string> {
+  private async renameFile(filePath: string, intent: DownloadIntent): Promise<string> {
     const dir = path.dirname(filePath)
     const originalName = path.basename(filePath)
     const ext = this.extractExt(originalName)
 
     const vars: Record<string, string> = {
       title: intent.title,
-      year: intent.year?.toString() ?? "",
-      quality: intent.quality ?? "",
+      year: intent.year?.toString() ?? '',
+      quality: intent.quality ?? '',
       ext,
       filename: originalName,
     }
 
-    const rendered = this.deps.templateEngine.renderPath(
-      intent.resource_type,
-      vars,
-    )
+    const rendered = this.deps.templateEngine.renderPath(intent.resource_type, vars)
     // 取模板渲染结果的最后一段作为新文件名（目录结构由 organize 步骤处理）
-    const segments = rendered.split("/").filter((s) => s.length > 0)
-    const newName =
-      segments.length > 0 ? segments[segments.length - 1] : originalName
+    const segments = rendered.split('/').filter((s) => s.length > 0)
+    const newName = segments.length > 0 ? segments[segments.length - 1] : originalName
 
     if (newName === originalName) {
       return filePath
@@ -201,11 +178,7 @@ export class PostProcessor {
    * @param config   应用配置
    * @returns 移动后的最终路径；移动失败时返回原路径
    */
-  private async organizeFile(
-    filePath: string,
-    intent: DownloadIntent,
-    config: AppConfig,
-  ): Promise<string> {
+  private async organizeFile(filePath: string, intent: DownloadIntent, config: AppConfig): Promise<string> {
     try {
       return await this.deps.fileOrganizer.organize(filePath, intent, config)
     } catch (err) {
@@ -222,10 +195,7 @@ export class PostProcessor {
    * @param filePath     文件路径
    * @param resourceType 资源类型
    */
-  private async archiveFile(
-    filePath: string,
-    resourceType: ResourceType,
-  ): Promise<void> {
+  private async archiveFile(filePath: string, resourceType: ResourceType): Promise<void> {
     try {
       await this.deps.archiveSync.syncFile(filePath, resourceType)
     } catch (err) {
@@ -239,9 +209,7 @@ export class PostProcessor {
    * @param files 文件列表
    * @returns 第一个视频文件条目；无视频文件返回 `undefined`
    */
-  private findVideoFile(
-    files: Task["files"],
-  ): Task["files"][number] | undefined {
+  private findVideoFile(files: Task['files']): Task['files'][number] | undefined {
     return files.find((f) => VIDEO_EXTS.has(this.extractExt(f.name)))
   }
 
@@ -252,7 +220,7 @@ export class PostProcessor {
    * @returns 扩展名
    */
   private extractExt(filename: string): string {
-    const parts = filename.split(".")
-    return parts.length > 1 ? parts.pop()!.toLowerCase() : "bin"
+    const parts = filename.split('.')
+    return parts.length > 1 ? parts.pop()!.toLowerCase() : 'bin'
   }
 }

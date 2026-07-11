@@ -82,7 +82,11 @@ async function sendToMotrixAI(url, title) {
     }
 
     if (response.ok) {
-      showNotification('Added to Motrix AI', title || url)
+      const pending = response.status === 202
+      showNotification(
+        pending ? 'Confirm in Motrix AI' : 'Added to Motrix AI',
+        title || url
+      )
       return
     }
   } catch {

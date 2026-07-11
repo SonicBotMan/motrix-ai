@@ -1,4 +1,4 @@
-// config/schema.ts + loader.ts — 配置管理
+// config/loader.ts — 配置管理
 // 对应 PRD §8.2.2 设置页 + §6.3 调度配置
 
 import type { AppConfig } from '../types.js'
@@ -65,6 +65,43 @@ export const DEFAULT_CONFIG: AppConfig = {
   },
 }
 
+/** Deep-merge a (possibly partial) config onto defaults — never wipe nested sections. */
+function mergeWithDefaults(partial: Record<string, unknown>): AppConfig {
+  const p = partial as Partial<AppConfig>
+  return {
+    ...DEFAULT_CONFIG,
+    ...p,
+    ai: { ...DEFAULT_CONFIG.ai, ...(p.ai ?? {}) },
+    aria2: { ...DEFAULT_CONFIG.aria2, ...(p.aria2 ?? {}) },
+    downloads: { ...DEFAULT_CONFIG.downloads, ...(p.downloads ?? {}) },
+    schedule: {
+      ...DEFAULT_CONFIG.schedule,
+      ...(p.schedule ?? {}),
+      rules: p.schedule?.rules ?? DEFAULT_CONFIG.schedule.rules,
+    },
+    disk: {
+      ...DEFAULT_CONFIG.disk,
+      ...(p.disk ?? {}),
+      thresholds: {
+        ...DEFAULT_CONFIG.disk.thresholds,
+        ...(p.disk?.thresholds ?? {}),
+      },
+    },
+    subtitles: {
+      ...DEFAULT_CONFIG.subtitles,
+      ...(p.subtitles ?? {}),
+      sources: {
+        ...DEFAULT_CONFIG.subtitles.sources,
+        ...(p.subtitles?.sources ?? {}),
+      },
+    },
+    archive: { ...DEFAULT_CONFIG.archive, ...(p.archive ?? {}) },
+    nas: { ...DEFAULT_CONFIG.nas, ...(p.nas ?? {}) },
+    ui: { ...DEFAULT_CONFIG.ui, ...(p.ui ?? {}) },
+    schemaVersion: p.schemaVersion,
+  }
+}
+
 export function loadConfig(): AppConfig {
   if (!existsSync(CONFIG_FILE)) {
     mkdirSync(CONFIG_DIR, { recursive: true })
@@ -74,7 +111,7 @@ export function loadConfig(): AppConfig {
   }
   const raw = JSON.parse(readFileSync(CONFIG_FILE, 'utf-8'))
   const migrated = migrateConfig(raw)
-  return { ...DEFAULT_CONFIG, ...migrated }
+  return mergeWithDefaults(migrated as Record<string, unknown>)
 }
 
 export function saveConfig(config: AppConfig): void {

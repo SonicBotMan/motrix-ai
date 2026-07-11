@@ -29,7 +29,10 @@ document.getElementById('download').addEventListener('click', async () => {
     })
 
     if (response.ok) {
-      status.textContent = 'Added to download queue'
+      status.textContent =
+        response.status === 202
+          ? 'Confirm the download in Motrix AI'
+          : 'Added to download queue'
       status.className = 'status success'
       document.getElementById('url').value = ''
     } else {

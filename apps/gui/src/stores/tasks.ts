@@ -130,12 +130,16 @@ export const useTasksStore = defineStore('tasks', () => {
   const intentByGid = new Map<string, DownloadIntentMeta>()
 
   const tasks = computed<Task[]>(() => {
-    // When connected, always mirror aria2 — including an empty queue —
-    // so we never show stale localTasks after clear/reconnect.
-    if (aria2.connected.value) {
-      return aria2.tasks.value.map((s) => fromAria2Status(s))
+    if (!aria2.connected.value) {
+      return localTasks.value
     }
-    return localTasks.value
+    const fromAria2 = aria2.tasks.value.map((s) => fromAria2Status(s))
+    if (fromAria2.length > 0) {
+      return fromAria2
+    }
+    // Connected + empty aria2 queue: never show stale gid-backed locals
+    // (they would ghost after clear/reconnect). Gidless optimistic rows are OK.
+    return localTasks.value.filter((t) => !t.gid)
   })
 
   const filteredTasks = computed<Task[]>(() => {
@@ -252,7 +256,10 @@ export const useTasksStore = defineStore('tasks', () => {
   }
 
   function findByGid(gid: string): Task | undefined {
-    return tasks.value.find((t) => t.gid === gid || String(t.id) === gid)
+    return (
+      tasks.value.find((t) => t.gid === gid || String(t.id) === gid) ??
+      localTasks.value.find((t) => t.gid === gid || String(t.id) === gid)
+    )
   }
 
   async function removeTask(gid: string): Promise<void> {
