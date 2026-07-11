@@ -24,6 +24,8 @@ let lastClipboardUrl = ''
 
 onMounted(async () => {
   await configStore.init()
+  // Own aria2 for the whole app lifetime — do not dispose from routed views.
+  tasksStore.init().catch((e) => console.warn('aria2 init failed:', e))
   sched.start()
 
   try {
@@ -79,6 +81,7 @@ onUnmounted(() => {
   unlistenDeepLink?.()
   unlistenFileDrop?.()
   if (clipboardPoller) clearInterval(clipboardPoller)
+  tasksStore.dispose().catch((e) => console.warn('aria2 dispose failed:', e))
 })
 </script>
 <template>

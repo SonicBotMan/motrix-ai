@@ -2,33 +2,47 @@
 // Handles the popup UI: send URL to desktop app, clipboard fallback,
 // and auto-fill from the active tab.
 
+const MOTRIX_API = 'http://127.0.0.1:18900'
+
+async function getMotrixToken() {
+  const res = await fetch(`${MOTRIX_API}/`)
+  if (!res.ok) throw new Error(`token endpoint ${res.status}`)
+  const data = await res.json()
+  if (!data.token) throw new Error('token missing')
+  return data.token
+}
+
 document.getElementById('download').addEventListener('click', async () => {
   const url = document.getElementById('url').value.trim()
   if (!url) return
 
   const status = document.getElementById('status')
   try {
-    const response = await fetch('http://127.0.0.1:18900/api/download', {
+    const token = await getMotrixToken()
+    const response = await fetch(`${MOTRIX_API}/api/download`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Motrix-Token': token
+      },
       body: JSON.stringify({ url, title: '' })
     })
 
     if (response.ok) {
-      status.textContent = '✅ Added to download queue'
+      status.textContent = 'Added to download queue'
       status.className = 'status success'
       document.getElementById('url').value = ''
     } else {
-      throw new Error('Failed')
+      throw new Error(`HTTP ${response.status}`)
     }
   } catch {
     // Copy to clipboard as fallback
     try {
       await navigator.clipboard.writeText(url)
-      status.textContent = '📋 Copied! Paste in Motrix AI app'
+      status.textContent = 'Copied! Paste in Motrix AI app'
       status.className = 'status success'
     } catch {
-      status.textContent = '⚠️ Could not connect or copy URL'
+      status.textContent = 'Could not connect or copy URL'
       status.className = 'status error'
     }
   }

@@ -130,7 +130,9 @@ export const useTasksStore = defineStore('tasks', () => {
   const intentByGid = new Map<string, DownloadIntentMeta>()
 
   const tasks = computed<Task[]>(() => {
-    if (aria2.connected.value && aria2.tasks.value.length > 0) {
+    // When connected, always mirror aria2 — including an empty queue —
+    // so we never show stale localTasks after clear/reconnect.
+    if (aria2.connected.value) {
       return aria2.tasks.value.map((s) => fromAria2Status(s))
     }
     return localTasks.value

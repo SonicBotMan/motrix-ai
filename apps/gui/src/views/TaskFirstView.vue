@@ -819,12 +819,11 @@ onMounted(() => {
     showOnboarding.value = false
   }
   document.addEventListener('keydown', handleKeydown)
-  tasksStore.init().catch((e) => console.warn('aria2 init failed:', e))
+  // aria2 init/dispose lives in App.vue so route changes cannot kill the daemon.
 })
 
 onUnmounted(() => {
   document.removeEventListener('keydown', handleKeydown)
-  tasksStore.dispose().catch((e) => console.warn('aria2 dispose failed:', e))
 })
 </script>
 

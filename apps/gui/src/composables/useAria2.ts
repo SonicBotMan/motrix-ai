@@ -453,7 +453,9 @@ const onConnectionChange = (listener: ConnectionListener) => {
 // app boot and `dispose()` once at app exit.
 
 async function start(): Promise<void> {
-  if (started || disposed) return
+  // Allow intentional restart after dispose (e.g. retry-connect).
+  if (started && !disposed) return
+  disposed = false
   started = true
 
   try {
@@ -488,6 +490,7 @@ async function start(): Promise<void> {
 async function dispose(): Promise<void> {
   if (disposed) return
   disposed = true
+  started = false
   disconnect()
   try {
     const { invoke } = await import('@tauri-apps/api/core')

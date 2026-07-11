@@ -335,13 +335,27 @@ pub async fn check_aria2_binary(app: tauri::AppHandle) -> Result<serde_json::Val
 }
 
 /// Helper: forward a JSON-RPC call to the local aria2 daemon.
+///
+/// Always prepends `token:{secret}` as the first RPC param so callers match
+/// the `--rpc-secret` used by `start_aria2` (same contract as `aria2_add_uri`).
 async fn aria2_rpc(method: &str, params: serde_json::Value) -> Result<serde_json::Value, String> {
+    let secret = get_aria2_secret();
+    let params_with_token = match params {
+        serde_json::Value::Array(mut arr) => {
+            arr.insert(
+                0,
+                serde_json::Value::String(format!("token:{}", secret)),
+            );
+            serde_json::Value::Array(arr)
+        }
+        other => serde_json::json!([format!("token:{}", secret), other]),
+    };
     let client = reqwest::Client::new();
     let body = serde_json::json!({
         "jsonrpc": "2.0",
         "id": "motrix-gui",
         "method": method,
-        "params": params,
+        "params": params_with_token,
     });
     let resp = client
         .post("http://127.0.0.1:6800/jsonrpc")
