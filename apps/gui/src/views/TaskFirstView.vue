@@ -219,12 +219,32 @@ async function handleSendMessage(message: string): Promise<void> {
     searchResults.value = []
 
     try {
-      const response = await invoke<{ results: SearchResult[]; total: number; source: string }>('search_proxy', {
-        query: searchQuery.value,
-        source: 'btdig',
-        page: 0,
-      })
-      searchResults.value = response.results || []
+      const SEARCH_SOURCES = ['btdig', '1337x', 'nyaa', 'mikan'] as const
+      const responses = await Promise.allSettled(
+        SEARCH_SOURCES.map((source) =>
+          invoke<{ results: SearchResult[]; total: number; source: string }>('search_proxy', {
+            query: searchQuery.value,
+            source,
+            page: 0,
+          }),
+        ),
+      )
+      const allResults: SearchResult[] = []
+      const seenHashes = new Set<string>()
+      for (const r of responses) {
+        if (r.status === 'fulfilled') {
+          for (const result of r.value.results ?? []) {
+            const hash = result.magnet.match(/btih:([a-zA-Z0-9]+)/i)?.[1]
+            const key = hash || result.magnet || `${result.title}_${result.size}`
+            if (key && !seenHashes.has(key)) {
+              seenHashes.add(key)
+              allResults.push(result)
+            }
+          }
+        }
+      }
+      allResults.sort((a, b) => b.seeders - a.seeders)
+      searchResults.value = allResults
       if (searchResults.value.length === 0) {
         addToast({
           id: generateToastId(),
@@ -631,7 +651,7 @@ async function bumpPriority(): Promise<void> {
 
 function handleTrySample(): void {
   const ubuntuMagnet =
-    'magnet:?xt=urn:btih:9e3f8a0f8c0c0a0c0f0a0e0a0d0b0a0c0f0a0e0a&dn=ubuntu-24.04-desktop-amd64.iso&tr=https%3A%2F%2Ftorrent.ubuntu.com%2Fannounce&tr=https%3A%2F%2Fipv6.torrent.ubuntu.com%2Fannounce'
+    'magnet:?xt=urn:btih:c9e15763f722f23e98a29decdfae341b51d5c4ea&dn=ubuntu-24.04.2-desktop-amd64.iso&tr=https%3A%2F%2Ftorrent.ubuntu.com%2Fannounce&tr=https%3A%2F%2Fipv6.torrent.ubuntu.com%2Fannounce'
   handleSendMessage(ubuntuMagnet)
 }
 
@@ -656,7 +676,7 @@ function openSettings(): void {
 
 function completeOnboarding(): void {
   try {
-    localStorage.setItem('motrix:onboarded', 'true')
+    localStorage.setItem('motrix-ai:onboarded', 'true')
   } catch {
     // localStorage may be unavailable (SSR / sandbox)
   }
@@ -747,7 +767,7 @@ function handleKeydown(e: KeyboardEvent): void {
 
 onMounted(() => {
   try {
-    showOnboarding.value = !localStorage.getItem('motrix:onboarded')
+    showOnboarding.value = !localStorage.getItem('motrix-ai:onboarded')
   } catch {
     showOnboarding.value = false
   }

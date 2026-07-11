@@ -54,11 +54,22 @@ fn safe_join(base: &Path, components: &[&str]) -> Result<PathBuf, String> {
     Ok(out)
 }
 
-/// Save file to disk (Bug 3: wrap blocking I/O in spawn_blocking)
+/// Save file to disk. Validates the path stays within the user's home directory.
 #[command]
 pub async fn save_file(path: String, content: Vec<u8>) -> Result<String, String> {
     tokio::task::spawn_blocking(move || {
-        let path = PathBuf::from(&path);
+        let path = expand_home(&path);
+
+        if let Some(home) = dirs::home_dir() {
+            let canon_home = home.canonicalize().unwrap_or_else(|_| home.clone());
+            let canon_path = path.canonicalize().unwrap_or_else(|_| path.clone());
+            if !canon_path.starts_with(&canon_home) {
+                return Err(format!(
+                    "Refusing to write outside home directory: {}",
+                    path.display()
+                ));
+            }
+        }
 
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent).map_err(|e| format!("Create dir failed: {}", e))?;
@@ -72,9 +83,12 @@ pub async fn save_file(path: String, content: Vec<u8>) -> Result<String, String>
     .map_err(|e| format!("Task join error: {}", e))?
 }
 
-/// Download subtitle from URL (Bug 3: wrap blocking I/O; Bug 10: shared client)
+/// Download subtitle from URL and save to disk. Only HTTP(S) URLs are accepted.
 #[command]
 pub async fn download_subtitle(url: String, save_path: String) -> Result<String, String> {
+    if !url.starts_with("https://") && !url.starts_with("http://") {
+        return Err("Only HTTP(S) URLs are allowed for subtitle download".to_string());
+    }
     let client = build_http_client()?;
 
     let response = client
@@ -90,7 +104,19 @@ pub async fn download_subtitle(url: String, save_path: String) -> Result<String,
 
     let path = save_path.clone();
     tokio::task::spawn_blocking(move || {
-        let path = PathBuf::from(&path);
+        let path = expand_home(&path);
+
+        if let Some(home) = dirs::home_dir() {
+            let canon_home = home.canonicalize().unwrap_or_else(|_| home.clone());
+            let canon_path = path.canonicalize().unwrap_or_else(|_| path.clone());
+            if !canon_path.starts_with(&canon_home) {
+                return Err(format!(
+                    "Refusing to write outside home directory: {}",
+                    path.display()
+                ));
+            }
+        }
+
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent).map_err(|e| format!("Create dir failed: {}", e))?;
         }

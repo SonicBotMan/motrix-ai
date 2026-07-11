@@ -7,6 +7,7 @@ import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
 import { useAria2, type Aria2Status } from '@/composables/useAria2'
 import { useConfigStore } from '@/stores/config'
+import { formatSpeed, formatSizeProgress, formatEta, timeRemaining } from '@/shared/utils/format'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -32,6 +33,10 @@ export interface Task {
   eta: string
   type: TaskType
   filePath?: string
+  errorMessage?: string
+  seeders?: number
+  files?: Array<{ name: string; size: number; path: string; selected: boolean }>
+  connections?: string
 }
 
 /** Intent metadata associated with a download for file organization */
@@ -94,17 +99,23 @@ function fromAria2Status(s: Aria2Status, idx: number): Task {
     id: idx + 1,
     gid: s.gid,
     name: filename,
-    // For BitTorrent-only tasks (no web seeds), files[0].uris is empty —
-    // fall back to the torrent info name so "Copy source" doesn't dupe a
-    // fake magnet across all torrent tasks.
     source: s.files?.[0]?.uris?.[0]?.uri || (s.bittorrent?.info?.name ? `torrent://${s.bittorrent.info.name}` : ''),
     status: mapAria2Status(s.status),
     progress,
-    speed: speed > 0 ? `${(speed / 1024 / 1024).toFixed(1)} MB/s` : '—',
-    size: `${(completed / 1024 / 1024).toFixed(0)} MB / ${(total / 1024 / 1024).toFixed(0)} MB`,
-    eta: speed > 0 && total > completed ? `${Math.round((total - completed) / speed)}s` : '—',
+    speed: formatSpeed(speed),
+    size: formatSizeProgress(completed, total),
+    eta: formatEta(timeRemaining(total, completed, speed)),
     type: getTypeFromFilename(filename),
     filePath: s.files?.[0]?.path,
+    errorMessage: s.errorMessage,
+    seeders: s.numSeeders ? Number(s.numSeeders) : undefined,
+    connections: s.connections,
+    files: s.files?.map((f) => ({
+      name: f.path?.split('/').pop() || f.path || '',
+      size: Number(f.length) || 0,
+      path: f.path || '',
+      selected: f.selected !== 'false',
+    })),
   }
 }
 
@@ -166,14 +177,24 @@ export const useTasksStore = defineStore('tasks', () => {
 
   // -- actions ------------------------------------------------------------
 
+  /** Tracks whether the post-download pipeline listener has been registered. */
+  let pipelineRegistered = false
+
   /**
    * Boot the aria2 connection. Delegates to the useAria2 singleton's
    * `start()` which handles bundled-binary startup, system-binary
    * fallback, and the polling-loop/connect sequence. Idempotent.
+   *
+   * The pipeline listener is registered only once — subsequent calls
+   * (e.g. from route navigation) skip re-registration to prevent
+   * duplicate notifications and file operations on download completion.
    */
   async function init(): Promise<void> {
     await aria2.start()
-    registerPostDownloadPipeline()
+    if (!pipelineRegistered) {
+      registerPostDownloadPipeline()
+      pipelineRegistered = true
+    }
   }
 
   /**
@@ -284,9 +305,9 @@ export const useTasksStore = defineStore('tasks', () => {
       source: url,
       status: 'downloading',
       progress: 0,
-      speed: '—',
-      size: '等待中...',
-      eta: '—',
+      speed: '\u2014',
+      size: '\u2014',
+      eta: '\u2014',
       type: getTypeFromFilename(url),
     })
   }
@@ -350,8 +371,8 @@ export const useTasksStore = defineStore('tasks', () => {
       const local = localTasks.value.find((t) => t.id === taskId)
       if (local) {
         local.status = 'downloading'
-        local.speed = '—'
-        local.eta = '计算中...'
+        local.speed = '\u2014'
+        local.eta = '\u2014'
       }
     }
   }
@@ -370,17 +391,22 @@ export const useTasksStore = defineStore('tasks', () => {
     if (task.gid && aria2.connected.value) {
       try {
         await aria2.remove(task.gid)
-        await aria2.addUri(task.source)
+        if (task.source.startsWith('magnet:') || /^https?:\/\//.test(task.source) || task.source.startsWith('ftp://')) {
+          await aria2.addUri(task.source)
+        } else {
+          throw new Error('Cannot retry BitTorrent task without original magnet or HTTP URL')
+        }
       } catch (e) {
         console.error('Failed to retry task via aria2:', e)
+        throw e
       }
     } else {
       const local = localTasks.value.find((t) => t.id === taskId)
       if (local) {
         local.status = 'downloading'
         local.progress = 0
-        local.speed = '—'
-        local.eta = '计算中...'
+        local.speed = '\u2014'
+        local.eta = '\u2014'
       }
     }
   }
