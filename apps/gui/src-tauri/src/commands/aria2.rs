@@ -1,13 +1,38 @@
 // commands/aria2.rs — Bundled aria2c process management.
 // Start/stop/diagnose the aria2c daemon with RPC enabled.
 
-use std::sync::Mutex;
+use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 use tauri::command;
 use tauri::Manager;
 
 /// Global store for the aria2c child PID
 static ARIA2_CHILD: Mutex<Option<u32>> = Mutex::new(None);
+
+/// Random secret generated on first start, reused across restarts within
+/// a single app session. Passed to aria2 via --rpc-secret and included
+/// in every JSON-RPC call as the first param ("token:<secret>").
+static ARIA2_SECRET: OnceLock<String> = OnceLock::new();
+
+/// Return the current session's aria2 RPC secret, generating one if needed.
+pub fn get_aria2_secret() -> &'static str {
+    ARIA2_SECRET.get_or_init(|| {
+        use std::time::{SystemTime, UNIX_EPOCH};
+        let seed = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0);
+        let pid = std::process::id();
+        format!("{:x}{:x}", seed, pid)
+    })
+}
+
+/// Tauri command exposing the secret to the frontend so it can include
+/// the token in its own JSON-RPC calls to aria2.
+#[command]
+pub fn get_rpc_secret() -> String {
+    get_aria2_secret().to_string()
+}
 
 /// Start the bundled aria2c daemon with RPC enabled.
 #[command]
@@ -93,13 +118,15 @@ pub async fn start_aria2(app: tauri::AppHandle, rpc_port: Option<u16>) -> Result
         .map(|p| p.to_path_buf())
         .unwrap_or_else(|| std::path::PathBuf::from(".motrix-ai"));
 
-    // Start aria2c (detached from parent process)
+    let secret = get_aria2_secret().clone();
+
     let mut cmd = std::process::Command::new(&aria2c_path);
     cmd.args([
         &format!("--rpc-listen-port={}", port),
         "--enable-rpc=true",
         "--rpc-allow-origin-all=true",
         "--rpc-listen-all=false",
+        &format!("--rpc-secret={}", secret),
         "--daemon=false",
         "--continue=true",
         "--max-connection-per-server=16",
@@ -147,7 +174,10 @@ pub async fn start_aria2(app: tauri::AppHandle, rpc_port: Option<u16>) -> Result
     let check = client
         .post(&rpc_url)
         .header("Content-Type", "application/json")
-        .body(r#"{"jsonrpc":"2.0","id":"check","method":"aria2.getVersion"}"#)
+        .body(format!(
+            r#"{{"jsonrpc":"2.0","id":"check","method":"aria2.getVersion","params":["token:{}"]}}"#,
+            secret
+        ))
         .timeout(Duration::from_secs(3))
         .send()
         .await;

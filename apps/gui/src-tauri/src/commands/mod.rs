@@ -136,12 +136,13 @@ pub(crate) async fn aria2_add_uri(url: &str) -> Result<String, String> {
         return Err(format!("Unsupported URL scheme: {}", url));
     }
 
+    let secret = crate::commands::aria2::get_aria2_secret();
     let client = build_http_client()?;
     let body = serde_json::json!({
         "jsonrpc": "2.0",
         "id": "motrix-internal",
         "method": "aria2.addUri",
-        "params": [[url]],
+        "params": [format!("token:{}", secret), [url]],
     });
     let resp = client
         .post("http://127.0.0.1:6800/jsonrpc")

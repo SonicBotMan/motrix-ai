@@ -464,6 +464,11 @@ async function start(): Promise<void> {
       emitConnection('error', 'Bundled aria2c binary not found')
     } else {
       await invoke<string>('start_aria2', { rpcPort: 6800 })
+      try {
+        secretRef.value = await invoke<string>('get_rpc_secret')
+      } catch {
+        /* secret not available — legacy aria2 without token */
+      }
       aria2Running.value = true
     }
   } catch (e) {

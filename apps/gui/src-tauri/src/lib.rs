@@ -33,11 +33,13 @@ pub fn run() {
             }
 
             // ---- Deep Link ----
-            // Forward magnet://ed2k://thunder:// URLs to aria2 on open.
+            // Forward magnet://ed2k://thunder:// URLs to the frontend for
+            // user confirmation before adding to aria2.
             #[cfg(desktop)]
             {
+                use tauri::Emitter;
                 use tauri_plugin_deep_link::DeepLinkExt;
-                app.deep_link().on_open_url(|event| {
+                app.deep_link().on_open_url(move |event| {
                     for url in event.urls() {
                         let url_str = url.to_string();
                         log::info!("Deep link opened: {}", url_str);
@@ -45,13 +47,7 @@ pub fn run() {
                             || url_str.starts_with("ed2k://")
                             || url_str.starts_with("thunder://")
                         {
-                            let url_owned = url_str.clone();
-                            tauri::async_runtime::spawn(async move {
-                                match commands::aria2_add_uri(&url_owned).await {
-                                    Ok(gid) => log::info!("Deep link queued: gid {}", gid),
-                                    Err(e) => log::warn!("Deep link forward failed: {}", e),
-                                }
-                            });
+                            let _ = event.window().emit("deep-link-download", &url_str);
                         }
                     }
                 });
@@ -107,6 +103,7 @@ pub fn run() {
             commands::aria2::start_aria2,
             commands::aria2::stop_aria2,
             commands::aria2::check_aria2_binary,
+            commands::aria2::get_rpc_secret,
             commands::aria2::pause_all,
             commands::aria2::unpause_all,
             commands::aria2::add_torrent_file,
