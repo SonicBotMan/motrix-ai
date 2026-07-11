@@ -200,6 +200,8 @@ export const useTasksStore = defineStore('tasks', () => {
                 query: filename.replace(/\.[^.]+$/, ''),
                 languages: langs,
               })
+            } else {
+              logger.info('Subtitle auto-search skipped: no OpenSubtitles API key configured')
             }
           }
         } catch (e) {

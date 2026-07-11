@@ -98,12 +98,33 @@ pub async fn load_config() -> Result<Value, String> {
 pub async fn save_config(config: Value) -> Result<(), String> {
     let path = config_path()?;
     tokio::task::spawn_blocking(move || -> Result<(), String> {
-        if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent).map_err(|e| format!("Create dir failed: {}", e))?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            if path.exists() {
+                let meta = std::fs::metadata(&path).map_err(|e| format!("Stat failed: {}", e))?;
+                if meta.file_type().is_symlink() {
+                    return Err("Refusing to write to symlink".to_string());
+                }
+            }
+            let json = serde_json::to_string_pretty(&config)
+                .map_err(|e| format!("Serialize failed: {}", e))?;
+            if let Some(parent) = path.parent() {
+                std::fs::create_dir_all(parent).map_err(|e| format!("Create dir failed: {}", e))?;
+            }
+            std::fs::write(&path, &json).map_err(|e| format!("Write failed: {}", e))?;
+            std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600))
+                .map_err(|e| format!("Set permissions failed: {}", e))?;
         }
-        let json = serde_json::to_string_pretty(&config)
-            .map_err(|e| format!("Serialize failed: {}", e))?;
-        std::fs::write(&path, json).map_err(|e| format!("Write failed: {}", e))?;
+        #[cfg(not(unix))]
+        {
+            let json = serde_json::to_string_pretty(&config)
+                .map_err(|e| format!("Serialize failed: {}", e))?;
+            if let Some(parent) = path.parent() {
+                std::fs::create_dir_all(parent).map_err(|e| format!("Create dir failed: {}", e))?;
+            }
+            std::fs::write(&path, &json).map_err(|e| format!("Write failed: {}", e))?;
+        }
         Ok(())
     })
     .await

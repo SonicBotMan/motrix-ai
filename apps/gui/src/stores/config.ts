@@ -63,6 +63,7 @@ export interface UiConfig {
 export interface AppConfig {
   ai: { provider: AIProvider; model: string; api_key?: string; base_url?: string }
   aria2: { rpc_url: string; rpc_secret?: string }
+  network: { http_proxy: string; https_proxy: string; ftp_proxy: string; no_proxy: string }
   downloads: {
     base_dir: string
     movie_dir: string
@@ -94,6 +95,7 @@ export interface AppConfig {
 export const DEFAULT_CONFIG: AppConfig = {
   ai: { provider: 'opencode', model: 'opencode/deepseek-v4-flash-free' },
   aria2: { rpc_url: 'http://127.0.0.1:6800/jsonrpc' },
+  network: { http_proxy: '', https_proxy: '', ftp_proxy: '', no_proxy: '' },
   downloads: {
     base_dir: '~/Downloads/Motrix AI',
     movie_dir: '~/Downloads/Motrix AI/Movies',
@@ -261,6 +263,10 @@ export const useConfigStore = defineStore('config', () => {
         ...fileConfig,
         ai: { ...DEFAULT_CONFIG.ai, ...fileConfig.ai },
         aria2: { ...DEFAULT_CONFIG.aria2, ...fileConfig.aria2 },
+        network: {
+          ...DEFAULT_CONFIG.network,
+          ...((fileConfig as unknown as Record<string, unknown>).network as typeof DEFAULT_CONFIG.network),
+        },
         downloads: { ...DEFAULT_CONFIG.downloads, ...fileConfig.downloads },
         schedule: { ...DEFAULT_CONFIG.schedule, ...fileConfig.schedule },
         disk: { ...DEFAULT_CONFIG.disk, ...fileConfig.disk },
