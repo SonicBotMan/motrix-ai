@@ -1,13 +1,13 @@
 // archive/sync.ts — 归档同步到 NAS
 // 对应 PRD §6.6 归档与备份
 
-import { exec } from "node:child_process"
-import { promisify } from "node:util"
-import path from "node:path"
-import type { AppConfig, ArchiveTarget, ResourceType } from "../types.js"
-import { createLogger } from "../logger.js"
+import { exec } from 'node:child_process'
+import { promisify } from 'node:util'
+import path from 'node:path'
+import type { AppConfig, ArchiveTarget, ResourceType } from '../types.js'
+import { createLogger } from '../logger.js'
 
-const logger = createLogger("archive")
+const logger = createLogger('archive')
 
 const execAsync = promisify(exec)
 
@@ -49,20 +49,17 @@ export class ArchiveSync {
    *   const result = await sync.syncFile("/downloads/Movies/a.mkv", "movie")
    *   // => { target: {...}, remotePath: "/volume1/movies/a.mkv" }
    */
-  async syncFile(
-    filePath: string,
-    resourceType: ResourceType,
-  ): Promise<SyncResult | null> {
+  async syncFile(filePath: string, resourceType: ResourceType): Promise<SyncResult | null> {
     if (!this.config.archive.enabled) return null
 
     const target = this.findTarget(resourceType)
     if (!target) return null
 
     const fileName = path.basename(filePath)
-    const remotePath = `${target.path.replace(/\/$/, "")}/${fileName}`
+    const remotePath = `${target.path.replace(/\/$/, '')}/${fileName}`
 
     const cmd = this.buildRsyncCommand(filePath, target)
-    await execAsync(cmd, { maxBuffer: 10 * 1024 * 1024 })
+    await execAsync(cmd, { maxBuffer: 10 * 1024 * 1024, timeout: 120_000 })
 
     return { target, remotePath }
   }
@@ -78,7 +75,7 @@ export class ArchiveSync {
    */
   async testConnection(target: ArchiveTarget): Promise<boolean> {
     try {
-      const dest = `${target.host}:${target.path.replace(/\/$/, "")}/`
+      const dest = `${target.host}:${target.path.replace(/\/$/, '')}/`
       const cmd = `rsync --dry-run --list-only ${this.escape(dest)}`
       await execAsync(cmd, { timeout: 15000 })
       return true
@@ -119,7 +116,7 @@ export class ArchiveSync {
    * @returns 完整的 rsync 命令字符串
    */
   private buildRsyncCommand(source: string, target: ArchiveTarget): string {
-    const dest = `${target.host}:${target.path.replace(/\/$/, "")}/`
+    const dest = `${target.host}:${target.path.replace(/\/$/, '')}/`
     return `rsync -avz --progress ${this.escape(source)} ${this.escape(dest)}`
   }
 
@@ -133,9 +130,7 @@ export class ArchiveSync {
    * @returns 第一个匹配的目标；无匹配返回 `undefined`
    */
   private findTarget(resourceType: ResourceType): ArchiveTarget | undefined {
-    return this.config.archive.targets.find(
-      (t) => !t.match.resource_type || t.match.resource_type === resourceType,
-    )
+    return this.config.archive.targets.find((t) => !t.match.resource_type || t.match.resource_type === resourceType)
   }
 
   /**

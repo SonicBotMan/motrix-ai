@@ -381,7 +381,7 @@ watch(showMoreMenu, (visible) => {
             </div>
             <div class="stat-cell">
               <div class="stat-label">Seeders</div>
-              <div class="stat-value">{{ props.task.connections ?? '—' }}</div>
+              <div class="stat-value">{{ props.task.seeders ?? '—' }}</div>
             </div>
           </section>
 

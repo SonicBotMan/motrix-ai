@@ -172,10 +172,14 @@ const call = async <T>(method: string, ...params: unknown[]): Promise<T> => {
 
 const spawnAria2 = async () => {
   const { Command } = await import('@tauri-apps/plugin-shell')
+  // Align with Rust start_aria2: localhost-only + rpc-secret.
+  const secret = secretRef.value || `fallback-${Date.now().toString(16)}-${Math.random().toString(16).slice(2)}`
+  secretRef.value = secret
   const cmd = Command.create(aria2PathRef.value, [
     '--enable-rpc',
     '--rpc-listen-port=6800',
-    '--rpc-listen-all=true',
+    '--rpc-listen-all=false',
+    `--rpc-secret=${secret}`,
     '--continue=true',
     '--max-concurrent-downloads=5',
     '--split=5',

@@ -69,6 +69,7 @@ const menuPosition = ref<{ x: number; y: number } | null>(null)
 const toasts = ref<Toast[]>([])
 const showOnboarding = ref(false)
 const keyboardIndex = ref(-1)
+const bottomChatRef = ref<{ focus: () => void } | null>(null)
 
 const showSearchResults = ref(false)
 const searchResults = ref<SearchResult[]>([])
@@ -184,16 +185,35 @@ async function handleSendMessage(message: string): Promise<void> {
     .filter(Boolean)
   if (lines.length > 1) {
     addToast({ id: generateToastId(), type: 'info', text: `Adding ${lines.length} downloads…`, createdAt: Date.now() })
+    let ok = 0
+    let fail = 0
     for (const line of lines) {
       if (/^(magnet:|ed2k:\/\/|https?:\/\/|ftp:\/\/)/i.test(line)) {
         try {
           await aria2AddUri(line)
+          ok++
         } catch {
-          /* skip failed URLs in batch */
+          fail++
         }
+      } else {
+        fail++
       }
     }
-    addToast({ id: generateToastId(), type: 'success', text: 'Batch complete', createdAt: Date.now() })
+    if (ok === 0) {
+      addToast({
+        id: generateToastId(),
+        type: 'error',
+        text: fail > 0 ? `Batch failed (${fail} skipped)` : 'Batch failed',
+        createdAt: Date.now(),
+      })
+    } else {
+      addToast({
+        id: generateToastId(),
+        type: fail > 0 ? 'info' : 'success',
+        text: fail > 0 ? `Batch complete: ${ok} added, ${fail} failed` : `Batch complete: ${ok} added`,
+        createdAt: Date.now(),
+      })
+    }
     return
   }
 
@@ -370,6 +390,7 @@ function handleQuickAction(index: number): void {
       addToast({ id: generateToastId(), type: 'info', text: 'Showing completed downloads', createdAt: Date.now() })
       return
     case 4: // Add magnet URL → focus the bottom chat input
+      bottomChatRef.value?.focus()
       addToast({
         id: generateToastId(),
         type: 'info',
@@ -444,11 +465,13 @@ function openDetail(task: Task): void {
   selectedTask.value = task
   showDetail.value = true
   keyboardIndex.value = -1
+  fileSelection.value = new Map()
 }
 
 function closeDetail(): void {
   showDetail.value = false
   selectedTask.value = null
+  fileSelection.value = new Map()
 }
 
 // ---------------------------------------------------------------------------
@@ -743,13 +766,16 @@ function completeOnboarding(): void {
 // Keyboard navigation (docs/design/handoff/04-accessibility.md §3)
 // ---------------------------------------------------------------------------
 
-/** Filtered tasks for keyboard j/k navigation (mirrors TaskTable filter) */
+/** Filtered tasks for keyboard j/k navigation (mirrors TaskTable filter + search) */
 const filteredForKb = computed<Task[]>(() => {
-  if (activeFilter.value === 'all') return tasks.value
+  let list = tasks.value
   if (activeFilter.value === 'active') {
-    return tasks.value.filter((t) => t.status === 'downloading' || t.status === 'paused')
+    list = list.filter((t) => t.status === 'downloading' || t.status === 'paused')
+  } else if (activeFilter.value !== 'all') {
+    list = list.filter((t) => t.status === activeFilter.value)
   }
-  return tasks.value.filter((t) => t.status === activeFilter.value)
+  // `tasks` already applies taskSearchQuery — keep keyboard nav on the visible set.
+  return list
 })
 
 function handleKeydown(e: KeyboardEvent): void {
@@ -874,7 +900,12 @@ onUnmounted(() => {
     </main>
 
     <!-- Bottom chat input (96px, sticky bottom) -->
-    <BottomChat @send="handleSendMessage" @quick-action="handleQuickAction" @attach="handleAttach" />
+    <BottomChat
+      ref="bottomChatRef"
+      @send="handleSendMessage"
+      @quick-action="handleQuickAction"
+      @attach="handleAttach"
+    />
 
     <!-- Toast stack (floating above bottom chat) -->
     <ToastStack :toasts="toasts" @dismiss="dismissToast" />

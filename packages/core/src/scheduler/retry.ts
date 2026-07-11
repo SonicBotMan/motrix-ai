@@ -47,49 +47,39 @@ export class RetryScheduler {
    * @returns 更新后的任务列表
    */
   async checkAndRetry(tasks: Task[]): Promise<Task[]> {
-    const updated: Task[] = []
+    const results = await Promise.all(
+      tasks.map(async (task) => {
+        if (!this.shouldRetry(task)) return task
 
-    for (const task of tasks) {
-      if (!this.shouldRetry(task)) {
-        updated.push(task)
-        continue
-      }
+        const delay = this.baseDelayMs * Math.pow(2, task.retry_count)
+        await this.sleep(delay)
 
-      // 指数退避延迟
-      const delay = this.baseDelayMs * Math.pow(2, task.retry_count)
-
-      // 等待退避时间
-      await this.sleep(delay)
-
-      try {
-        // 重新提交下载链接
-        if (!task.uri) {
-          updated.push({
+        try {
+          if (!task.uri) {
+            return {
+              ...task,
+              retry_count: task.retry_count + 1,
+              error: task.error ?? 'missing uri for retry',
+            }
+          }
+          const newGid = await this.aria2.addUri(task.uri)
+          return {
+            ...task,
+            status: 'pending' as const,
+            retry_count: task.retry_count + 1,
+            aria2_gid: newGid,
+            error: undefined,
+          }
+        } catch {
+          return {
             ...task,
             retry_count: task.retry_count + 1,
-            error: task.error ?? 'missing uri for retry',
-          })
-          continue
+          }
         }
-        const newGid = await this.aria2.addUri(task.uri)
+      }),
+    )
 
-        updated.push({
-          ...task,
-          status: 'pending',
-          retry_count: task.retry_count + 1,
-          aria2_gid: newGid,
-          error: undefined,
-        })
-      } catch {
-        // 重试提交失败，保留失败状态但递增计数
-        updated.push({
-          ...task,
-          retry_count: task.retry_count + 1,
-        })
-      }
-    }
-
-    return updated
+    return results
   }
 
   /**

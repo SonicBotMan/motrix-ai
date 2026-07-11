@@ -67,8 +67,20 @@ onMounted(async () => {
     try {
       const text = await navigator.clipboard.readText()
       if (!text || text === lastClipboardUrl) return
-      if (/^(magnet:|ed2k:\/\/|https?:\/\/|ftp:\/\/)/i.test(text.trim()) && text.trim().length < 2000) {
-        lastClipboardUrl = text
+      const url = text.trim()
+      if (!/^(magnet:|ed2k:\/\/|https?:\/\/|ftp:\/\/)/i.test(url) || url.length >= 2000) return
+      lastClipboardUrl = text
+      try {
+        const { confirm } = await import('@tauri-apps/plugin-dialog')
+        const accepted = await confirm(`Add this download from clipboard?\n\n${url.slice(0, 200)}`, {
+          title: 'Clipboard Download',
+          kind: 'info',
+        })
+        if (accepted) {
+          await tasksStore.addTask(url)
+        }
+      } catch {
+        /* dialog unavailable — keep lastClipboardUrl so we don't spam */
       }
     } catch {
       /* clipboard not accessible */

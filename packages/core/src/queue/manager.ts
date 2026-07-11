@@ -35,14 +35,29 @@ export class QueueManager {
     await this.aria2.remove(gid)
   }
 
-  /** 查询所有任务 */
+  /** 查询所有任务（分页拉取 waiting/stopped，避免 100 条截断） */
   async listAll(): Promise<Task[]> {
+    const pageSize = 100
+    const paginate = async (fetchPage: (offset: number, num: number) => Promise<unknown[]>) => {
+      const all: unknown[] = []
+      let offset = 0
+      for (;;) {
+        const batch = await fetchPage(offset, pageSize)
+        all.push(...batch)
+        if (batch.length < pageSize) break
+        offset += pageSize
+      }
+      return all
+    }
+
     const [active, waiting, stopped] = await Promise.all([
       this.aria2.tellActive(),
-      this.aria2.tellWaiting(),
-      this.aria2.tellStopped(),
+      paginate((o, n) => this.aria2.tellWaiting(o, n)),
+      paginate((o, n) => this.aria2.tellStopped(o, n)),
     ])
-    return [...active, ...waiting, ...stopped].map((s) => this.aria2.mapToTask(s))
+    return [...active, ...waiting, ...stopped].map((s) =>
+      this.aria2.mapToTask(s as Parameters<Aria2Client['mapToTask']>[0]),
+    )
   }
 
   /** 查询单个任务状态 */
