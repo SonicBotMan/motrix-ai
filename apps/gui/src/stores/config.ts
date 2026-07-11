@@ -158,6 +158,23 @@ export const DEFAULT_CONFIG: AppConfig = {
 // Helpers
 // ---------------------------------------------------------------------------
 
+function deepMerge<T>(defaults: T, override: unknown): T {
+  if (override === null || override === undefined) return defaults
+  if (Array.isArray(defaults) || Array.isArray(override)) {
+    return (Array.isArray(override) ? override : defaults) as T
+  }
+  if (typeof defaults !== 'object' || typeof override !== 'object') {
+    return (override as T) ?? defaults
+  }
+  const out: Record<string, unknown> = { ...(defaults as Record<string, unknown>) }
+  for (const [k, v] of Object.entries(override as Record<string, unknown>)) {
+    if (v !== undefined) {
+      out[k] = k in out ? deepMerge((out as Record<string, unknown>)[k], v) : v
+    }
+  }
+  return out as T
+}
+
 /** Deep clone a value via structured clone (with JSON fallback) */
 function deepClone<T>(value: T): T {
   if (typeof structuredClone === 'function') return structuredClone(value)
@@ -258,23 +275,7 @@ export const useConfigStore = defineStore('config', () => {
   async function init(): Promise<void> {
     try {
       const fileConfig = await invoke<AppConfig>('load_config')
-      config.value = {
-        ...DEFAULT_CONFIG,
-        ...fileConfig,
-        ai: { ...DEFAULT_CONFIG.ai, ...fileConfig.ai },
-        aria2: { ...DEFAULT_CONFIG.aria2, ...fileConfig.aria2 },
-        network: {
-          ...DEFAULT_CONFIG.network,
-          ...((fileConfig as unknown as Record<string, unknown>).network as typeof DEFAULT_CONFIG.network),
-        },
-        downloads: { ...DEFAULT_CONFIG.downloads, ...fileConfig.downloads },
-        schedule: { ...DEFAULT_CONFIG.schedule, ...fileConfig.schedule },
-        disk: { ...DEFAULT_CONFIG.disk, ...fileConfig.disk },
-        subtitles: { ...DEFAULT_CONFIG.subtitles, ...fileConfig.subtitles },
-        archive: { ...DEFAULT_CONFIG.archive, ...fileConfig.archive },
-        nas: { ...DEFAULT_CONFIG.nas, ...fileConfig.nas },
-        ui: { ...DEFAULT_CONFIG.ui, ...fileConfig.ui },
-      }
+      config.value = deepMerge(DEFAULT_CONFIG, fileConfig)
     } catch {
       config.value = migrateFromLocalStorage()
       cleanupOldKeys()

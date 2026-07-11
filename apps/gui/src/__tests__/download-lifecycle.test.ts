@@ -17,13 +17,22 @@ const onTaskCompleteSpy = vi.fn().mockReturnValue(() => {})
 const startSpy = vi.fn().mockResolvedValue(undefined)
 const disposeSpy = vi.fn().mockResolvedValue(undefined)
 
+// Mutable mock state. Plain objects suffice because each test creates a fresh
+// pinia (new store instance, new computed), and the mock values are set before
+// the computed is first accessed. The store's `localTasks` ref is the only
+// reactive source the computed needs to track at runtime.
+const mockState = vi.hoisted(() => ({
+  connected: { value: true },
+  tasks: { value: [] as unknown[] },
+}))
+
 vi.mock('@/composables/useAria2', () => ({
   useAria2: () => ({
-    connected: { value: true },
+    connected: mockState.connected,
     connecting: { value: false },
     aria2Running: { value: true },
     globalStat: { value: null },
-    tasks: { value: [] as unknown[] },
+    tasks: mockState.tasks,
     onConnectionChange: () => () => {},
     onTaskComplete: onTaskCompleteSpy,
     start: startSpy,
@@ -47,9 +56,24 @@ vi.mock('@/composables/useAria2', () => ({
   }),
 }))
 
+function mockAria2Task(gid: string, overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    gid,
+    status: 'active',
+    totalLength: '0',
+    completedLength: '0',
+    downloadSpeed: '0',
+    uploadSpeed: '0',
+    files: [],
+    ...overrides,
+  }
+}
+
 beforeEach(() => {
   setActivePinia(createPinia())
   vi.clearAllMocks()
+  mockState.connected.value = true
+  mockState.tasks.value = []
   const store: Record<string, string> = {}
   vi.stubGlobal('localStorage', {
     getItem: (k: string) => store[k] ?? null,
@@ -90,25 +114,15 @@ describe('Download lifecycle', () => {
   })
 
   test('pauseTask calls aria2.pause with GID', async () => {
+    mockState.tasks.value = [mockAria2Task('g-pause')]
     const { useTasksStore } = await import('../stores/tasks')
     const store = useTasksStore()
-    store.localTasks.push({
-      id: 1,
-      gid: 'g-pause',
-      name: 't',
-      source: '',
-      status: 'downloading',
-      progress: 0,
-      speed: '',
-      size: '',
-      eta: '',
-      type: 'document' as const,
-    })
     await store.pauseTask('g-pause')
     expect(pauseSpy).toHaveBeenCalledWith('g-pause')
   })
 
   test('pauseTask on gidless task stays local', async () => {
+    mockState.connected.value = false
     const { useTasksStore } = await import('../stores/tasks')
     const store = useTasksStore()
     store.localTasks.push({
@@ -128,44 +142,23 @@ describe('Download lifecycle', () => {
   })
 
   test('resumeTask calls aria2.unpause', async () => {
+    mockState.tasks.value = [mockAria2Task('g-resume', { status: 'paused' })]
     const { useTasksStore } = await import('../stores/tasks')
     const store = useTasksStore()
-    store.localTasks.push({
-      id: 3,
-      gid: 'g-resume',
-      name: 't',
-      source: '',
-      status: 'paused',
-      progress: 0,
-      speed: '',
-      size: '',
-      eta: '',
-      type: 'document' as const,
-    })
     await store.resumeTask('g-resume')
     expect(unpauseSpy).toHaveBeenCalledWith('g-resume')
   })
 
   test('removeTask calls aria2.remove', async () => {
+    mockState.tasks.value = [mockAria2Task('g-remove')]
     const { useTasksStore } = await import('../stores/tasks')
     const store = useTasksStore()
-    store.localTasks.push({
-      id: 4,
-      gid: 'g-remove',
-      name: 't',
-      source: '',
-      status: 'downloading',
-      progress: 0,
-      speed: '',
-      size: '',
-      eta: '',
-      type: 'document' as const,
-    })
     await store.removeTask('g-remove')
     expect(removeSpy).toHaveBeenCalledWith('g-remove')
   })
 
   test('removeTask on gidless removes from localTasks', async () => {
+    mockState.connected.value = false
     const { useTasksStore } = await import('../stores/tasks')
     const store = useTasksStore()
     store.localTasks.push({
@@ -184,45 +177,36 @@ describe('Download lifecycle', () => {
   })
 
   test('retryTask removes old + re-adds source', async () => {
+    mockState.tasks.value = [
+      mockAria2Task('old-gid', {
+        status: 'error',
+        files: [
+          {
+            path: '/tmp/failed.zip',
+            length: '0',
+            completedLength: '0',
+            uris: [{ uri: 'https://example.com/f.zip', status: 'used' }],
+          },
+        ],
+      }),
+    ]
     const { useTasksStore } = await import('../stores/tasks')
     const store = useTasksStore()
-    store.localTasks.push({
-      id: 6,
-      gid: 'old-gid',
-      name: 'failed',
-      source: 'https://example.com/f.zip',
-      status: 'failed',
-      progress: 0,
-      speed: '',
-      size: '',
-      eta: '',
-      type: 'document' as const,
-    })
     await store.retryTask('old-gid')
     expect(removeSpy).toHaveBeenCalledWith('old-gid')
     expect(addUriSpy).toHaveBeenCalledWith('https://example.com/f.zip')
   })
 
   test('bumpPriority calls changeOption with pri-high', async () => {
+    mockState.tasks.value = [mockAria2Task('g-prio')]
     const { useTasksStore } = await import('../stores/tasks')
     const store = useTasksStore()
-    store.localTasks.push({
-      id: 7,
-      gid: 'g-prio',
-      name: 't',
-      source: '',
-      status: 'downloading',
-      progress: 0,
-      speed: '',
-      size: '',
-      eta: '',
-      type: 'document' as const,
-    })
     await store.bumpPriority('g-prio')
     expect(changeOptionSpy).toHaveBeenCalledWith('g-prio', { priority: 'pri-high' })
   })
 
   test('bumpPriority rejects without GID', async () => {
+    mockState.connected.value = false
     const { useTasksStore } = await import('../stores/tasks')
     const store = useTasksStore()
     store.localTasks.push({
@@ -262,6 +246,7 @@ describe('Download lifecycle', () => {
   })
 
   test('filteredTasks respects filter', async () => {
+    mockState.connected.value = false
     const { useTasksStore } = await import('../stores/tasks')
     const store = useTasksStore()
     store.localTasks = [
@@ -293,6 +278,7 @@ describe('Download lifecycle', () => {
   })
 
   test('activeCount + completedCount correct', async () => {
+    mockState.connected.value = false
     const { useTasksStore } = await import('../stores/tasks')
     const store = useTasksStore()
     store.localTasks = [

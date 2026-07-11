@@ -12,6 +12,7 @@ vi.mock('node:fs', () => ({
   promises: {
     rename: vi.fn().mockResolvedValue(undefined),
     mkdir: vi.fn().mockResolvedValue(undefined),
+    writeFile: vi.fn().mockResolvedValue(undefined),
     access: vi.fn().mockRejectedValue(new Error('not found')),
   },
 }))
@@ -25,9 +26,7 @@ function makeTask(overrides: Partial<Task> = {}): Task {
     priority: 3,
     progress: 100,
     speed: { down: 0, up: 0 },
-    files: [
-      { name: 'movie.mkv', path: '/tmp/movie.mkv', size: 1000, completed: 1000 },
-    ],
+    files: [{ name: 'movie.mkv', path: '/tmp/movie.mkv', size: 1000, completed: 1000 }],
     created_at: new Date(),
     retry_count: 0,
     ...overrides,
@@ -62,6 +61,7 @@ function makeDeps(): PostProcessorDeps {
       findBest: vi.fn().mockResolvedValue({
         language: 'zh-Hans',
         path: '/tmp/movie.zh-Hans.srt',
+        downloadUrl: 'data:text/plain;base64,SGVsbG8=',
         source: 'shooter',
       }),
     },
@@ -156,8 +156,9 @@ describe('PostProcessor', () => {
     })
 
     it('handles subtitle search failure gracefully', async () => {
-      ;(deps.subtitleFinder as { findBest: { mockRejectedValue: (e: Error) => void } })
-        .findBest.mockRejectedValue(new Error('network'))
+      ;(deps.subtitleFinder as { findBest: { mockRejectedValue: (e: Error) => void } }).findBest.mockRejectedValue(
+        new Error('network'),
+      )
       const processor = new PostProcessor(config, deps)
       const task = makeTask({
         intent: {
@@ -173,12 +174,14 @@ describe('PostProcessor', () => {
 
     it('syncs to archive when enabled', async () => {
       config.archive.enabled = true
-      config.archive.targets = [{
-        name: 'NAS',
-        host: 'nas@local',
-        path: '/volume1/movies',
-        match: {},
-      }]
+      config.archive.targets = [
+        {
+          name: 'NAS',
+          host: 'nas@local',
+          path: '/volume1/movies',
+          match: {},
+        },
+      ]
       const processor = new PostProcessor(config, deps)
       const task = makeTask({
         intent: {

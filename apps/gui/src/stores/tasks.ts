@@ -130,7 +130,7 @@ export const useTasksStore = defineStore('tasks', () => {
   const intentByGid = new Map<string, DownloadIntentMeta>()
 
   const tasks = computed<Task[]>(() => {
-    if (aria2.connected.value && aria2.tasks.value.length > 0) {
+    if (aria2.connected.value) {
       return aria2.tasks.value.map((s) => fromAria2Status(s))
     }
     return localTasks.value

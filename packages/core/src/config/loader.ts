@@ -65,16 +65,33 @@ export const DEFAULT_CONFIG: AppConfig = {
   },
 }
 
+export function deepMerge<T>(defaults: T, override: unknown): T {
+  if (override === null || override === undefined) return defaults
+  if (Array.isArray(defaults) || Array.isArray(override)) {
+    return (Array.isArray(override) ? override : defaults) as T
+  }
+  if (typeof defaults !== 'object' || typeof override !== 'object') {
+    return (override as T) ?? defaults
+  }
+  const out: Record<string, unknown> = { ...(defaults as Record<string, unknown>) }
+  for (const [k, v] of Object.entries(override as Record<string, unknown>)) {
+    if (v !== undefined) {
+      out[k] = k in out ? deepMerge((out as Record<string, unknown>)[k], v) : v
+    }
+  }
+  return out as T
+}
+
 export function loadConfig(): AppConfig {
   if (!existsSync(CONFIG_FILE)) {
     mkdirSync(CONFIG_DIR, { recursive: true })
-    const initial = { ...DEFAULT_CONFIG, schemaVersion: 2 }
+    const initial = deepMerge(DEFAULT_CONFIG, { schemaVersion: 2 })
     writeFileSync(CONFIG_FILE, JSON.stringify(initial, null, 2), 'utf-8')
     return initial
   }
   const raw = JSON.parse(readFileSync(CONFIG_FILE, 'utf-8'))
   const migrated = migrateConfig(raw)
-  return { ...DEFAULT_CONFIG, ...migrated }
+  return deepMerge(DEFAULT_CONFIG, migrated)
 }
 
 export function saveConfig(config: AppConfig): void {

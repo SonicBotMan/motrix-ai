@@ -819,12 +819,10 @@ onMounted(() => {
     showOnboarding.value = false
   }
   document.addEventListener('keydown', handleKeydown)
-  tasksStore.init().catch((e) => console.warn('aria2 init failed:', e))
 })
 
 onUnmounted(() => {
   document.removeEventListener('keydown', handleKeydown)
-  tasksStore.dispose().catch((e) => console.warn('aria2 dispose failed:', e))
 })
 </script>
 
