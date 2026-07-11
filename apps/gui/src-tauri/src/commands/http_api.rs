@@ -190,17 +190,33 @@ mod tests {
 
     #[tokio::test]
     async fn test_route_post_invalid_json() {
-        let req = "POST /api/download HTTP/1.1\r\nContent-Type: application/json\r\n\r\n{bad}";
-        let (status, body) = route_request(req).await;
+        let token = crate::commands::aria2::get_aria2_secret();
+        let req = format!(
+            "POST /api/download HTTP/1.1\r\nContent-Type: application/json\r\nX-Motrix-Token: {}\r\n\r\n{{bad}}",
+            token
+        );
+        let (status, body) = route_request(&req).await;
         assert_eq!(status, 400);
         assert!(body.contains("invalid JSON"));
     }
 
     #[tokio::test]
     async fn test_route_post_empty_body() {
-        let req = "POST /api/download HTTP/1.1\r\n\r\n";
-        let (status, _) = route_request(req).await;
+        let token = crate::commands::aria2::get_aria2_secret();
+        let req = format!(
+            "POST /api/download HTTP/1.1\r\nX-Motrix-Token: {}\r\n\r\n",
+            token
+        );
+        let (status, _) = route_request(&req).await;
         assert_eq!(status, 400);
+    }
+
+    #[tokio::test]
+    async fn test_route_post_without_token_returns_403() {
+        let req = "POST /api/download HTTP/1.1\r\nContent-Type: application/json\r\n\r\n{\"url\":\"https://example.com\"}";
+        let (status, body) = route_request(req).await;
+        assert_eq!(status, 403);
+        assert!(body.contains("token"));
     }
 
     #[tokio::test]
