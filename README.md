@@ -45,13 +45,17 @@ AI:  Found -> Queued -> Downloaded -> Subtitled -> Organized ✅
 ### AI and Models
 
 - **BYOK multi-model** — OpenCode (free), Anthropic Claude, OpenAI GPT, Ollama (local)
-- **Multi-source search** — btdig, mikan, DuckDuckGo with parallel queries
-- **Smart ranking** — scores results by seeders, size, and quality match
+- **Multi-source parallel search** — btdig, 1337x, nyaa, mikan with deduplication
+- **Smart ranking** — ResultEvaluator scores results by quality match (20%), size reasonableness (20%), seeders (30%), and title relevance (30%)
+- **Keyword expansion** — KeywordGenerator expands search terms by resource type (movie, TV, anime, software, music)
 
 ### UI and UX
 
 - **Chat-first interface** — natural language input as primary interaction
-- **Task queue** — real-time progress, speed, ETA, pause/resume/retry
+- **Task queue** — real-time progress, speed (auto-scaling B/KB/MB/GB/s), ETA (h/m/s format), pause/resume/retry
+- **Task search** — live filter tasks by name or source URL
+- **Drag-and-drop** — drop .torrent files onto the window
+- **Batch download** — paste multiple URLs (one per line) in chat input
 - **Dark/Light/System themes** — follows OS preference
 - **i18n** — Chinese, English, Japanese, Korean, French
 - **System tray** — minimize to tray, native notifications
@@ -68,9 +72,12 @@ AI:  Found -> Queued -> Downloaded -> Subtitled -> Organized ✅
 
 - **CLI mode** — `motrix-ai ask "下 XX"` from terminal
 - **MCP Server** — expose download capabilities to AI agents
-- **685 tests** — TypeScript (Vitest) + Rust (cargo test), ~50% coverage
+- **685 tests** — TypeScript (Vitest) + Rust (cargo test), including 16 E2E integration tests
 - **Structured errors** — typed error hierarchy with cause chaining
-- **Structured logging** — level-filtered logger replacing console.*
+- **Structured logging** — level-filtered logger via @motrix-ai/core/browser
+- **Monorepo code sharing** — GUI imports KeywordGenerator + ResultEvaluator + Logger from packages/core
+- **Security hardened** — aria2 RPC secret, HTTP API token auth, path traversal protection, deep link confirmation
+- **Cross-platform CI** — ubuntu + macOS + Windows matrix, Clippy clean on all platforms
 
 ---
 
@@ -182,17 +189,18 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed architecture docum
 
 ## Project Status
 
-| Metric            | Value                                       |
-| ----------------- | ------------------------------------------- |
-| **Version**       | 1.0.0                                       |
-| **Tests**         | 685 TS + 10 Rust (49 TS files)              |
-| **Coverage**      | ~48% lines (threshold 40%)                  |
-| **ESLint**        | 0 errors, 0 warnings                        |
-| **Platforms**     | 4 (macOS ARM64/x64, Windows x64, Linux x64) |
-| **Languages**     | 5 (中/英/日/韩/法)                          |
-| **Core Modules**  | 25                                          |
-| **Composables**   | 10                                          |
-| **Tauri Plugins** | 6                                           |
+| Metric            | Value                                        |
+| ----------------- | -------------------------------------------- |
+| **Version**       | 1.2.0                                        |
+| **Tests**         | 685 TS + 16 Rust (49 TS files)               |
+| **E2E Tests**     | 16 integration tests covering critical paths |
+| **Coverage**      | ~48% lines (threshold 40%)                   |
+| **ESLint**        | 0 errors, 0 warnings                         |
+| **Platforms**     | 4 (macOS ARM64/x64, Windows x64, Linux x64)  |
+| **Languages**     | 5 (中/英/日/韩/法)                           |
+| **Core Modules**  | 25                                           |
+| **Composables**   | 10                                           |
+| **Tauri Plugins** | 6                                            |
 
 ---
 
@@ -200,7 +208,9 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed architecture docum
 
 - ✅ **v0.1.0** — PoC (OpenCode SDK validation)
 - ✅ **v0.2.0** — Alpha (cross-platform CI, system tray, notifications)
-- ✅ **v1.1.0** — Stable release (all features, 685 TS + 10 Rust tests, 5 languages)
+- ✅ **v1.0.0** — Stable release (all features, 603 TS + 10 Rust tests, 5 languages)
+- ✅ **v1.1.0** — Multi-platform aria2c, 1337x fix, i18n, config store
+- ✅ **v1.2.0** — Deep audit fixes: AI pipeline connected, GID operations, security hardening, E2E tests, core-browser split, unified task stack, drag-drop, batch, proxy, 3-platform CI
 
 ### Future
 
