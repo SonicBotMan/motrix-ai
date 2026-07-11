@@ -149,7 +149,7 @@ describe('tasks store — aria2 status mapping', () => {
     mockState.tasks = [makeRawStatus({ gid: 'abc123', status: 'active' })]
     const { useTasksStore } = await import('../stores/tasks')
     const store = useTasksStore()
-    await store.bumpPriority(1)
+    await store.bumpPriority('abc123')
     expect(mockState.changeOption).toHaveBeenCalledWith('abc123', { priority: 'pri-high' })
   })
 
@@ -169,6 +169,6 @@ describe('tasks store — aria2 status mapping', () => {
       eta: '—',
       type: 'document',
     })
-    await expect(store.bumpPriority(1)).rejects.toThrow(/not connected to aria2/)
+    await expect(store.bumpPriority('1')).rejects.toThrow(/not connected to aria2/)
   })
 })
