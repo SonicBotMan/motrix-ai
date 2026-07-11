@@ -22,11 +22,13 @@ import { t } from '@/composables/useSettings'
 import QueueStats from '@/components/queue/QueueStats.vue'
 import { useAria2Manager, type DownloadItem } from '@/composables/useAria2Manager'
 import { useAria2, type TaskStatus } from '@/composables/useAria2'
+import { useTasksStore } from '@/stores/tasks'
 import TaskDetailModal from '@/components/TaskDetailModal.vue'
 
 const router = useRouter()
 const manager = useAria2Manager()
 const _aria2 = useAria2()
+const tasksStore = useTasksStore()
 const message = useMessage()
 
 function opError(e: unknown, action: string): void {
@@ -204,7 +206,7 @@ watch(activeFilter, () => {
 // ---- Actions ----
 async function handlePause(gid: string) {
   try {
-    await manager.pauseDownload(gid)
+    await tasksStore.pauseTask(gid)
   } catch (e) {
     opError(e, 'Pause failed')
   }
@@ -212,7 +214,7 @@ async function handlePause(gid: string) {
 
 async function handleResume(gid: string) {
   try {
-    await manager.resumeDownload(gid)
+    await tasksStore.resumeTask(gid)
   } catch (e) {
     opError(e, 'Resume failed')
   }
@@ -220,7 +222,7 @@ async function handleResume(gid: string) {
 
 async function handleRemove(gid: string) {
   try {
-    await manager.cancelDownload(gid)
+    await tasksStore.removeTask(gid)
   } catch (e) {
     opError(e, 'Remove failed')
   }
@@ -256,8 +258,8 @@ async function handleRetry(item: DownloadItem) {
     return
   }
   try {
-    await manager.cancelDownload(item.gid)
-    await manager.addDownload(uri, { dir: item.dir })
+    await tasksStore.removeTask(item.gid)
+    await tasksStore.addTask(uri)
   } catch (e) {
     opError(e, 'Retry failed')
   }
@@ -265,7 +267,7 @@ async function handleRetry(item: DownloadItem) {
 
 async function handlePauseAll() {
   try {
-    await manager.pauseAllDownloads()
+    await tasksStore.pauseAllTasks()
   } catch (e) {
     opError(e, 'Pause all failed')
   }
@@ -273,7 +275,7 @@ async function handlePauseAll() {
 
 async function handleResumeAll() {
   try {
-    await manager.resumeAllDownloads()
+    await tasksStore.resumeAllTasks()
   } catch (e) {
     opError(e, 'Resume all failed')
   }
@@ -281,32 +283,32 @@ async function handleResumeAll() {
 
 async function handleClearCompleted() {
   try {
-    await manager.clearCompleted()
+    await tasksStore.clearCompleted()
   } catch (e) {
-    console.error(e)
+    opError(e, 'Clear completed failed')
   }
 }
 
-async function handleMoveUp(gid: string, steps = 1) {
+async function handleMoveUp(gid: string, _steps = 1) {
   try {
-    await manager.moveDownloadUp(gid, steps)
+    await tasksStore.moveUp(gid)
   } catch (e) {
-    console.error(e)
+    opError(e, 'Move up failed')
   }
 }
 
-async function handleMoveDown(gid: string, steps = 1) {
+async function handleMoveDown(gid: string, _steps = 1) {
   try {
-    await manager.moveDownloadDown(gid, steps)
+    await tasksStore.moveDown(gid)
   } catch (e) {
-    console.error(e)
+    opError(e, 'Move down failed')
   }
 }
 
 // ---- Bulk actions ----
 async function handleBulkPause() {
   const gids = [...selectedGids.value]
-  const results = await Promise.allSettled(gids.map((gid) => manager.pauseDownload(gid)))
+  const results = await Promise.allSettled(gids.map((gid) => tasksStore.pauseTask(gid)))
   const failed = results.filter((r) => r.status === 'rejected').length
   if (failed > 0) message.error(`Bulk pause: ${failed} failed`)
   selectedGids.value.clear()
@@ -314,7 +316,7 @@ async function handleBulkPause() {
 
 async function handleBulkResume() {
   const gids = [...selectedGids.value]
-  const results = await Promise.allSettled(gids.map((gid) => manager.resumeDownload(gid)))
+  const results = await Promise.allSettled(gids.map((gid) => tasksStore.resumeTask(gid)))
   const failed = results.filter((r) => r.status === 'rejected').length
   if (failed > 0) message.error(`Bulk resume: ${failed} failed`)
   selectedGids.value.clear()
@@ -322,7 +324,7 @@ async function handleBulkResume() {
 
 async function handleBulkRemove() {
   const gids = [...selectedGids.value]
-  const results = await Promise.allSettled(gids.map((gid) => manager.cancelDownload(gid)))
+  const results = await Promise.allSettled(gids.map((gid) => tasksStore.removeTask(gid)))
   const failed = results.filter((r) => r.status === 'rejected').length
   if (failed > 0) message.error(`Bulk remove: ${failed} failed`)
   selectedGids.value.clear()

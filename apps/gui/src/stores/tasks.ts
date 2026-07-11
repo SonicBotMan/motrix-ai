@@ -350,6 +350,59 @@ export const useTasksStore = defineStore('tasks', () => {
     }
   }
 
+  async function pauseAllTasks(): Promise<void> {
+    if (aria2.connected.value) {
+      try {
+        await aria2.pauseAll()
+      } catch (e) {
+        logger.error('Failed to pause all: ' + e)
+      }
+    }
+  }
+
+  async function resumeAllTasks(): Promise<void> {
+    if (aria2.connected.value) {
+      try {
+        await aria2.unpauseAll()
+      } catch (e) {
+        logger.error('Failed to resume all: ' + e)
+      }
+    }
+  }
+
+  async function moveUp(gid: string): Promise<void> {
+    const task = findByGid(gid)
+    if (task?.gid && aria2.connected.value) {
+      try {
+        await aria2.moveUp(task.gid)
+      } catch (e) {
+        logger.error('Failed to move up: ' + e)
+      }
+    }
+  }
+
+  async function moveDown(gid: string): Promise<void> {
+    const task = findByGid(gid)
+    if (task?.gid && aria2.connected.value) {
+      try {
+        await aria2.moveDown(task.gid)
+      } catch (e) {
+        logger.error('Failed to move down: ' + e)
+      }
+    }
+  }
+
+  async function moveToTop(gid: string): Promise<void> {
+    const task = findByGid(gid)
+    if (task?.gid && aria2.connected.value) {
+      try {
+        await aria2.moveToTop(task.gid)
+      } catch (e) {
+        logger.error('Failed to move to top: ' + e)
+      }
+    }
+  }
+
   async function bumpPriority(gid: string): Promise<void> {
     const task = findByGid(gid)
     if (!task) return
@@ -385,6 +438,11 @@ export const useTasksStore = defineStore('tasks', () => {
     retryTask,
     bumpPriority,
     clearCompleted,
+    pauseAllTasks,
+    resumeAllTasks,
+    moveUp,
+    moveDown,
+    moveToTop,
     setFilter,
   }
 })
