@@ -57,7 +57,7 @@ server.tool(
       if (!best) {
         return { content: [{ type: 'text', text: 'No suitable resource found after ranking' }], isError: true }
       }
-      const task = await queue.add(best.magnet, query)
+      const task = await queue.add(best.magnet, query, { dir: config.downloads.base_dir })
 
       return {
         content: [

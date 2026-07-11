@@ -110,7 +110,7 @@ export function registerAskCommand(program: Command): void {
       try {
         const aria2 = new Aria2Client({ rpcUrl: config.aria2.rpc_url, rpcSecret: config.aria2.rpc_secret })
         const queue = new QueueManager(aria2)
-        const task = await queue.add(best.magnet, query)
+        const task = await queue.add(best.magnet, query, { dir: config.downloads.base_dir })
         console.log(`\n✅ 已入队！`)
         console.log(`   任务 ID: ${task.id}`)
         console.log(`   状态: ${task.status}`)
