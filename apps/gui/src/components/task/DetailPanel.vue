@@ -22,6 +22,7 @@
 
 import { computed, ref, watch, onUnmounted, nextTick } from 'vue'
 import type { Task } from '@/stores/tasks'
+import { bytesToSize } from '@/shared/utils/format'
 
 interface TimelineEvent {
   time: string
@@ -29,11 +30,7 @@ interface TimelineEvent {
   type?: 'active' | 'completed' | 'info'
 }
 
-/** Extended task shape the panel renders; optional fields fall back gracefully */
 interface DetailTask extends Task {
-  total?: string
-  connections?: string
-  files?: Array<{ name: string; size: string; checked?: boolean }>
   timeline?: TimelineEvent[]
 }
 
@@ -120,6 +117,10 @@ const ringCaption = computed(() => {
 const files = computed(() => props.task?.files ?? [])
 const timeline = computed(() => props.task?.timeline ?? [])
 const isPaused = computed(() => props.task?.status === 'paused')
+
+function formatFileSize(bytes: number): string {
+  return bytesToSize(bytes)
+}
 
 /** Sub-line under the filename in the header */
 const subLine = computed(() => {
@@ -447,7 +448,7 @@ watch(showMoreMenu, (visible) => {
                   <input
                     type="checkbox"
                     class="file-check"
-                    :checked="f.checked !== false"
+                    :checked="f.selected"
                     :aria-label="f.name"
                     @change="
                       emit('toggleFile', {
@@ -458,7 +459,7 @@ watch(showMoreMenu, (visible) => {
                     "
                   />
                   <span class="file-name" :title="f.name">{{ f.name }}</span>
-                  <span class="file-size">{{ f.size }}</span>
+                  <span class="file-size">{{ formatFileSize(f.size) }}</span>
                 </div>
               </div>
               <p v-else class="empty-note">No file list available.</p>

@@ -84,6 +84,18 @@ pub(crate) fn build_http_client() -> Result<reqwest::Client, String> {
 /// Shared by the HTTP API server (browser extension bridge) and the deep
 /// link handler (magnet:// protocol) so behaviour stays consistent.
 pub(crate) async fn aria2_add_uri(url: &str) -> Result<String, String> {
+    const ALLOWED_SCHEMES: &[&str] = &[
+        "http://",
+        "https://",
+        "ftp://",
+        "magnet:",
+        "ed2k://",
+        "thunder://",
+    ];
+    if !ALLOWED_SCHEMES.iter().any(|s| url.starts_with(s)) {
+        return Err(format!("Unsupported URL scheme: {}", url));
+    }
+
     let client = build_http_client()?;
     let body = serde_json::json!({
         "jsonrpc": "2.0",

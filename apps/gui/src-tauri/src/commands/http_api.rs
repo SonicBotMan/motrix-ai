@@ -78,14 +78,15 @@ async fn handle_connection(stream: &mut tokio::net::TcpStream) -> Result<(), Str
     let (status, body) = route_request(&request).await;
 
     let response = format!(
-        "HTTP/1.1 {} OK\r\n\
+        "HTTP/1.1 {} {}\r\n\
          Content-Type: application/json\r\n\
          Content-Length: {}\r\n\
-         Access-Control-Allow-Origin: *\r\n\
+         Access-Control-Allow-Origin: tauri://localhost\r\n\
          Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n\
          Access-Control-Allow-Headers: Content-Type\r\n\
          \r\n{}",
         status,
+        status_text(status),
         body.len(),
         body
     );
@@ -134,6 +135,18 @@ fn err_body(msg: &str) -> String {
         "{{\"status\":\"error\",\"error\":\"{}\"}}",
         msg.replace('"', "\\\"")
     )
+}
+
+fn status_text(code: u16) -> &'static str {
+    match code {
+        200 => "OK",
+        204 => "No Content",
+        400 => "Bad Request",
+        403 => "Forbidden",
+        404 => "Not Found",
+        502 => "Bad Gateway",
+        _ => "Error",
+    }
 }
 
 #[cfg(test)]

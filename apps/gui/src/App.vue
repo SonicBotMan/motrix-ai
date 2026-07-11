@@ -1,11 +1,27 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { onMounted, onUnmounted, watch } from 'vue'
 import { useConfigStore } from '@/stores/config'
+import { useSchedule, type ScheduleRule } from '@/composables/useSchedule'
 
 const configStore = useConfigStore()
 
+const activeRules = (): ScheduleRule[] => (configStore.config.schedule.rules ?? []).filter((r) => r.enabled !== false)
+
+const sched = useSchedule(activeRules())
+
+watch(
+  () => configStore.config.schedule.rules,
+  () => sched.setRules(activeRules()),
+  { deep: true },
+)
+
 onMounted(async () => {
   await configStore.init()
+  sched.start()
+})
+
+onUnmounted(() => {
+  sched.stop()
 })
 </script>
 

@@ -1,21 +1,16 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { NCard, NButton, NInput, NInputNumber, NSwitch, NIcon, NTag, useMessage } from 'naive-ui'
 import { TimeOutline, SpeedometerOutline, SaveOutline, AddOutline, TrashOutline } from '@vicons/ionicons5'
-import { useSchedule, type ScheduleRule } from '@/composables/useSchedule'
+import type { ScheduleRule } from '@/composables/useSchedule'
 import { useConfigStore } from '@/stores/config'
 import { t } from '@/composables/useSettings'
 
 const message = useMessage()
 const store = useConfigStore()
 
-// Local working copy of schedule rules, kept in sync with the config store.
-// Inline edits (time_start/time_end) mutate this ref; a deep watcher pushes
-// every change into the store, which auto-persists to the config file.
 const rules = ref<ScheduleRule[]>(store.config.schedule.rules)
 
-// Per-rule enabled flag lives on the rule itself (`enabled?: boolean`).
-// A missing flag is treated as enabled, matching the previous semantics.
 function isRuleEnabled(index: number): boolean {
   return rules.value[index]?.enabled !== false
 }
@@ -24,37 +19,18 @@ function getActiveRules(): ScheduleRule[] {
   return rules.value.filter((_, i) => isRuleEnabled(i))
 }
 
-// ---- Schedule scheduler ----
-const sched = useSchedule(getActiveRules())
-
-function updateSchedulerRules(): void {
-  sched.setRules(getActiveRules())
-}
-
 function toggleRule(index: number, val: boolean): void {
   rules.value[index] = { ...rules.value[index], enabled: val }
 }
 
-// Sync rule edits (inline time fields, enabled toggles, add/remove) into the
-// store. The store's deep watcher debounces the file write.
 watch(
   rules,
   (newRules) => {
     store.updateSection('schedule', { rules: newRules })
-    updateSchedulerRules()
   },
   { deep: true },
 )
 
-onMounted(() => {
-  sched.start()
-})
-
-onUnmounted(() => {
-  sched.stop()
-})
-
-// ---- Add form ----
 const showAddForm = ref(false)
 const newRule = ref<ScheduleRule>({
   name: '',
@@ -64,11 +40,11 @@ const newRule = ref<ScheduleRule>({
   max_concurrent: 3,
 })
 
-function isValidTimeFormat(t: string): boolean {
+function isValidTimeFormat(tm: string): boolean {
   return (
-    /^\d{2}:\d{2}$/.test(t) &&
+    /^\d{2}:\d{2}$/.test(tm) &&
     (() => {
-      const [h, m] = t.split(':').map(Number)
+      const [h, m] = tm.split(':').map(Number)
       return h >= 0 && h <= 23 && m >= 0 && m <= 59
     })()
   )
@@ -107,24 +83,31 @@ function removeRule(index: number) {
 }
 
 function saveRules() {
-  updateSchedulerRules()
   message.success(t('schedule.ruleSaved'))
 }
 
-// ---- Helpers ----
 function formatSpeed(bytes: number): string {
   if (bytes === 0) return t('schedule.unlimited')
   return `${(bytes / 1024 / 1024).toFixed(0)} MB/s`
 }
 
-const currentRule = computed(() => sched.currentRule.value)
+const currentRuleActive = computed(() => {
+  const now = new Date()
+  const hh = String(now.getHours()).padStart(2, '0')
+  const mm = String(now.getMinutes()).padStart(2, '0')
+  const current = `${hh}:${mm}`
+  return getActiveRules().some((r) => {
+    if (r.time_start <= r.time_end) return current >= r.time_start && current < r.time_end
+    return current >= r.time_start || current < r.time_end
+  })
+})
 </script>
 
 <template>
   <n-card :title="'⏰ ' + t('schedule.title')" class="schedule-card">
     <template #header-extra>
-      <n-tag v-if="currentRule" type="success" size="small">
-        {{ t('schedule.currentRule') }}: {{ currentRule.name }}
+      <n-tag v-if="currentRuleActive" type="success" size="small">
+        {{ t('schedule.currentRule') }}
       </n-tag>
       <n-tag v-else type="default" size="small"> {{ t('schedule.noMatch') }} </n-tag>
     </template>
@@ -134,7 +117,7 @@ const currentRule = computed(() => sched.currentRule.value)
         v-for="(rule, index) in rules"
         :key="index"
         class="rule-item"
-        :class="{ active: currentRule?.name === rule.name }"
+        :class="{ active: currentRuleActive && isRuleEnabled(index) }"
       >
         <div class="rule-header">
           <n-switch :value="isRuleEnabled(index)" size="small" @update:value="(v: boolean) => toggleRule(index, v)" />
