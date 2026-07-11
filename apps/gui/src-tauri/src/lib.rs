@@ -23,6 +23,7 @@ pub fn run() {
             println!("Single instance: focusing existing window");
         }))
         .plugin(tauri_plugin_window_state::Builder::new().build())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             if cfg!(debug_assertions) {
                 app.handle().plugin(

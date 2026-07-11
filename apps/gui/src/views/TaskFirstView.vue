@@ -43,7 +43,12 @@ const evaluator = new ResultEvaluator()
 // Task list comes from the Pinia store (aria2-backed with local fallback)
 // ---------------------------------------------------------------------------
 
-const tasks = computed(() => tasksStore.tasks)
+const tasks = computed(() => {
+  const all = tasksStore.tasks
+  if (!taskSearchQuery.value.trim()) return all
+  const q = taskSearchQuery.value.toLowerCase().trim()
+  return all.filter((t) => t.name.toLowerCase().includes(q) || t.source.toLowerCase().includes(q))
+})
 
 // ---------------------------------------------------------------------------
 // View-level state
@@ -55,6 +60,7 @@ const router = useRouter()
 // (We no longer emit 'navigate'; router.push() goes directly through useRouter)
 
 const activeFilter = ref('all')
+const taskSearchQuery = ref('')
 const selectedTask = ref<Task | null>(null)
 const showDetail = ref(false)
 const showMenu = ref(false)
@@ -835,6 +841,16 @@ onUnmounted(() => {
 
     <!-- Main content: task table (remaining space) -->
     <main class="main-content">
+      <div v-if="tasksStore.tasks.length > 0" class="task-search-bar">
+        <input
+          v-model="taskSearchQuery"
+          class="task-search-input"
+          type="text"
+          placeholder="Filter tasks…"
+          aria-label="Filter tasks"
+        />
+        <span v-if="taskSearchQuery" class="task-search-count">{{ tasks.length }} / {{ tasksStore.tasks.length }}</span>
+      </div>
       <TaskTable
         :tasks="tasks"
         :active-filter="activeFilter"
@@ -934,5 +950,39 @@ onUnmounted(() => {
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
   }
+}
+
+.task-search-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  border-bottom: 1px solid var(--border, #e2e8f0);
+}
+
+.task-search-input {
+  flex: 1;
+  height: 28px;
+  padding: 0 12px;
+  font-size: 13px;
+  color: var(--fg, #1e293b);
+  background: var(--bg-elevated, #f1f5f9);
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 6px;
+  outline: none;
+}
+
+.task-search-input:focus {
+  border-color: var(--primary, #3b82f6);
+}
+
+.task-search-input::placeholder {
+  color: var(--fg-muted, #94a3b8);
+}
+
+.task-search-count {
+  font-size: 12px;
+  color: var(--fg-muted, #94a3b8);
+  white-space: nowrap;
 }
 </style>

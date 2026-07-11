@@ -119,6 +119,56 @@ pub(crate) fn configured_download_dir() -> std::path::PathBuf {
     }
 }
 
+pub(crate) fn configured_proxy_args() -> Vec<String> {
+    let home = match dirs::home_dir() {
+        Some(h) => h,
+        None => return vec![],
+    };
+    let config_path = home.join(".motrix-ai").join("config.json");
+    let content = match std::fs::read_to_string(&config_path) {
+        Ok(c) => c,
+        Err(_) => return vec![],
+    };
+    let json: serde_json::Value = match serde_json::from_str(&content) {
+        Ok(j) => j,
+        Err(_) => return vec![],
+    };
+    let net = match json.get("network") {
+        Some(n) => n,
+        None => return vec![],
+    };
+    let mut args = vec![];
+    if let Some(v) = net
+        .get("http_proxy")
+        .and_then(|v| v.as_str())
+        .filter(|v| !v.is_empty())
+    {
+        args.push(format!("--http-proxy={}", v));
+    }
+    if let Some(v) = net
+        .get("https_proxy")
+        .and_then(|v| v.as_str())
+        .filter(|v| !v.is_empty())
+    {
+        args.push(format!("--https-proxy={}", v));
+    }
+    if let Some(v) = net
+        .get("ftp_proxy")
+        .and_then(|v| v.as_str())
+        .filter(|v| !v.is_empty())
+    {
+        args.push(format!("--ftp-proxy={}", v));
+    }
+    if let Some(v) = net
+        .get("no_proxy")
+        .and_then(|v| v.as_str())
+        .filter(|v| !v.is_empty())
+    {
+        args.push(format!("--no-proxy={}", v));
+    }
+    args
+}
+
 /// Forward a download URL to the local aria2 daemon via JSON-RPC addUri.
 /// Shared by the HTTP API server (browser extension bridge) and the deep
 /// link handler (magnet:// protocol) so behaviour stays consistent.

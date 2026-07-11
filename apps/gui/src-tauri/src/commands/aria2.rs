@@ -146,8 +146,14 @@ pub async fn start_aria2(app: tauri::AppHandle, rpc_port: Option<u16>) -> Result
         &format!("--input-file={}", session_file.display()),
         &format!("--save-session={}", session_file.display()),
         "--auto-save-interval=30",
-    ])
-    .stdout(std::process::Stdio::from(
+    ]);
+
+    let proxy_args = super::configured_proxy_args();
+    for arg in &proxy_args {
+        cmd.arg(arg);
+    }
+
+    cmd.stdout(std::process::Stdio::from(
         log_file
             .try_clone()
             .map_err(|e| format!("Clone log fd: {}", e))?,

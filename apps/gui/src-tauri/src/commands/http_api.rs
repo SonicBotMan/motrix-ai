@@ -83,7 +83,7 @@ async fn handle_connection(stream: &mut tokio::net::TcpStream) -> Result<(), Str
          Content-Length: {}\r\n\
          Access-Control-Allow-Origin: *\r\n\
          Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n\
-         Access-Control-Allow-Headers: Content-Type\r\n\
+         Access-Control-Allow-Headers: Content-Type, X-Motrix-Token\r\n\
          \r\n{}",
         status,
         status_text(status),
@@ -104,13 +104,27 @@ async fn route_request(request: &str) -> (u16, String) {
     }
 
     if request.starts_with("GET / ") {
+        let token = crate::commands::aria2::get_aria2_secret();
         return (
             200,
-            r#"{"status":"ok","service":"motrix-ai-http-api"}"#.to_string(),
+            format!(
+                r#"{{"status":"ok","service":"motrix-ai-http-api","token":"{}"}}"#,
+                token
+            ),
         );
     }
 
     if request.starts_with("POST ") {
+        let token = crate::commands::aria2::get_aria2_secret();
+        let has_valid_token = request
+            .lines()
+            .take(20)
+            .any(|line| line.eq_ignore_ascii_case(&format!("X-Motrix-Token: {}", token)));
+
+        if !has_valid_token {
+            return (403, err_body("missing or invalid token"));
+        }
+
         let body_str = match request.find("\r\n\r\n") {
             Some(idx) => &request[idx + 4..],
             None => return (400, err_body("empty body")),

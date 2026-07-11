@@ -42,14 +42,23 @@ jobs:
 
   backend-quality:
     name: Backend Quality
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            install_deps: sudo apt-get update && sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+          - os: macos-latest
+            install_deps: 'echo "macOS deps handled by Xcode"'
+          - os: windows-latest
+            install_deps: 'echo "Windows deps handled by MSVC"'
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
 
       - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+        if: runner.os == 'Linux'
+        run: ${{ matrix.install_deps }}
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -70,13 +79,6 @@ jobs:
 
       - name: Test
         run: cd apps/gui/src-tauri && cargo test
-
-      - name: Install cargo-audit
-        run: cargo install cargo-audit --locked || true
-
-      - name: Audit Rust dependencies (advisory)
-        run: cd apps/gui/src-tauri && cargo audit || true
-        continue-on-error: true
 
   dependency-audit:
     name: Dependency Audit
