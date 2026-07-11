@@ -84,13 +84,19 @@ describe('TaskDatabase', () => {
 
     it('round-trips a task with subtitle', () => {
       const task = makeTask({
-        subtitle: { language: 'en', path: '/tmp/movie.srt', source: 'opensubtitles' },
+        subtitle: {
+          language: 'en',
+          path: '/tmp/movie.srt',
+          downloadUrl: 'https://example.com/sub.srt',
+          source: 'opensubtitles',
+        },
       })
       db.insert(task)
       const fetched = db.getById(task.id)
       expect(fetched!.subtitle).toEqual({
         language: 'en',
         path: '/tmp/movie.srt',
+        downloadUrl: 'https://example.com/sub.srt',
         source: 'opensubtitles',
       })
     })

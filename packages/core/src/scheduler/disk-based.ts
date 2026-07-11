@@ -1,13 +1,13 @@
 // scheduler/disk-based.ts — 磁盘空间保护调度
 // 对应 PRD §6.3.2 磁盘保护
 
-import fs from "node:fs"
-import { EventEmitter } from "node:events"
-import type { DiskThresholds } from "../types.js"
-import { Aria2Client } from "../aria2/client.js"
+import fs from 'node:fs'
+import { EventEmitter } from 'node:events'
+import type { DiskThresholds } from '../types.js'
+import { Aria2Client } from '../aria2/client.js'
 
 /** 磁盘检查结果动作类型 */
-export type DiskAction = "none" | "pause-low" | "pause-all" | "resume"
+export type DiskAction = 'none' | 'pause-low' | 'pause-all' | 'resume'
 
 /** 磁盘检查返回结构 */
 export interface DiskCheckResult {
@@ -28,14 +28,16 @@ export interface DiskCheckResult {
 export class DiskScheduler extends EventEmitter {
   private aria2: Aria2Client
   private thresholds: DiskThresholds
+  private downloadDir: string
   private timer: ReturnType<typeof setInterval> | null = null
   /** 被本调度器暂停的 aria2 gid 列表，用于后续恢复 */
   private pausedByUs: Set<string> = new Set()
 
-  constructor(aria2: Aria2Client, thresholds: DiskThresholds) {
+  constructor(aria2: Aria2Client, thresholds: DiskThresholds, downloadDir: string) {
     super()
     this.aria2 = aria2
     this.thresholds = thresholds
+    this.downloadDir = downloadDir
   }
 
   /** 启动定时检查（默认每 30 秒） */
@@ -64,31 +66,28 @@ export class DiskScheduler extends EventEmitter {
    * @returns 剩余空间（GB）与本次采取的动作
    */
   async check(): Promise<DiskCheckResult> {
-    const downloadDir = process.cwd()
+    const downloadDir = this.downloadDir
     const freeGb = await this.getFreeSpaceGB(downloadDir)
 
     let action: DiskAction
 
     if (freeGb < this.thresholds.critical_gb) {
       // 临界：暂停全部任务
-      action = "pause-all"
+      action = 'pause-all'
       await this.pauseAllTasks()
     } else if (freeGb < this.thresholds.low_gb) {
       // 低水位：暂停低优先级任务（priority < 3）
-      action = "pause-low"
+      action = 'pause-low'
       await this.pauseLowPriorityTasks()
-    } else if (
-      freeGb > this.thresholds.resume_gb &&
-      this.pausedByUs.size > 0
-    ) {
+    } else if (freeGb > this.thresholds.resume_gb && this.pausedByUs.size > 0) {
       // 已恢复：重新启动此前暂停的任务
-      action = "resume"
+      action = 'resume'
       await this.resumePausedTasks()
     } else {
-      action = "none"
+      action = 'none'
     }
 
-    this.emit("action", action, freeGb)
+    this.emit('action', action, freeGb)
     return { freeGb, action }
   }
 

@@ -55,6 +55,7 @@ export interface FileEntry {
 export interface SubtitleEntry {
   language: string
   path: string
+  downloadUrl: string
   source: string
 }
 

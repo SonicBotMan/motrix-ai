@@ -5,6 +5,7 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import os from 'node:os'
 import { DiskScheduler, type DiskAction } from '../scheduler/disk-based.js'
 import type { DiskThresholds, Task } from '../types.js'
 
@@ -77,7 +78,7 @@ describe('DiskScheduler', () => {
   beforeEach(() => {
     mockFreeGb = 100
     mock = makeMockAria2()
-    scheduler = new DiskScheduler(mock.client as any, makeThresholds())
+    scheduler = new DiskScheduler(mock.client as any, makeThresholds(), os.tmpdir())
   })
 
   afterEach(() => {
