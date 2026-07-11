@@ -65,7 +65,7 @@ function mapAria2Status(status: string): TaskStatus {
 
 function getTypeFromFilename(filename: string): TaskType {
   const ext = filename.split('.').pop()?.toLowerCase() || ''
-  if (['mkv', 'mp4', 'avi', 'mov', 'wmv'].includes(ext)) return 'video'
+  if (['mkv', 'mp4', 'avi', 'mov', 'wmv', 'flv', 'ts', 'm4v'].includes(ext)) return 'video'
   if (['mp3', 'flac', 'wav', 'aac', 'ogg'].includes(ext)) return 'audio'
   if (['zip', 'rar', '7z', 'tar', 'gz'].includes(ext)) return 'archive'
   if (ext === 'torrent') return 'torrent'
