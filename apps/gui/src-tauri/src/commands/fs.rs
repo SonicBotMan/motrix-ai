@@ -62,17 +62,21 @@ pub async fn save_file(path: String, content: Vec<u8>) -> Result<String, String>
 
         if let Some(home) = dirs::home_dir() {
             let canon_home = home.canonicalize().unwrap_or_else(|_| home.clone());
-            let canon_path = path.canonicalize().unwrap_or_else(|_| path.clone());
-            if !canon_path.starts_with(&canon_home) {
+            let parent = path.parent().unwrap_or(&path);
+            std::fs::create_dir_all(parent).map_err(|e| format!("Create dir failed: {}", e))?;
+            let canon_parent = parent
+                .canonicalize()
+                .unwrap_or_else(|_| parent.to_path_buf());
+            if !canon_parent.starts_with(&canon_home) {
                 return Err(format!(
                     "Refusing to write outside home directory: {}",
                     path.display()
                 ));
             }
-        }
-
-        if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent).map_err(|e| format!("Create dir failed: {}", e))?;
+        } else {
+            if let Some(parent) = path.parent() {
+                std::fs::create_dir_all(parent).map_err(|e| format!("Create dir failed: {}", e))?;
+            }
         }
 
         std::fs::write(&path, content).map_err(|e| format!("Write failed: {}", e))?;
@@ -108,17 +112,21 @@ pub async fn download_subtitle(url: String, save_path: String) -> Result<String,
 
         if let Some(home) = dirs::home_dir() {
             let canon_home = home.canonicalize().unwrap_or_else(|_| home.clone());
-            let canon_path = path.canonicalize().unwrap_or_else(|_| path.clone());
-            if !canon_path.starts_with(&canon_home) {
+            let parent = path.parent().unwrap_or(&path);
+            std::fs::create_dir_all(parent).map_err(|e| format!("Create dir failed: {}", e))?;
+            let canon_parent = parent
+                .canonicalize()
+                .unwrap_or_else(|_| parent.to_path_buf());
+            if !canon_parent.starts_with(&canon_home) {
                 return Err(format!(
                     "Refusing to write outside home directory: {}",
                     path.display()
                 ));
             }
-        }
-
-        if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent).map_err(|e| format!("Create dir failed: {}", e))?;
+        } else {
+            if let Some(parent) = path.parent() {
+                std::fs::create_dir_all(parent).map_err(|e| format!("Create dir failed: {}", e))?;
+            }
         }
 
         std::fs::write(&path, &content).map_err(|e| format!("Write failed: {}", e))?;
