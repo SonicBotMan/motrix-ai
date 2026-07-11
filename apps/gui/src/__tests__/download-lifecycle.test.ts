@@ -104,7 +104,7 @@ describe('Download lifecycle', () => {
       eta: '',
       type: 'document' as const,
     })
-    await store.pauseTask(1)
+    await store.pauseTask('g-pause')
     expect(pauseSpy).toHaveBeenCalledWith('g-pause')
   })
 
@@ -122,7 +122,7 @@ describe('Download lifecycle', () => {
       eta: '',
       type: 'document' as const,
     })
-    await store.pauseTask(2)
+    await store.pauseTask('2')
     expect(pauseSpy).not.toHaveBeenCalled()
     expect(store.localTasks[0].status).toBe('paused')
   })
@@ -142,7 +142,7 @@ describe('Download lifecycle', () => {
       eta: '',
       type: 'document' as const,
     })
-    await store.resumeTask(3)
+    await store.resumeTask('g-resume')
     expect(unpauseSpy).toHaveBeenCalledWith('g-resume')
   })
 
@@ -161,7 +161,7 @@ describe('Download lifecycle', () => {
       eta: '',
       type: 'document' as const,
     })
-    await store.removeTask(4)
+    await store.removeTask('g-remove')
     expect(removeSpy).toHaveBeenCalledWith('g-remove')
   })
 
@@ -179,7 +179,7 @@ describe('Download lifecycle', () => {
       eta: '',
       type: 'document' as const,
     })
-    await store.removeTask(5)
+    await store.removeTask('5')
     expect(store.localTasks).toHaveLength(0)
   })
 
@@ -198,7 +198,7 @@ describe('Download lifecycle', () => {
       eta: '',
       type: 'document' as const,
     })
-    await store.retryTask(6)
+    await store.retryTask('old-gid')
     expect(removeSpy).toHaveBeenCalledWith('old-gid')
     expect(addUriSpy).toHaveBeenCalledWith('https://example.com/f.zip')
   })
@@ -218,7 +218,7 @@ describe('Download lifecycle', () => {
       eta: '',
       type: 'document' as const,
     })
-    await store.bumpPriority(7)
+    await store.bumpPriority('g-prio')
     expect(changeOptionSpy).toHaveBeenCalledWith('g-prio', { priority: 'pri-high' })
   })
 
@@ -236,7 +236,7 @@ describe('Download lifecycle', () => {
       eta: '',
       type: 'document' as const,
     })
-    await expect(store.bumpPriority(8)).rejects.toThrow(/not connected/)
+    await expect(store.bumpPriority('8')).rejects.toThrow(/not connected/)
   })
 
   test('init registers onTaskComplete + calls start', async () => {

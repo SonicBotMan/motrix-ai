@@ -452,7 +452,7 @@ async function pauseTask(): Promise<void> {
     text: `"${target.name}" paused`,
     createdAt: Date.now(),
   })
-  await tasksStore.pauseTask(target.id)
+  await tasksStore.pauseTask(target.gid || String(target.id))
 }
 
 async function resumeTask(): Promise<void> {
@@ -465,7 +465,7 @@ async function resumeTask(): Promise<void> {
     text: `"${target.name}" resumed`,
     createdAt: Date.now(),
   })
-  await tasksStore.resumeTask(target.id)
+  await tasksStore.resumeTask(target.gid || String(target.id))
 }
 
 async function retryTask(): Promise<void> {
@@ -478,7 +478,7 @@ async function retryTask(): Promise<void> {
     text: `Retrying "${target.name}"`,
     createdAt: Date.now(),
   })
-  await tasksStore.retryTask(target.id)
+  await tasksStore.retryTask(target.gid || String(target.id))
 }
 
 async function deleteTask(): Promise<void> {
@@ -492,7 +492,7 @@ async function deleteTask(): Promise<void> {
     text: `"${target.name}" removed`,
     createdAt: Date.now(),
   })
-  await tasksStore.removeTask(target.id)
+  await tasksStore.removeTask(target.gid || String(target.id))
 }
 
 /**
@@ -648,7 +648,7 @@ async function bumpPriority(): Promise<void> {
     return
   }
   try {
-    await tasksStore.bumpPriority(target.id)
+    await tasksStore.bumpPriority(target.gid)
     addToast({
       id: generateToastId(),
       type: 'success',
