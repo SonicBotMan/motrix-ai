@@ -491,6 +491,40 @@ async function start(): Promise<void> {
   await connect()
 }
 
+async function applyRpcConfig(opts: { rpcUrl?: string; secret?: string }): Promise<void> {
+  const prevUrl = rpcUrlRef.value
+  const prevSecret = secretRef.value
+  ensureConfig({
+    rpcUrl: opts.rpcUrl,
+    secret: opts.secret,
+  })
+  const changed = rpcUrlRef.value !== prevUrl || secretRef.value !== prevSecret
+  if (!changed || !started || disposed) return
+  disconnect()
+  try {
+    await connect()
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    emitConnection('error', `RPC reconnect failed: ${msg}`)
+  }
+}
+
+async function applyDownloadDir(dir: string): Promise<void> {
+  const trimmed = dir.trim()
+  if (!trimmed) return
+  let resolved = trimmed
+  if (trimmed === '~' || trimmed.startsWith('~/') || trimmed.startsWith('~\\')) {
+    try {
+      const { homeDir } = await import('@tauri-apps/api/path')
+      const home = await homeDir()
+      resolved = trimmed === '~' ? home : home + trimmed.slice(1)
+    } catch {
+      /* not in Tauri — leave as-is */
+    }
+  }
+  await changeGlobalOption({ dir: resolved })
+}
+
 async function dispose(): Promise<void> {
   if (disposed) return
   disposed = true
@@ -531,6 +565,8 @@ export function useAria2(opts: Aria2Options = {}) {
     dispose,
     connect,
     disconnect,
+    applyRpcConfig,
+    applyDownloadDir,
 
     addUri,
     tellStatus,

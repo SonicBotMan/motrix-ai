@@ -22,6 +22,13 @@ const uploadSpeedLimit = ref(0)
 const autoRetry = ref(true)
 const maxRetries = ref(3)
 
+watch(downloadDir, async (val) => {
+  try {
+    await aria2.applyDownloadDir(val)
+  } catch (e) {
+    console.warn('Failed to apply downloadDir:', e)
+  }
+})
 watch(maxConcurrent, async (val) => {
   try {
     await aria2.changeGlobalOption({ 'max-concurrent-downloads': String(val) })

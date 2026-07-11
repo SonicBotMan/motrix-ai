@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, watch } from 'vue'
 import { NButton, NInput, NSelect } from 'naive-ui'
 import { TrashOutline } from '@vicons/ionicons5'
 import { useAria2 } from '@/composables/useAria2'
@@ -32,6 +32,23 @@ const logLevelOptions = [
   { label: 'Warning', value: 'warn' },
   { label: 'Error', value: 'error' },
 ]
+
+let rpcDebounce: ReturnType<typeof setTimeout> | null = null
+watch([aria2RpcUrl, aria2RpcSecret], ([url, secret]) => {
+  if (rpcDebounce) clearTimeout(rpcDebounce)
+  rpcDebounce = setTimeout(() => {
+    void aria2
+      .applyRpcConfig({
+        rpcUrl: url,
+        // Only push a secret when the user set one — empty keeps the
+        // runtime token from `start_aria2` / `get_rpc_secret`.
+        ...(secret ? { secret } : {}),
+      })
+      .catch((e) => {
+        console.warn('Failed to apply RPC config:', e)
+      })
+  }, 500)
+})
 
 async function clearDownloadHistory() {
   try {

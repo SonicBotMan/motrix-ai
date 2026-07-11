@@ -1,17 +1,7 @@
 // commands/pause.ts — motrix-ai pause / resume / remove / pause-all / resume-all 命令
 
 import type { Command } from 'commander'
-import { Aria2Client, QueueManager, loadConfig } from '@motrix-ai/core'
-
-/** 从 config 创建 QueueManager 实例 */
-function createQueue() {
-  const config = loadConfig()
-  const aria2 = new Aria2Client({
-    rpcUrl: config.aria2.rpc_url,
-    rpcSecret: config.aria2.rpc_secret,
-  })
-  return { queue: new QueueManager(aria2), rpcUrl: config.aria2.rpc_url }
-}
+import { createQueue } from '../helpers/queue.js'
 
 function isConnectionError(err: unknown): boolean {
   const msg = err instanceof Error ? err.message.toLowerCase() : String(err).toLowerCase()
@@ -50,12 +40,14 @@ export function registerPauseCommand(program: Command): void {
     .argument('<gid>', '任务 GID')
     .description('暂停指定下载任务')
     .action(async (gid: string) => {
-      const { queue, rpcUrl } = createQueue()
+      const { queue, db, rpcUrl } = createQueue()
       try {
         await queue.pause(gid)
         console.log(`\n⏸  任务 ${gid} 已暂停`)
       } catch (err) {
         printCommandError(err, rpcUrl, `暂停 ${gid}`)
+      } finally {
+        db.close()
       }
     })
 
@@ -65,12 +57,14 @@ export function registerPauseCommand(program: Command): void {
     .argument('<gid>', '任务 GID')
     .description('恢复指定下载任务')
     .action(async (gid: string) => {
-      const { queue, rpcUrl } = createQueue()
+      const { queue, db, rpcUrl } = createQueue()
       try {
         await queue.resume(gid)
         console.log(`\n▶  任务 ${gid} 已恢复`)
       } catch (err) {
         printCommandError(err, rpcUrl, `恢复 ${gid}`)
+      } finally {
+        db.close()
       }
     })
 
@@ -80,12 +74,14 @@ export function registerPauseCommand(program: Command): void {
     .argument('<gid>', '任务 GID')
     .description('删除指定下载任务')
     .action(async (gid: string) => {
-      const { queue, rpcUrl } = createQueue()
+      const { queue, db, rpcUrl } = createQueue()
       try {
         await queue.remove(gid)
         console.log(`\n🗑  任务 ${gid} 已删除`)
       } catch (err) {
         printCommandError(err, rpcUrl, `删除 ${gid}`)
+      } finally {
+        db.close()
       }
     })
 
@@ -94,7 +90,7 @@ export function registerPauseCommand(program: Command): void {
     .command('pause-all')
     .description('暂停所有下载任务')
     .action(async () => {
-      const { queue, rpcUrl } = createQueue()
+      const { queue, db, rpcUrl } = createQueue()
       try {
         const tasks = await queue.listAll()
         const active = tasks.filter((t) => t.status === 'downloading' || t.status === 'pending')
@@ -104,6 +100,8 @@ export function registerPauseCommand(program: Command): void {
         console.log(`\n⏸  已暂停 ${active.length} 个任务`)
       } catch (err) {
         printCommandError(err, rpcUrl, '暂停所有任务')
+      } finally {
+        db.close()
       }
     })
 
@@ -112,7 +110,7 @@ export function registerPauseCommand(program: Command): void {
     .command('resume-all')
     .description('恢复所有暂停的下载任务')
     .action(async () => {
-      const { queue, rpcUrl } = createQueue()
+      const { queue, db, rpcUrl } = createQueue()
       try {
         const tasks = await queue.listAll()
         const paused = tasks.filter((t) => t.status === 'paused')
@@ -122,6 +120,8 @@ export function registerPauseCommand(program: Command): void {
         console.log(`\n▶  已恢复 ${paused.length} 个任务`)
       } catch (err) {
         printCommandError(err, rpcUrl, '恢复所有任务')
+      } finally {
+        db.close()
       }
     })
 }

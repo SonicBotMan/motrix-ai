@@ -425,13 +425,18 @@ pub async fn add_torrent_file(path: String) -> Result<String, String> {
         .map_err(|e| format!("Failed to read torrent file: {}", e))?;
     use base64::Engine as _;
     let base64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
-    aria2_rpc("aria2.addTorrent", serde_json::json!([base64]))
-        .await
-        .and_then(|v| {
-            v.as_str()
-                .map(String::from)
-                .ok_or_else(|| "aria2 returned non-string gid".to_string())
-        })
+    let dir = crate::commands::configured_download_dir();
+    let dir_str = dir.to_string_lossy().to_string();
+    aria2_rpc(
+        "aria2.addTorrent",
+        serde_json::json!([base64, [], { "dir": dir_str }]),
+    )
+    .await
+    .and_then(|v| {
+        v.as_str()
+            .map(String::from)
+            .ok_or_else(|| "aria2 returned non-string gid".to_string())
+    })
 }
 
 /// Return the bundled aria2c binary filename for the current target platform.

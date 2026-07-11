@@ -6,8 +6,6 @@ import {
   IntentParser,
   KeywordGenerator,
   ResultEvaluator,
-  Aria2Client,
-  QueueManager,
   DuckDuckGoSearchProvider,
   MikanSearchProvider,
   NyaaSearchProvider,
@@ -15,6 +13,7 @@ import {
   searchAll,
   loadConfig,
 } from '@motrix-ai/core'
+import { createQueue } from '../helpers/queue.js'
 
 /**
  * Register the `ask` command on the program.
@@ -107,22 +106,21 @@ export function registerAskCommand(program: Command): void {
 
       // 5. 入队
       console.log('📥 正在加入下载队列...')
+      const { queue, db, rpcUrl } = createQueue()
       try {
-        const aria2 = new Aria2Client({
-          rpcUrl: config.aria2.rpc_url,
-          rpcSecret: config.aria2.rpc_secret,
-        })
-        const queue = new QueueManager(aria2)
         const task = await queue.add(best.magnet, query, {
           dir: config.downloads.base_dir,
+          intent,
         })
         console.log(`\n✅ 已入队！`)
         console.log(`   任务 ID: ${task.id}`)
         console.log(`   状态: ${task.status}`)
       } catch {
         console.error('\n❌ 无法连接 aria2，请确认 aria2 已启动。')
-        console.error(`   尝试连接: ${config.aria2.rpc_url}`)
+        console.error(`   尝试连接: ${rpcUrl}`)
         console.error("   可使用 'motrix-ai config set aria2.rpc_url <url>' 修改连接地址。")
+      } finally {
+        db.close()
       }
     })
 }
