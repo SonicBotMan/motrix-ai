@@ -61,7 +61,7 @@ pub fn run() {
             // Auto-start bundled aria2c
             let handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
-                match commands::aria2::start_aria2(handle, Some(6800)).await {
+                match commands::aria2::start_aria2(handle.clone(), Some(6800)).await {
                     Ok(url) => log::info!("Bundled aria2c started: {}", url),
                     Err(e) => log::warn!(
                         "Bundled aria2c not available: {} (user can start manually)",
@@ -70,7 +70,7 @@ pub fn run() {
                 }
 
                 // Start the local HTTP API for browser extension bridge
-                match commands::http_api::start_http_api(Some(18900)).await {
+                match commands::http_api::start_http_api(Some(18900), handle).await {
                     Ok(url) => log::info!("HTTP API started: {}", url),
                     Err(e) => log::warn!("HTTP API failed to start: {}", e),
                 }
