@@ -81,7 +81,7 @@ async fn handle_connection(stream: &mut tokio::net::TcpStream) -> Result<(), Str
         "HTTP/1.1 {} {}\r\n\
          Content-Type: application/json\r\n\
          Content-Length: {}\r\n\
-         Access-Control-Allow-Origin: tauri://localhost\r\n\
+         Access-Control-Allow-Origin: *\r\n\
          Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n\
          Access-Control-Allow-Headers: Content-Type\r\n\
          \r\n{}",

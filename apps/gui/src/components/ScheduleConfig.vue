@@ -91,23 +91,23 @@ function formatSpeed(bytes: number): string {
   return `${(bytes / 1024 / 1024).toFixed(0)} MB/s`
 }
 
-const currentRuleActive = computed(() => {
+const currentRuleName = computed(() => {
   const now = new Date()
   const hh = String(now.getHours()).padStart(2, '0')
   const mm = String(now.getMinutes()).padStart(2, '0')
   const current = `${hh}:${mm}`
-  return getActiveRules().some((r) => {
+  return getActiveRules().find((r) => {
     if (r.time_start <= r.time_end) return current >= r.time_start && current < r.time_end
     return current >= r.time_start || current < r.time_end
-  })
+  })?.name
 })
 </script>
 
 <template>
   <n-card :title="'⏰ ' + t('schedule.title')" class="schedule-card">
     <template #header-extra>
-      <n-tag v-if="currentRuleActive" type="success" size="small">
-        {{ t('schedule.currentRule') }}
+      <n-tag v-if="currentRuleName" type="success" size="small">
+        {{ t('schedule.currentRule') }}: {{ currentRuleName }}
       </n-tag>
       <n-tag v-else type="default" size="small"> {{ t('schedule.noMatch') }} </n-tag>
     </template>
@@ -117,7 +117,7 @@ const currentRuleActive = computed(() => {
         v-for="(rule, index) in rules"
         :key="index"
         class="rule-item"
-        :class="{ active: currentRuleActive && isRuleEnabled(index) }"
+        :class="{ active: currentRuleName === rule.name }"
       >
         <div class="rule-header">
           <n-switch :value="isRuleEnabled(index)" size="small" @update:value="(v: boolean) => toggleRule(index, v)" />

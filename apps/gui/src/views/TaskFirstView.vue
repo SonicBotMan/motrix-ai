@@ -233,10 +233,10 @@ async function handleSendMessage(message: string): Promise<void> {
       const seenHashes = new Set<string>()
       for (const r of responses) {
         if (r.status === 'fulfilled') {
-          for (const result of r.value.results) {
+          for (const result of r.value.results ?? []) {
             const hash = result.magnet.match(/btih:([a-zA-Z0-9]+)/i)?.[1]
-            const key = hash || result.magnet
-            if (!seenHashes.has(key)) {
+            const key = hash || result.magnet || `${result.title}_${result.size}`
+            if (key && !seenHashes.has(key)) {
               seenHashes.add(key)
               allResults.push(result)
             }

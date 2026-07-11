@@ -92,7 +92,8 @@ pub(crate) async fn aria2_add_uri(url: &str) -> Result<String, String> {
         "ed2k://",
         "thunder://",
     ];
-    if !ALLOWED_SCHEMES.iter().any(|s| url.starts_with(s)) {
+    let normalized = url.trim().to_lowercase();
+    if !ALLOWED_SCHEMES.iter().any(|s| normalized.starts_with(s)) {
         return Err(format!("Unsupported URL scheme: {}", url));
     }
 

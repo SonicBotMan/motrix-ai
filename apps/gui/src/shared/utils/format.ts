@@ -4,7 +4,7 @@
  * Convert raw byte count to human-readable size string.
  * Auto-scales through B / KB / MB / GB / TB.
  *
- * @example bytesToSize(0)     → "0 KB"
+ * @example bytesToSize(0)     → "0 B"
  * @example bytesToSize(512)   → "512 B"
  * @example bytesToSize(1048576) → "1.0 MB"
  * @example bytesToSize(1073741824) → "1.0 GB"
@@ -62,7 +62,7 @@ export function timeRemaining(totalLength: number, completedLength: number, down
  * @example formatEta(0)     → "—"
  * @example formatEta(45)    → "45s"
  * @example formatEta(125)   → "2m 5s"
- * @example formatEta(7300)  → "2h 1m"
+ * @example formatEta(7260)  → "2h 1m"
  * @example formatEta(90000) → "> 1 day"
  */
 export function formatEta(seconds: number): string {
@@ -70,11 +70,11 @@ export function formatEta(seconds: number): string {
   let secs = seconds
   if (secs > 86400) return '> 1 day'
   const parts: string[] = []
-  if (secs > 3600) {
+  if (secs >= 3600) {
     parts.push(`${Math.floor(secs / 3600)}h`)
     secs %= 3600
   }
-  if (secs > 60) {
+  if (secs >= 60) {
     parts.push(`${Math.floor(secs / 60)}m`)
     secs %= 60
   }

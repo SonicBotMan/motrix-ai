@@ -61,7 +61,9 @@ pub async fn save_file(path: String, content: Vec<u8>) -> Result<String, String>
         let path = expand_home(&path);
 
         if let Some(home) = dirs::home_dir() {
-            if !path.starts_with(&home) {
+            let canon_home = home.canonicalize().unwrap_or_else(|_| home.clone());
+            let canon_path = path.canonicalize().unwrap_or_else(|_| path.clone());
+            if !canon_path.starts_with(&canon_home) {
                 return Err(format!(
                     "Refusing to write outside home directory: {}",
                     path.display()
@@ -81,13 +83,12 @@ pub async fn save_file(path: String, content: Vec<u8>) -> Result<String, String>
     .map_err(|e| format!("Task join error: {}", e))?
 }
 
-/// Download subtitle from URL and save to disk. Only HTTPS URLs are accepted.
+/// Download subtitle from URL and save to disk. Only HTTP(S) URLs are accepted.
 #[command]
 pub async fn download_subtitle(url: String, save_path: String) -> Result<String, String> {
     if !url.starts_with("https://") && !url.starts_with("http://") {
         return Err("Only HTTP(S) URLs are allowed for subtitle download".to_string());
     }
-
     let client = build_http_client()?;
 
     let response = client
@@ -106,7 +107,9 @@ pub async fn download_subtitle(url: String, save_path: String) -> Result<String,
         let path = expand_home(&path);
 
         if let Some(home) = dirs::home_dir() {
-            if !path.starts_with(&home) {
+            let canon_home = home.canonicalize().unwrap_or_else(|_| home.clone());
+            let canon_path = path.canonicalize().unwrap_or_else(|_| path.clone());
+            if !canon_path.starts_with(&canon_home) {
                 return Err(format!(
                     "Refusing to write outside home directory: {}",
                     path.display()
