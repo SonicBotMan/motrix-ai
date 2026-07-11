@@ -260,13 +260,13 @@ pub async fn stop_aria2() -> Result<String, String> {
             .send()
             .await;
 
-        let deadline = Duration::from_secs(5);
-        let interval = Duration::from_millis(200);
-        let start = std::time::Instant::now();
         let mut exited = false;
 
         #[cfg(unix)]
         {
+            let deadline = Duration::from_secs(5);
+            let interval = Duration::from_millis(200);
+            let start = std::time::Instant::now();
             while start.elapsed() < deadline {
                 let result = std::process::Command::new("kill")
                     .args(["-0", &p.to_string()])
