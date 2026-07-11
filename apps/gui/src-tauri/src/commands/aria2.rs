@@ -122,7 +122,7 @@ pub async fn start_aria2(app: tauri::AppHandle, rpc_port: Option<u16>) -> Result
         .map(|p| p.to_path_buf())
         .unwrap_or_else(|| std::path::PathBuf::from(".motrix-ai"));
 
-    let secret = get_aria2_secret().clone();
+    let secret = get_aria2_secret();
 
     let mut cmd = std::process::Command::new(&aria2c_path);
     cmd.args([
