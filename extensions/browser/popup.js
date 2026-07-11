@@ -2,17 +2,46 @@
 // Handles the popup UI: send URL to desktop app, clipboard fallback,
 // and auto-fill from the active tab.
 
+let cachedToken = null
+
+async function getMotrixToken() {
+  if (cachedToken) return cachedToken
+  try {
+    const resp = await fetch('http://127.0.0.1:18900/')
+    if (!resp.ok) return null
+    const data = await resp.json()
+    cachedToken = data.token || null
+    return cachedToken
+  } catch {
+    return null
+  }
+}
+
 document.getElementById('download').addEventListener('click', async () => {
   const url = document.getElementById('url').value.trim()
   if (!url) return
 
   const status = document.getElementById('status')
   try {
-    const response = await fetch('http://127.0.0.1:18900/api/download', {
+    let token = await getMotrixToken()
+    if (!token) throw new Error('App not running')
+
+    let response = await fetch('http://127.0.0.1:18900/api/download', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Motrix-Token': token },
       body: JSON.stringify({ url, title: '' })
     })
+
+    if (response.status === 403) {
+      cachedToken = null
+      token = await getMotrixToken()
+      if (!token) throw new Error('App not running')
+      response = await fetch('http://127.0.0.1:18900/api/download', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Motrix-Token': token },
+        body: JSON.stringify({ url, title: '' })
+      })
+    }
 
     if (response.ok) {
       status.textContent = '✅ Added to download queue'

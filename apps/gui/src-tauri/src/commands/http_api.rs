@@ -3,7 +3,7 @@
 use super::aria2_add_uri;
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicBool, Ordering};
-use tauri::command;
+use tauri::{command, AppHandle, Emitter};
 use tokio::sync::watch;
 
 const DEFAULT_PORT: u16 = 18900;
@@ -11,6 +11,8 @@ const DEFAULT_PORT: u16 = 18900;
 static SERVER_RUNNING: AtomicBool = AtomicBool::new(false);
 
 static SHUTDOWN_TX: std::sync::OnceLock<watch::Sender<bool>> = std::sync::OnceLock::new();
+
+static APP_HANDLE: std::sync::OnceLock<AppHandle> = std::sync::OnceLock::new();
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DownloadRequest {
@@ -20,13 +22,15 @@ pub struct DownloadRequest {
 }
 
 #[command]
-pub async fn start_http_api(port: Option<u16>) -> Result<String, String> {
+pub async fn start_http_api(port: Option<u16>, app: AppHandle) -> Result<String, String> {
     let port = port.unwrap_or(DEFAULT_PORT);
     let url = format!("http://127.0.0.1:{}", port);
 
     if SERVER_RUNNING.swap(true, Ordering::SeqCst) {
         return Ok(url);
     }
+
+    let _ = APP_HANDLE.set(app);
 
     let (shutdown_tx, mut shutdown_rx) = watch::channel(false);
     let _ = SHUTDOWN_TX.set(shutdown_tx);
@@ -77,17 +81,29 @@ async fn handle_connection(stream: &mut tokio::net::TcpStream) -> Result<(), Str
 
     let (status, body) = route_request(&request).await;
 
+    // S1: restrict CORS to browser-extension origins only. A wildcard ("*")
+    // would let any website read responses (incl. the RPC token from GET /)
+    // and drive downloads — a localhost CSRF. Extension origins are echoed
+    // verbatim; website origins get no CORS header so the browser blocks reads.
+    let cors_header = match cors_origin(&request) {
+        Some(o) => format!(
+            "Access-Control-Allow-Origin: {}\r\n\
+             Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n\
+             Access-Control-Allow-Headers: Content-Type, X-Motrix-Token\r\n",
+            o
+        ),
+        None => String::new(),
+    };
+
     let response = format!(
         "HTTP/1.1 {} {}\r\n\
          Content-Type: application/json\r\n\
          Content-Length: {}\r\n\
-         Access-Control-Allow-Origin: *\r\n\
-         Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n\
-         Access-Control-Allow-Headers: Content-Type, X-Motrix-Token\r\n\
-         \r\n{}",
+         {}\r\n{}",
         status,
         status_text(status),
         body.len(),
+        cors_header,
         body
     );
 
@@ -136,12 +152,45 @@ async fn route_request(request: &str) -> (u16, String) {
         };
 
         return match aria2_add_uri(&req.url).await {
-            Ok(gid) => (200, format!("{{\"status\":\"ok\",\"gid\":\"{}\"}}", gid)),
+            Ok(gid) => {
+                // S2: emit a visibility event so the GUI can surface downloads
+                // enqueued via the HTTP API (extension bridge). The download
+                // is already enqueued; this is non-blocking notification only.
+                if let Some(handle) = APP_HANDLE.get() {
+                    let _ = handle.emit(
+                        "http-api-download",
+                        serde_json::json!({ "url": req.url, "title": req.title, "gid": gid }),
+                    );
+                }
+                (200, format!("{{\"status\":\"ok\",\"gid\":\"{}\"}}", gid))
+            }
             Err(e) => (502, err_body(&e)),
         };
     }
 
     (404, err_body("not found"))
+}
+
+/// Return the request's `Origin` header value iff it is a browser-extension
+/// scheme. Returns `None` for website (http/https) origins so the browser
+/// blocks cross-origin reads — preventing token theft via CORS (S1).
+fn cors_origin(request: &str) -> Option<String> {
+    for line in request.lines().take(50) {
+        let line = line.trim();
+        if let Some((name, value)) = line.split_once(':') {
+            if name.eq_ignore_ascii_case("origin") {
+                let origin = value.trim();
+                if origin.starts_with("chrome-extension://")
+                    || origin.starts_with("moz-extension://")
+                    || origin.starts_with("safari-web-extension://")
+                {
+                    return Some(origin.to_string());
+                }
+                return None;
+            }
+        }
+    }
+    None
 }
 
 fn err_body(msg: &str) -> String {
@@ -239,5 +288,33 @@ mod tests {
         let req: DownloadRequest = serde_json::from_str(json).unwrap();
         assert_eq!(req.url, "magnet:?xt=urn:btih:abc123");
         assert!(req.title.is_none());
+    }
+
+    #[test]
+    fn test_cors_origin_extension_schemes_allowed() {
+        let req = "GET / HTTP/1.1\r\nOrigin: chrome-extension://abcdefg\r\n\r\n";
+        assert_eq!(
+            cors_origin(req).as_deref(),
+            Some("chrome-extension://abcdefg")
+        );
+
+        let req = "GET / HTTP/1.1\r\nOrigin: moz-extension://12345\r\n\r\n";
+        assert_eq!(cors_origin(req).as_deref(), Some("moz-extension://12345"));
+    }
+
+    #[test]
+    fn test_cors_origin_website_origins_blocked() {
+        // Website origins must NOT be echoed — otherwise a malicious page can
+        // read the RPC token from GET / (S1).
+        let req = "GET / HTTP/1.1\r\nOrigin: https://evil.example\r\n\r\n";
+        assert_eq!(cors_origin(req), None);
+
+        let req = "GET / HTTP/1.1\r\nOrigin: http://localhost:8080\r\n\r\n";
+        assert_eq!(cors_origin(req), None);
+    }
+
+    #[test]
+    fn test_cors_origin_missing_header() {
+        assert_eq!(cors_origin("GET / HTTP/1.1\r\n\r\n"), None);
     }
 }
