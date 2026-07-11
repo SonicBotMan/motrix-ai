@@ -324,6 +324,9 @@ pub async fn organize_file(
 
         let base_dir = configured_download_dir();
         let movie_dir = configured_subdir("movie_dir", "Movies");
+        let tv_dir = configured_subdir("tv_dir", "TV");
+        let anime_dir = configured_subdir("anime_dir", "Anime");
+        let music_dir = configured_subdir("music_dir", "Music");
         let software_dir = configured_subdir("software_dir", "Software");
         let other_dir = configured_subdir("other_dir", "Other");
 
@@ -353,15 +356,15 @@ pub async fn organize_file(
                 (dir, fname)
             }
             "tv" => {
-                let dir = safe_join(&base_dir, &["TV", &title])?;
+                let dir = safe_join(&base_dir, &[&tv_dir, &title])?;
                 (dir, filename)
             }
             "anime" => {
-                let dir = safe_join(&base_dir, &["Anime", &title])?;
+                let dir = safe_join(&base_dir, &[&anime_dir, &title])?;
                 (dir, filename)
             }
             "music" => {
-                let dir = safe_join(&base_dir, &["Music", &title])?;
+                let dir = safe_join(&base_dir, &[&music_dir, &title])?;
                 (dir, filename)
             }
             "software" => {
