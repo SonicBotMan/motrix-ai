@@ -102,10 +102,10 @@ pub(crate) fn configured_download_dir() -> std::path::PathBuf {
                     if !trimmed.is_empty() {
                         let expanded = if trimmed == "~" {
                             home.clone()
-                        } else if trimmed.starts_with("~/") {
-                            home.join(&trimmed[2..])
-                        } else if trimmed.starts_with("~\\") {
-                            home.join(&trimmed[3..])
+                        } else if let Some(rest) = trimmed.strip_prefix("~/") {
+                            home.join(rest)
+                        } else if let Some(rest) = trimmed.strip_prefix("~\\") {
+                            home.join(rest)
                         } else {
                             std::path::PathBuf::from(trimmed)
                         };
