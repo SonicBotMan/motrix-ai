@@ -143,7 +143,11 @@ pub async fn start_aria2(app: tauri::AppHandle, rpc_port: Option<u16>) -> Result
         &format!("--save-session={}", session_file.display()),
         "--auto-save-interval=30",
     ])
-    .stdout(std::process::Stdio::null())
+    .stdout(std::process::Stdio::from(
+        log_file
+            .try_clone()
+            .map_err(|e| format!("Clone log fd: {}", e))?,
+    ))
     .stderr(std::process::Stdio::from(log_file));
 
     // Detach from parent so process survives when Child handle is dropped
@@ -233,20 +237,48 @@ pub async fn stop_aria2() -> Result<String, String> {
     };
 
     if let Some(p) = pid {
+        let secret = get_aria2_secret();
         let client = reqwest::Client::new();
         let _ = client
             .post("http://127.0.0.1:6800/jsonrpc")
             .header("Content-Type", "application/json")
-            .body(r#"{"jsonrpc":"2.0","id":"shutdown","method":"aria2.shutdown"}"#)
+            .body(format!(
+                r#"{{"jsonrpc":"2.0","id":"shutdown","method":"aria2.shutdown","params":["token:{}"]}}"#,
+                secret
+            ))
             .timeout(Duration::from_secs(2))
             .send()
             .await;
 
-        tokio::time::sleep(Duration::from_millis(500)).await;
+        let deadline = Duration::from_secs(5);
+        let interval = Duration::from_millis(200);
+        let start = std::time::Instant::now();
+        let mut exited = false;
+        while start.elapsed() < deadline {
+            #[cfg(unix)]
+            {
+                let result = std::process::Command::new("kill")
+                    .args(["-0", &p.to_string()])
+                    .output();
+                let alive = result.map(|o| o.status.success()).unwrap_or(false);
+                if !alive {
+                    exited = true;
+                    break;
+                }
+            }
+            #[cfg(not(unix))]
+            {
+                break;
+            }
+            tokio::time::sleep(interval).await;
+        }
 
-        let _ = std::process::Command::new("kill")
-            .args(["-9", &p.to_string()])
-            .output();
+        if !exited {
+            log::warn!("aria2c did not exit gracefully after 5s, sending SIGKILL");
+            let _ = std::process::Command::new("kill")
+                .args(["-9", &p.to_string()])
+                .output();
+        }
 
         Ok(format!("aria2c (PID {}) stopped", p))
     } else {
