@@ -18,6 +18,9 @@ watch(
 )
 
 let unlistenDeepLink: (() => void) | null = null
+let unlistenFileDrop: (() => void) | null = null
+let clipboardPoller: ReturnType<typeof setInterval> | null = null
+let lastClipboardUrl = ''
 
 onMounted(async () => {
   await configStore.init()
@@ -39,11 +42,43 @@ onMounted(async () => {
   } catch {
     /* not in Tauri context */
   }
+
+  try {
+    const { listen } = await import('@tauri-apps/api/event')
+    unlistenFileDrop = await listen<string[]>('tauri://file-drop', async (event) => {
+      for (const path of event.payload) {
+        if (path.endsWith('.torrent')) {
+          try {
+            const { invoke } = await import('@tauri-apps/api/core')
+            await invoke<string>('add_torrent_file', { path })
+          } catch {
+            /* skip invalid torrent files */
+          }
+        }
+      }
+    })
+  } catch {
+    /* not in Tauri context */
+  }
+
+  clipboardPoller = setInterval(async () => {
+    try {
+      const text = await navigator.clipboard.readText()
+      if (!text || text === lastClipboardUrl) return
+      if (/^(magnet:|ed2k:\/\/|https?:\/\/|ftp:\/\/)/i.test(text.trim()) && text.trim().length < 2000) {
+        lastClipboardUrl = text
+      }
+    } catch {
+      /* clipboard not accessible */
+    }
+  }, 5000)
 })
 
 onUnmounted(() => {
   sched.stop()
   unlistenDeepLink?.()
+  unlistenFileDrop?.()
+  if (clipboardPoller) clearInterval(clipboardPoller)
 })
 </script>
 <template>

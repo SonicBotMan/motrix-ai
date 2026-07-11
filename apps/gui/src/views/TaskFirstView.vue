@@ -170,7 +170,28 @@ async function aria2AddUri(
  */
 async function handleSendMessage(message: string): Promise<void> {
   if (!message.trim()) return
-  const trimmed = message.trim()
+
+  const lines = message
+    .trim()
+    .split(/\n/)
+    .map((l) => l.trim())
+    .filter(Boolean)
+  if (lines.length > 1) {
+    addToast({ id: generateToastId(), type: 'info', text: `Adding ${lines.length} downloads…`, createdAt: Date.now() })
+    for (const line of lines) {
+      if (/^(magnet:|ed2k:\/\/|https?:\/\/|ftp:\/\/)/i.test(line)) {
+        try {
+          await aria2AddUri(line)
+        } catch {
+          /* skip failed URLs in batch */
+        }
+      }
+    }
+    addToast({ id: generateToastId(), type: 'success', text: 'Batch complete', createdAt: Date.now() })
+    return
+  }
+
+  const trimmed = lines[0]
 
   // --- Magnet link → torrent download ---
   if (trimmed.startsWith('magnet:')) {

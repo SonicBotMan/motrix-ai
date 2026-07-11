@@ -247,12 +247,17 @@ async function handleReconnect() {
 }
 
 async function handleRetry(item: DownloadItem) {
+  const uri = item.uris[0]
+  if (!uri) {
+    opError(
+      new Error(item.isBT ? 'Cannot retry BT task without original magnet link' : 'No source URL available'),
+      'Retry failed',
+    )
+    return
+  }
   try {
-    const uri = item.uris[0]
-    if (uri) {
-      await manager.cancelDownload(item.gid)
-      await manager.addDownload(uri, { dir: item.dir })
-    }
+    await manager.cancelDownload(item.gid)
+    await manager.addDownload(uri, { dir: item.dir })
   } catch (e) {
     opError(e, 'Retry failed')
   }
@@ -300,35 +305,26 @@ async function handleMoveDown(gid: string, steps = 1) {
 
 // ---- Bulk actions ----
 async function handleBulkPause() {
-  for (const gid of selectedGids.value) {
-    try {
-      await manager.pauseDownload(gid)
-    } catch (e) {
-      opError(e, 'Bulk pause failed')
-    }
-  }
+  const gids = [...selectedGids.value]
+  const results = await Promise.allSettled(gids.map((gid) => manager.pauseDownload(gid)))
+  const failed = results.filter((r) => r.status === 'rejected').length
+  if (failed > 0) message.error(`Bulk pause: ${failed} failed`)
   selectedGids.value.clear()
 }
 
 async function handleBulkResume() {
-  for (const gid of selectedGids.value) {
-    try {
-      await manager.resumeDownload(gid)
-    } catch (e) {
-      opError(e, 'Bulk resume failed')
-    }
-  }
+  const gids = [...selectedGids.value]
+  const results = await Promise.allSettled(gids.map((gid) => manager.resumeDownload(gid)))
+  const failed = results.filter((r) => r.status === 'rejected').length
+  if (failed > 0) message.error(`Bulk resume: ${failed} failed`)
   selectedGids.value.clear()
 }
 
 async function handleBulkRemove() {
-  for (const gid of selectedGids.value) {
-    try {
-      await manager.cancelDownload(gid)
-    } catch (e) {
-      opError(e, 'Bulk remove failed')
-    }
-  }
+  const gids = [...selectedGids.value]
+  const results = await Promise.allSettled(gids.map((gid) => manager.cancelDownload(gid)))
+  const failed = results.filter((r) => r.status === 'rejected').length
+  if (failed > 0) message.error(`Bulk remove: ${failed} failed`)
   selectedGids.value.clear()
 }
 
