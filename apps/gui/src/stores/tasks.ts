@@ -8,6 +8,9 @@ import { defineStore } from 'pinia'
 import { useAria2, type Aria2Status } from '@/composables/useAria2'
 import { useConfigStore } from '@/stores/config'
 import { formatSpeed, formatSizeProgress, formatEta, timeRemaining } from '@/shared/utils/format'
+import { createLogger } from '@motrix-ai/core/browser'
+
+const logger = createLogger('tasks')
 
 export type TaskStatus = 'downloading' | 'completed' | 'paused' | 'failed' | 'pending'
 
@@ -145,6 +148,7 @@ export const useTasksStore = defineStore('tasks', () => {
 
   async function init(): Promise<void> {
     await aria2.start()
+    localTasks.value = []
     if (!pipelineRegistered) {
       registerPostDownloadPipeline()
       pipelineRegistered = true
@@ -163,7 +167,7 @@ export const useTasksStore = defineStore('tasks', () => {
         if (!granted) granted = (await requestPermission()) === 'granted'
         if (granted) sendNotification({ title: 'Download complete', body: filename })
       } catch (e) {
-        console.warn('Notification failed:', e)
+        logger.warn('Notification failed: ' + e)
       }
 
       if (filePath) {
@@ -179,7 +183,7 @@ export const useTasksStore = defineStore('tasks', () => {
           })
           intentByGid.delete(task.gid)
         } catch (e) {
-          console.warn('Auto-organize failed:', e)
+          logger.warn('Auto-organize failed: ' + e)
         }
       }
 
@@ -199,7 +203,7 @@ export const useTasksStore = defineStore('tasks', () => {
             }
           }
         } catch (e) {
-          console.warn('Subtitle search failed:', e)
+          logger.warn('Subtitle search failed: ' + e)
         }
       }
     })
@@ -259,7 +263,7 @@ export const useTasksStore = defineStore('tasks', () => {
       try {
         await aria2.remove(task.gid)
       } catch (e) {
-        console.error('Failed to remove task via aria2:', e)
+        logger.error('Failed to remove task: ' + e)
       }
     } else {
       localTasks.value = localTasks.value.filter((t) => t.id !== task.id)
@@ -274,7 +278,7 @@ export const useTasksStore = defineStore('tasks', () => {
       try {
         await aria2.pause(task.gid)
       } catch (e) {
-        console.error('Failed to pause task via aria2:', e)
+        logger.error('Failed to pause task: ' + e)
       }
     } else {
       const local = localTasks.value.find((t) => t.id === task.id)
@@ -294,7 +298,7 @@ export const useTasksStore = defineStore('tasks', () => {
       try {
         await aria2.unpause(task.gid)
       } catch (e) {
-        console.error('Failed to resume task via aria2:', e)
+        logger.error('Failed to resume task: ' + e)
       }
     } else {
       const local = localTasks.value.find((t) => t.id === task.id)
@@ -319,7 +323,7 @@ export const useTasksStore = defineStore('tasks', () => {
           throw new Error('Cannot retry BitTorrent task without original magnet or HTTP URL')
         }
       } catch (e) {
-        console.error('Failed to retry task via aria2:', e)
+        logger.error('Failed to retry task: ' + e)
         throw e
       }
     } else {
@@ -339,7 +343,7 @@ export const useTasksStore = defineStore('tasks', () => {
       try {
         await aria2.removeCompleted()
       } catch (e) {
-        console.error('Failed to clear completed aria2 tasks:', e)
+        logger.error('Failed to clear completed: ' + e)
       }
     }
   }

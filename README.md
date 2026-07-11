@@ -68,7 +68,7 @@ AI:  Found -> Queued -> Downloaded -> Subtitled -> Organized ✅
 
 - **CLI mode** — `motrix-ai ask "下 XX"` from terminal
 - **MCP Server** — expose download capabilities to AI agents
-- **682 tests** — TypeScript (Vitest) + Rust (cargo test), ~50% coverage
+- **685 tests** — TypeScript (Vitest) + Rust (cargo test), ~50% coverage
 - **Structured errors** — typed error hierarchy with cause chaining
 - **Structured logging** — level-filtered logger replacing console.*
 
@@ -185,8 +185,8 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed architecture docum
 | Metric            | Value                                       |
 | ----------------- | ------------------------------------------- |
 | **Version**       | 1.0.0                                       |
-| **Tests**         | 603 TS + 10 Rust (43 TS files)              |
-| **Coverage**      | ~45% lines (threshold 40%)                  |
+| **Tests**         | 685 TS + 10 Rust (49 TS files)              |
+| **Coverage**      | ~48% lines (threshold 40%)                  |
 | **ESLint**        | 0 errors, 0 warnings                        |
 | **Platforms**     | 4 (macOS ARM64/x64, Windows x64, Linux x64) |
 | **Languages**     | 5 (中/英/日/韩/法)                          |
@@ -200,7 +200,7 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed architecture docum
 
 - ✅ **v0.1.0** — PoC (OpenCode SDK validation)
 - ✅ **v0.2.0** — Alpha (cross-platform CI, system tray, notifications)
-- ✅ **v1.0.0** — Stable release (all features, 603 TS + 10 Rust tests, 5 languages)
+- ✅ **v1.1.0** — Stable release (all features, 685 TS + 10 Rust tests, 5 languages)
 
 ### Future
 
