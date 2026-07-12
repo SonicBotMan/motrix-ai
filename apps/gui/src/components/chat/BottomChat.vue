@@ -28,7 +28,6 @@ const chips: Chip[] = [
 ]
 
 const message = ref('')
-const sending = ref(false)
 
 const emit = defineEmits<{
   quickAction: [index: number]
@@ -37,15 +36,10 @@ const emit = defineEmits<{
 }>()
 
 function send(): void {
-  if (sending.value || !message.value.trim()) return
+  if (!message.value.trim()) return
   const msg = message.value.trim()
-  sending.value = true
   emit('send', msg)
   message.value = ''
-  // Simulate send completion; parent can reset if needed
-  setTimeout(() => {
-    sending.value = false
-  }, 1100)
 }
 </script>
 
@@ -93,18 +87,8 @@ function send(): void {
         @keydown.enter="send"
       />
 
-      <button
-        type="button"
-        class="chat-send"
-        aria-label="Send message"
-        :disabled="sending || !message.trim()"
-        @click="send"
-      >
-        <span v-if="sending" class="send-content">
-          <span class="spinner" />
-          <span class="send-label">Sending...</span>
-        </span>
-        <span v-else class="send-arrow">
+      <button type="button" class="chat-send" aria-label="Send message" :disabled="!message.trim()" @click="send">
+        <span class="send-arrow">
           <svg
             width="16"
             height="16"
