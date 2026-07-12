@@ -446,12 +446,14 @@ function openDetail(task: Task): void {
   selectedTask.value = task
   showDetail.value = true
   keyboardIndex.value = -1
+  fileSelection.value.clear()
 }
 
 function closeDetail(): void {
   showDetail.value = false
   selectedTask.value = null
   selectedTaskId.value = null
+  fileSelection.value.clear()
 }
 
 // ---------------------------------------------------------------------------
