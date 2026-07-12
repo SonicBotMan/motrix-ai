@@ -55,10 +55,21 @@ const emit = defineEmits<{
 // --- State ---
 
 const flashingRowId = ref<number | null>(null)
-/** Track which row's context menu is currently open */
 const openMenuId = ref<number | null>(null)
-/** Refs onto each rendered row so we can scrollIntoView on j/k navigation */
 const rowRefs = ref<Array<HTMLTableRowElement | null>>([])
+
+type SortField = 'name' | 'progress' | 'speed' | 'size' | 'status'
+const sortField = ref<SortField | null>(null)
+const sortDir = ref<'asc' | 'desc'>('desc')
+
+function toggleSort(field: SortField) {
+  if (sortField.value === field) {
+    sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc'
+  } else {
+    sortField.value = field
+    sortDir.value = 'desc'
+  }
+}
 
 const setRowRef = (el: Element | null | undefined, i: number) => {
   rowRefs.value[i] = (el as HTMLTableRowElement | null) ?? null
@@ -89,9 +100,30 @@ const filteredTasks = computed<Task[]>(() => {
     return props.tasks.filter((t) => t.status === 'downloading' || t.status === 'paused')
   }
   return props.tasks.filter((t) => {
-    // Map 'paused' UI status
     if (props.activeFilter === 'paused') return t.status === 'paused'
     return t.status === props.activeFilter
+  })
+})
+
+const displayTasks = computed<Task[]>(() => {
+  const tasks = filteredTasks.value
+  if (!sortField.value) return tasks
+  const dir = sortDir.value === 'asc' ? 1 : -1
+  return [...tasks].sort((a, b) => {
+    switch (sortField.value) {
+      case 'name':
+        return a.name.localeCompare(b.name) * dir
+      case 'progress':
+        return (a.progress - b.progress) * dir
+      case 'speed':
+        return ((a.rawSpeed ?? 0) - (b.rawSpeed ?? 0)) * dir
+      case 'size':
+        return ((a.rawSize ?? 0) - (b.rawSize ?? 0)) * dir
+      case 'status':
+        return a.status.localeCompare(b.status) * dir
+      default:
+        return 0
+    }
   })
 })
 
@@ -178,22 +210,32 @@ function handleMenuToggle(taskId: number, event: MouseEvent): void {
     <FilterTabs :active-filter="activeFilter" @update:active-filter="emit('update:filter', $event)" />
 
     <!-- Table -->
-    <table v-if="filteredTasks.length > 0" class="task-table">
+    <table v-if="displayTasks.length > 0" class="task-table">
       <thead>
         <tr>
-          <th class="col-name">Name</th>
+          <th class="col-name sortable" @click="toggleSort('name')">
+            Name<span v-if="sortField === 'name'" class="sort-arrow">{{ sortDir === 'asc' ? '▲' : '▼' }}</span>
+          </th>
           <th class="col-source">Source</th>
-          <th class="col-status">Status</th>
-          <th class="col-progress">Progress</th>
-          <th class="col-speed">Speed</th>
-          <th class="col-size">Size</th>
+          <th class="col-status sortable" @click="toggleSort('status')">
+            Status<span v-if="sortField === 'status'" class="sort-arrow">{{ sortDir === 'asc' ? '▲' : '▼' }}</span>
+          </th>
+          <th class="col-progress sortable" @click="toggleSort('progress')">
+            Progress<span v-if="sortField === 'progress'" class="sort-arrow">{{ sortDir === 'asc' ? '▲' : '▼' }}</span>
+          </th>
+          <th class="col-speed sortable" @click="toggleSort('speed')">
+            Speed<span v-if="sortField === 'speed'" class="sort-arrow">{{ sortDir === 'asc' ? '▲' : '▼' }}</span>
+          </th>
+          <th class="col-size sortable" @click="toggleSort('size')">
+            Size<span v-if="sortField === 'size'" class="sort-arrow">{{ sortDir === 'asc' ? '▲' : '▼' }}</span>
+          </th>
           <th class="col-eta">ETA</th>
           <th class="col-actions" />
         </tr>
       </thead>
       <tbody id="taskTableBody">
         <tr
-          v-for="(task, i) in filteredTasks"
+          v-for="(task, i) in displayTasks"
           :key="task.id"
           :ref="(el) => setRowRef(el as Element | null, i)"
           :data-task-id="task.id"
@@ -395,6 +437,20 @@ function handleMenuToggle(taskId: number, event: MouseEvent): void {
 }
 .task-table .col-actions {
   width: 5%;
+}
+
+.task-table th.sortable {
+  cursor: pointer;
+  user-select: none;
+  transition: color 120ms ease;
+}
+.task-table th.sortable:hover {
+  color: var(--fg, #fafafa);
+}
+.sort-arrow {
+  margin-left: 4px;
+  font-size: 10px;
+  opacity: 0.7;
 }
 
 /* --- Table body rows --- */

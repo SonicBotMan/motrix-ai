@@ -24,7 +24,10 @@ export interface Task {
   status: TaskStatus
   progress: number
   speed: string
+  rawSpeed?: number
+  rawUploadSpeed?: number
   size: string
+  rawSize?: number
   total?: string
   eta: string
   type: TaskType
@@ -104,7 +107,10 @@ function fromAria2Status(s: Aria2Status): Task {
     status: mapAria2Status(s.status),
     progress,
     speed: formatSpeed(speed),
+    rawSpeed: speed,
+    rawUploadSpeed: Math.max(0, Number(s.uploadSpeed) || 0),
     size: formatSizeProgress(completed, total),
+    rawSize: total,
     eta: formatEta(timeRemaining(total, completed, speed)),
     type: getTypeFromFilename(filename),
     filePath: s.files?.[0]?.path,
