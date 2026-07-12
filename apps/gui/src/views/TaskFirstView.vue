@@ -62,6 +62,15 @@ const router = useRouter()
 const activeFilter = ref('all')
 const taskSearchQuery = ref('')
 const selectedTask = ref<Task | null>(null)
+const selectedTaskId = ref<number | null>(null)
+const liveSelectedTask = computed<Task | null>(() => {
+  if (!selectedTaskId.value) return null
+  const found = tasks.value.find((t) => t.id === selectedTaskId.value) ?? null
+  if (!found && showDetail.value) {
+    closeDetail()
+  }
+  return found
+})
 const showDetail = ref(false)
 const showMenu = ref(false)
 const menuTask = ref<Task | null>(null)
@@ -148,21 +157,7 @@ async function aria2AddUri(
         : undefined,
     )
   } catch (e) {
-    // addTask only throws if aria2 is connected AND the RPC fails; fall
-    // back to a raw JSON-RPC call so the user still gets the real error.
-    const data = await fetch('http://127.0.0.1:6800/jsonrpc', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: 'motrix-gui',
-        method: 'aria2.addUri',
-        params: [[uri]],
-      }),
-    }).then((r) => r.json())
-    if (data.error) {
-      throw new Error(data.error.message || 'aria2 RPC error', { cause: e })
-    }
+    throw new Error(e instanceof Error ? e.message : String(e), { cause: e })
   }
 }
 
@@ -353,7 +348,9 @@ function handleSelectSearchResult(result: SearchResult): void {
 function handleQuickAction(index: number): void {
   switch (index) {
     case 0: // Download Ubuntu 24.04 LTS ISO
-      handleSendMessage('Download Ubuntu 24.04 LTS ISO')
+      handleSendMessage(
+        'magnet:?xt=urn:btih:c9e15763f722f23e98a29decdfae341b51d5c4ea&dn=ubuntu-24.04.2-desktop-amd64.iso&tr=https%3A%2F%2Ftorrent.ubuntu.com%2Fannounce&tr=https%3A%2F%2Fipv6.torrent.ubuntu.com%2Fannounce',
+      )
       return
     case 1: // What is downloading?  → switch to Active filter
       activeFilter.value = 'active'
@@ -438,6 +435,7 @@ async function handleAttach(): Promise<void> {
 // ---------------------------------------------------------------------------
 
 function openDetail(task: Task): void {
+  selectedTaskId.value = task.id
   selectedTask.value = task
   showDetail.value = true
   keyboardIndex.value = -1
@@ -446,6 +444,7 @@ function openDetail(task: Task): void {
 function closeDetail(): void {
   showDetail.value = false
   selectedTask.value = null
+  selectedTaskId.value = null
 }
 
 // ---------------------------------------------------------------------------
@@ -557,10 +556,19 @@ async function openLocation(task?: Task | null): Promise<void> {
   // `filePath` on a Task is the absolute path aria2 wrote (set in
   // fromAria2Status). If it's missing (e.g. magnet-only), we fall back.
   const downloadDir = await getDownloadDir()
-  const fileSegment = target.filePath?.split('/').pop() || target.source.split('/').pop() || target.name
-  // Collapse leading slashes; preserve extension if any
-  const cleanSegment = fileSegment.replace(/^\/+/, '')
-  const absolutePath = target.filePath || `${downloadDir}/${cleanSegment}`
+  let absolutePath: string
+  if (target.filePath) {
+    absolutePath = target.filePath
+  } else if (
+    target.source.startsWith('magnet:') ||
+    target.source.startsWith('ed2k:') ||
+    target.source.startsWith('thunder:')
+  ) {
+    absolutePath = downloadDir
+  } else {
+    const fileSegment = target.source.split('/').pop() || target.name
+    absolutePath = `${downloadDir}/${fileSegment.replace(/^\/+/, '')}`
+  }
 
   try {
     await invoke('show_in_folder', { path: absolutePath })
@@ -888,7 +896,7 @@ onUnmounted(() => {
     <!-- Detail panel overlay (when task clicked) -->
     <DetailPanel
       :show="showDetail"
-      :task="selectedTask"
+      :task="liveSelectedTask"
       @close="closeDetail"
       @pause="pauseTask"
       @resume="resumeTask"
