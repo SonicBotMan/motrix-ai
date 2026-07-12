@@ -264,6 +264,8 @@ export const useTasksStore = defineStore('tasks', () => {
       return
     }
 
+    if (task.gid) intentByGid.delete(task.gid)
+
     if (task.gid && aria2.connected.value) {
       try {
         await aria2.remove(task.gid)

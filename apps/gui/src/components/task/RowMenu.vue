@@ -50,6 +50,7 @@ const menuRef = ref<HTMLElement | null>(null)
 
 /** When `downloading`, the primary action is Pause; otherwise Resume */
 const isDownloading = () => props.task.status === 'downloading'
+const isPaused = () => props.task.status === 'paused'
 
 /** Outside-click handler — bound while open */
 function handleDocumentClick(e: MouseEvent) {
@@ -89,11 +90,21 @@ onUnmounted(() => {
 
 function run(action: 'pause' | 'resume' | 'retry' | 'delete' | 'openLocation') {
   switch (action) {
-    case 'pause': emit('pause'); break
-    case 'resume': emit('resume'); break
-    case 'retry': emit('retry'); break
-    case 'delete': emit('delete'); break
-    case 'openLocation': emit('openLocation'); break
+    case 'pause':
+      emit('pause')
+      break
+    case 'resume':
+      emit('resume')
+      break
+    case 'retry':
+      emit('retry')
+      break
+    case 'delete':
+      emit('delete')
+      break
+    case 'openLocation':
+      emit('openLocation')
+      break
   }
   emit('close')
 }
@@ -101,88 +112,116 @@ function run(action: 'pause' | 'resume' | 'retry' | 'delete' | 'openLocation') {
 
 <template>
   <Teleport to="body">
-  <Transition name="row-menu">
-    <div
-      v-if="props.show"
-      ref="menuRef"
-      class="row-menu"
-      :style="{ left: menuLeft, top: menuTop }"
-      role="menu"
-      aria-label="Task actions"
-    >
-      <!-- Pause / Resume (status-dependent) -->
-      <button
-        v-if="isDownloading()"
-        class="row-menu-item"
-        role="menuitem"
-        type="button"
-        @click="run('pause')"
+    <Transition name="row-menu">
+      <div
+        v-if="props.show"
+        ref="menuRef"
+        class="row-menu"
+        :style="{ left: menuLeft, top: menuTop }"
+        role="menu"
+        aria-label="Task actions"
       >
-        <svg class="row-menu-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <rect x="6" y="4" width="4" height="16" />
-          <rect x="14" y="4" width="4" height="16" />
-        </svg>
-        <span>Pause</span>
-      </button>
-      <button
-        v-else
-        class="row-menu-item"
-        role="menuitem"
-        type="button"
-        @click="run('resume')"
-      >
-        <svg class="row-menu-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <polygon points="5 3 19 12 5 21 5 3" />
-        </svg>
-        <span>Resume</span>
-      </button>
+        <!-- Pause / Resume (status-dependent) -->
+        <button v-if="isDownloading()" class="row-menu-item" role="menuitem" type="button" @click="run('pause')">
+          <svg
+            class="row-menu-icon"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <rect x="6" y="4" width="4" height="16" />
+            <rect x="14" y="4" width="4" height="16" />
+          </svg>
+          <span>Pause</span>
+        </button>
+        <button v-if="isPaused()" class="row-menu-item" role="menuitem" type="button" @click="run('resume')">
+          <svg
+            class="row-menu-icon"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <polygon points="5 3 19 12 5 21 5 3" />
+          </svg>
+          <span>Resume</span>
+        </button>
 
-      <!-- Retry -->
-      <button
-        class="row-menu-item"
-        role="menuitem"
-        type="button"
-        @click="run('retry')"
-      >
-        <svg class="row-menu-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <polyline points="23 4 23 10 17 10" />
-          <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
-        </svg>
-        <span>Retry</span>
-      </button>
+        <!-- Retry -->
+        <button class="row-menu-item" role="menuitem" type="button" @click="run('retry')">
+          <svg
+            class="row-menu-icon"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <polyline points="23 4 23 10 17 10" />
+            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+          </svg>
+          <span>Retry</span>
+        </button>
 
-      <div class="row-menu-sep" role="separator" />
+        <div class="row-menu-sep" role="separator" />
 
-      <!-- Delete (danger) -->
-      <button
-        class="row-menu-item row-menu-item--danger"
-        role="menuitem"
-        type="button"
-        @click="run('delete')"
-      >
-        <svg class="row-menu-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <polyline points="3 6 5 6 21 6" />
-          <path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-        </svg>
-        <span>Delete</span>
-      </button>
+        <!-- Delete (danger) -->
+        <button class="row-menu-item row-menu-item--danger" role="menuitem" type="button" @click="run('delete')">
+          <svg
+            class="row-menu-icon"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <polyline points="3 6 5 6 21 6" />
+            <path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+          </svg>
+          <span>Delete</span>
+        </button>
 
-      <div class="row-menu-sep" role="separator" />
+        <div class="row-menu-sep" role="separator" />
 
-      <!-- Open file location -->
-      <button
-        class="row-menu-item"
-        role="menuitem"
-        type="button"
-        @click="run('openLocation')"
-      >
-        <svg class="row-menu-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-        </svg>
-        <span>Open file location</span>
-      </button>
-    </div>
-  </Transition>
+        <!-- Open file location -->
+        <button class="row-menu-item" role="menuitem" type="button" @click="run('openLocation')">
+          <svg
+            class="row-menu-icon"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+          </svg>
+          <span>Open file location</span>
+        </button>
+      </div>
+    </Transition>
   </Teleport>
 </template>
 
@@ -216,8 +255,9 @@ function run(action: 'pause' | 'resume' | 'retry' | 'delete' | 'openLocation') {
   text-align: left;
   cursor: pointer;
   white-space: nowrap;
-  transition: background var(--transition-fast) var(--ease-out),
-              color var(--transition-fast) var(--ease-out);
+  transition:
+    background var(--transition-fast) var(--ease-out),
+    color var(--transition-fast) var(--ease-out);
 }
 
 .row-menu-item:hover {
@@ -256,8 +296,9 @@ function run(action: 'pause' | 'resume' | 'retry' | 'delete' | 'openLocation') {
 /* --- Enter / leave transition (140ms fade + translateY 8px → 0) --- */
 .row-menu-enter-active,
 .row-menu-leave-active {
-  transition: opacity 140ms var(--ease-out),
-              transform 140ms var(--ease-out);
+  transition:
+    opacity 140ms var(--ease-out),
+    transform 140ms var(--ease-out);
 }
 
 .row-menu-enter-from,

@@ -57,15 +57,25 @@ onMounted(async () => {
   try {
     const { listen } = await import('@tauri-apps/api/event')
     unlistenFileDrop = await listen<string[]>('tauri://file-drop', async (event) => {
+      let added = 0
+      let failed = 0
       for (const path of event.payload) {
-        if (path.endsWith('.torrent')) {
+        if (path.toLowerCase().endsWith('.torrent')) {
           try {
             const { invoke } = await import('@tauri-apps/api/core')
             await invoke<string>('add_torrent_file', { path })
+            added++
           } catch {
-            /* skip invalid torrent files */
+            failed++
           }
         }
+      }
+      if (added > 0 || failed > 0) {
+        showDownloadBanner(
+          failed > 0
+            ? `Torrent: ${added} added, ${failed} failed`
+            : `${added} torrent file${added > 1 ? 's' : ''} added`,
+        )
       }
     })
   } catch {

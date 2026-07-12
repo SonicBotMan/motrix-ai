@@ -519,6 +519,16 @@ async function retryTask(): Promise<void> {
 async function deleteTask(): Promise<void> {
   const target = showDetail.value ? selectedTask.value : menuTask.value
   if (!target) return
+  try {
+    const { confirm } = await import('@tauri-apps/plugin-dialog')
+    const accepted = await confirm(`Remove "${target.name}" from the download list?`, {
+      title: 'Delete Download',
+      kind: 'warning',
+    })
+    if (!accepted) return
+  } catch {
+    /* dialog not available in non-Tauri context */
+  }
   closeDetail()
   closeMenu()
   addToast({

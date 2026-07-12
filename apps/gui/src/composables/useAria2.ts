@@ -244,6 +244,8 @@ const scheduleReconnect = () => {
       connected.value = true
       reconnectAttempt = 0
       emitConnection('connected', 'Reconnected to aria2')
+      await fetchAllTasks()
+      await fetchGlobalStat()
       startPolling()
     } catch (_) {
       scheduleReconnect()
