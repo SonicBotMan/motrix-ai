@@ -39,6 +39,11 @@ const emptyState = computed<EmptyStateCopy>(() => {
         heading: 'No paused downloads',
         sub: 'Paused downloads will appear here.',
       }
+    case 'failed':
+      return {
+        heading: 'No failed downloads',
+        sub: 'Failed downloads will appear here for retry.',
+      }
     default:
       return {
         heading: 'No tasks',

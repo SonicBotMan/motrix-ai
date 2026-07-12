@@ -17,6 +17,7 @@ const filterTabs: FilterTab[] = [
   { label: 'Active', value: 'active' },
   { label: 'Paused', value: 'paused' },
   { label: 'Completed', value: 'completed' },
+  { label: 'Failed', value: 'failed' },
 ]
 
 function select(value: string): void {

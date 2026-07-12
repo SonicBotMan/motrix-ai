@@ -71,6 +71,10 @@ const liveSelectedTask = computed<Task | null>(() => {
 watch(liveSelectedTask, (task) => {
   if (!task && showDetail.value) closeDetail()
 })
+
+watch([activeFilter, taskSearchQuery], () => {
+  keyboardIndex.value = -1
+})
 const showDetail = ref(false)
 const showMenu = ref(false)
 const menuTask = ref<Task | null>(null)
