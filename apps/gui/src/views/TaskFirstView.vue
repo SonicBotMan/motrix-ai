@@ -770,7 +770,10 @@ function openSettings(): void {
 // Onboarding
 // ---------------------------------------------------------------------------
 
-function completeOnboarding(): void {
+function completeOnboarding(selectedTheme?: string): void {
+  if (selectedTheme) {
+    theme.value = selectedTheme as 'dark' | 'light' | 'system'
+  }
   try {
     localStorage.setItem('motrix-ai:onboarded', 'true')
   } catch {

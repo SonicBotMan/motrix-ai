@@ -26,7 +26,7 @@ interface Props {
 const props = defineProps<Props>()
 
 const emit = defineEmits<{
-  complete: []
+  complete: [theme: string]
 }>()
 
 const TOTAL_STEPS = 3
@@ -39,11 +39,7 @@ const stepKey = ref(0)
 const isLastStep = computed(() => currentStep.value === TOTAL_STEPS - 1)
 
 /** The 3 bullets on step 0 */
-const introBullets = [
-  'Natural language commands',
-  'No telemetry',
-  'Torrents, HTTP, YouTube',
-] as const
+const introBullets = ['Natural language commands', 'No telemetry', 'Torrents, HTTP, FTP'] as const
 
 /** 5 quick-action chips on step 2 */
 const quickChips = [
@@ -68,8 +64,7 @@ function skip() {
 }
 
 function complete() {
-  emit('complete')
-  // reset for next time it's shown
+  emit('complete', selectedTheme.value)
   currentStep.value = 0
   stepKey.value += 1
   selectedTheme.value = 'dark'
@@ -100,22 +95,13 @@ watch(
 <template>
   <Teleport to="body">
     <div v-if="props.show" class="onboarding-overlay">
-      <div
-        class="onboarding-card"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="onboardingH1"
-      >
+      <div class="onboarding-card" role="dialog" aria-modal="true" aria-labelledby="onboardingH1">
         <!-- 3px gradient stripe — the ONLY gradient in the app -->
         <div class="onboarding-stripe" aria-hidden="true" />
 
         <div class="onboarding-body">
           <!-- ── Step 0: Welcome ─────────────────────────────────── -->
-          <section
-            v-if="currentStep === 0"
-            :key="`step-${stepKey}`"
-            class="onboarding-step"
-          >
+          <section v-if="currentStep === 0" :key="`step-${stepKey}`" class="onboarding-step">
             <div class="onboarding-logo" aria-hidden="true">
               <svg width="56" height="56" viewBox="0 0 56 56" fill="none">
                 <rect x="4" y="4" width="48" height="48" rx="12" fill="var(--primary)" />
@@ -123,10 +109,7 @@ watch(
               </svg>
             </div>
             <h1 id="onboardingH1" class="onboarding-title">Motrix AI</h1>
-            <p class="onboarding-sub">
-              Task-first desktop download manager.
-              Watch the queue, then ask for more.
-            </p>
+            <p class="onboarding-sub">Task-first desktop download manager. Watch the queue, then ask for more.</p>
             <ul class="onboarding-bullets">
               <li v-for="(b, i) in introBullets" :key="i" class="onboarding-bullet">
                 <span class="bullet-dot" aria-hidden="true" />
@@ -136,18 +119,12 @@ watch(
           </section>
 
           <!-- ── Step 1: Theme ───────────────────────────────────── -->
-          <section
-            v-else-if="currentStep === 1"
-            :key="`step-${stepKey}`"
-            class="onboarding-step"
-          >
+          <section v-else-if="currentStep === 1" :key="`step-${stepKey}`" class="onboarding-step">
             <h1 id="onboardingH1" class="onboarding-title">Pick a theme</h1>
-            <p class="onboarding-sub">
-              Dark by default, light for daylight, system to follow your OS.
-            </p>
+            <p class="onboarding-sub">Dark by default, light for daylight, system to follow your OS.</p>
             <div class="theme-cards" role="radiogroup" aria-label="Theme">
               <button
-                v-for="theme in (['dark', 'light', 'system'] as const)"
+                v-for="theme in ['dark', 'light', 'system'] as const"
                 :key="theme"
                 class="theme-card"
                 role="radio"
@@ -163,23 +140,13 @@ watch(
           </section>
 
           <!-- ── Step 2: Quick action ────────────────────────────── -->
-          <section
-            v-else
-            :key="`step-${stepKey}`"
-            class="onboarding-step"
-          >
+          <section v-else :key="`step-${stepKey}`" class="onboarding-step">
             <h1 id="onboardingH1" class="onboarding-title">Try a command</h1>
-            <p class="onboarding-sub">
-              Type a magnet, URL, or pick one below.
-            </p>
+            <p class="onboarding-sub">Type a magnet, URL, or pick one below.</p>
             <div class="chip-stack">
-              <button
-                v-for="(chip, i) in quickChips"
-                :key="i"
-                class="onboarding-chip"
-                type="button"
-                @click="pickChip"
-              >{{ chip }}</button>
+              <button v-for="(chip, i) in quickChips" :key="i" class="onboarding-chip" type="button" @click="pickChip">
+                {{ chip }}
+              </button>
             </div>
           </section>
         </div>
@@ -195,22 +162,18 @@ watch(
               :aria-current="currentStep === i - 1 ? 'step' : undefined"
               :aria-label="`Step ${i}`"
               type="button"
-              @click="currentStep = i - 1; stepKey += 1"
+              @click="
+                currentStep = i - 1
+                stepKey += 1
+              "
             />
           </div>
           <div class="onboarding-actions">
-            <button
-              v-if="!isLastStep"
-              class="onboarding-btn onboarding-btn--ghost"
-              type="button"
-              @click="skip"
-            >Skip</button>
-            <button
-              class="onboarding-btn onboarding-btn--primary"
-              type="button"
-              @click="next"
-            >
-              {{ isLastStep ? 'Open Motrix' : (currentStep === 0 ? 'Get Started →' : 'Continue') }}
+            <button v-if="!isLastStep" class="onboarding-btn onboarding-btn--ghost" type="button" @click="skip">
+              Skip
+            </button>
+            <button class="onboarding-btn onboarding-btn--primary" type="button" @click="next">
+              {{ isLastStep ? 'Open Motrix' : currentStep === 0 ? 'Get Started →' : 'Continue' }}
             </button>
           </div>
         </footer>
@@ -344,8 +307,9 @@ watch(
   border: 2px solid var(--border);
   border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: border-color var(--transition-fast) var(--ease-out),
-              background var(--transition-fast) var(--ease-out);
+  transition:
+    border-color var(--transition-fast) var(--ease-out),
+    background var(--transition-fast) var(--ease-out);
 }
 
 .theme-card:hover {
@@ -376,19 +340,19 @@ watch(
 }
 
 .theme-preview--dark {
-  background: #0A0A0B;
-  color: #FAFAFA;
-  border: 1px solid #27272A;
+  background: #0a0a0b;
+  color: #fafafa;
+  border: 1px solid #27272a;
 }
 
 .theme-preview--light {
-  background: #FAFAFA;
+  background: #fafafa;
   color: #111827;
-  border: 1px solid #E5E7EB;
+  border: 1px solid #e5e7eb;
 }
 
 .theme-preview--system {
-  background: linear-gradient(90deg, #0A0A0B 50%, #FAFAFA 50%);
+  background: linear-gradient(90deg, #0a0a0b 50%, #fafafa 50%);
   color: var(--primary);
   border: 1px solid var(--border);
 }
@@ -428,10 +392,11 @@ watch(
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  transition: border-color var(--transition-fast) var(--ease-out),
-              background var(--transition-fast) var(--ease-out),
-              color var(--transition-fast) var(--ease-out),
-              transform var(--transition-fast) var(--ease-out);
+  transition:
+    border-color var(--transition-fast) var(--ease-out),
+    background var(--transition-fast) var(--ease-out),
+    color var(--transition-fast) var(--ease-out),
+    transform var(--transition-fast) var(--ease-out);
 }
 
 .onboarding-chip:hover {
@@ -475,9 +440,10 @@ watch(
   border-radius: var(--radius-full);
   background: transparent;
   cursor: pointer;
-  transition: background var(--transition-fast) var(--ease-out),
-              border-color var(--transition-fast) var(--ease-out),
-              width var(--transition-fast) var(--ease-out);
+  transition:
+    background var(--transition-fast) var(--ease-out),
+    border-color var(--transition-fast) var(--ease-out),
+    width var(--transition-fast) var(--ease-out);
 }
 
 .onboarding-dot--active {
@@ -502,9 +468,10 @@ watch(
   border-radius: var(--radius-xs);
   cursor: pointer;
   white-space: nowrap;
-  transition: background var(--transition-fast) var(--ease-out),
-              border-color var(--transition-fast) var(--ease-out),
-              color var(--transition-fast) var(--ease-out);
+  transition:
+    background var(--transition-fast) var(--ease-out),
+    border-color var(--transition-fast) var(--ease-out),
+    color var(--transition-fast) var(--ease-out);
 }
 
 .onboarding-btn:focus-visible {
