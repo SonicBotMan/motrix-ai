@@ -431,6 +431,10 @@ export const useTasksStore = defineStore('tasks', () => {
     activeFilter.value = filter
   }
 
+  async function refreshTasks(): Promise<void> {
+    void aria2.fetchAllTasks()
+  }
+
   return {
     localTasks,
     activeFilter,
@@ -459,5 +463,6 @@ export const useTasksStore = defineStore('tasks', () => {
     moveDown,
     moveToTop,
     setFilter,
+    refreshTasks,
   }
 })

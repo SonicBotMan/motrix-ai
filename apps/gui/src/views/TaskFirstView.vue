@@ -414,6 +414,7 @@ async function handleAttach(): Promise<void> {
 
   try {
     const gid = await invoke<string>('add_torrent_file', { path: selected })
+    void tasksStore.refreshTasks()
     addToast({
       id: generateToastId(),
       type: 'success',

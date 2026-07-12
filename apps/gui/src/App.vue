@@ -70,6 +70,9 @@ onMounted(async () => {
           }
         }
       }
+      if (added > 0) {
+        void tasksStore.refreshTasks()
+      }
       if (added > 0 || failed > 0) {
         showDownloadBanner(
           failed > 0
