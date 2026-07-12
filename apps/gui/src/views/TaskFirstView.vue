@@ -98,16 +98,14 @@ function generateToastId(): string {
 
 function addToast(toast: Toast): void {
   toasts.value.push(toast)
-  // Prune oldest done toasts if exceeding stack max
   while (toasts.value.length > TOAST_STACK_MAX) {
     const oldestDone = toasts.value.findIndex((t) => !t.exiting)
     if (oldestDone !== -1) {
       toasts.value.splice(oldestDone, 1)
     } else {
-      break
+      toasts.value.shift()
     }
   }
-  // Schedule auto-dismiss
   setTimeout(() => dismissToast(toast.id), TOAST_LIFETIME)
 }
 

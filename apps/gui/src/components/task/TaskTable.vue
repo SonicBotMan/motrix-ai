@@ -295,6 +295,7 @@ function handleMenuToggle(taskId: number, event: MouseEvent): void {
   flex-direction: column;
   flex: 1;
   min-height: 0;
+  overflow-y: auto;
 }
 
 /* --- Filter tabs --- */
@@ -401,7 +402,7 @@ function handleMenuToggle(taskId: number, event: MouseEvent): void {
 /* --- Table body rows --- */
 
 .task-table tbody tr {
-  height: var(--row-height, 56px);
+  min-height: var(--row-height, 56px);
   cursor: pointer;
   border-bottom: 1px solid var(--border);
   animation: rowReveal 220ms var(--ease-default, cubic-bezier(0.2, 0.8, 0.2, 1)) backwards;

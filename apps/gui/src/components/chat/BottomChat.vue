@@ -263,7 +263,7 @@ function send(): void {
   color: var(--fg-muted);
 }
 
-.chat-input:focus-within {
+.chat-input:focus {
   border-color: var(--primary);
   box-shadow: 0 0 0 3px var(--primary-muted);
 }
