@@ -28,6 +28,7 @@ const chips: Chip[] = [
 ]
 
 const message = ref('')
+const inputRef = ref<HTMLInputElement | null>(null)
 
 const emit = defineEmits<{
   quickAction: [index: number]
@@ -41,6 +42,10 @@ function send(): void {
   emit('send', msg)
   message.value = ''
 }
+
+defineExpose({
+  focus: () => inputRef.value?.focus(),
+})
 </script>
 
 <template>
@@ -80,6 +85,7 @@ function send(): void {
       </button>
 
       <input
+        ref="inputRef"
         v-model="message"
         type="text"
         class="chat-input"

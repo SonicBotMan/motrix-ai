@@ -82,6 +82,7 @@ const menuPosition = ref<{ x: number; y: number } | null>(null)
 const toasts = ref<Toast[]>([])
 const showOnboarding = ref(false)
 const keyboardIndex = ref(-1)
+const bottomChatRef = ref<{ focus: () => void } | null>(null)
 
 const showSearchResults = ref(false)
 const searchResults = ref<SearchResult[]>([])
@@ -368,6 +369,7 @@ function handleQuickAction(index: number): void {
       addToast({ id: generateToastId(), type: 'info', text: 'Showing completed downloads', createdAt: Date.now() })
       return
     case 4: // Add magnet URL → focus the bottom chat input
+      bottomChatRef.value?.focus()
       addToast({
         id: generateToastId(),
         type: 'info',
@@ -892,7 +894,12 @@ onUnmounted(() => {
     </main>
 
     <!-- Bottom chat input (96px, sticky bottom) -->
-    <BottomChat @send="handleSendMessage" @quick-action="handleQuickAction" @attach="handleAttach" />
+    <BottomChat
+      ref="bottomChatRef"
+      @send="handleSendMessage"
+      @quick-action="handleQuickAction"
+      @attach="handleAttach"
+    />
 
     <!-- Toast stack (floating above bottom chat) -->
     <ToastStack :toasts="toasts" @dismiss="dismissToast" />
