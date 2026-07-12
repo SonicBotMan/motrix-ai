@@ -24,7 +24,6 @@ defineEmits<{
   goHome: []
   toggleTheme: []
   openSettings: []
-  openQueue: []
 }>()
 
 // Default to 'dark' if the prop is not provided
@@ -60,32 +59,6 @@ const themeLabel = computed(() => (currentTheme.value === 'dark' ? 'Switch to li
     <div class="chrome-center" />
 
     <div class="chrome-right">
-      <button
-        class="chrome-btn"
-        type="button"
-        title="Queue"
-        aria-label="Open download queue"
-        @click="$emit('openQueue')"
-      >
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
-        >
-          <line x1="8" y1="6" x2="21" y2="6" />
-          <line x1="8" y1="12" x2="21" y2="12" />
-          <line x1="8" y1="18" x2="21" y2="18" />
-          <line x1="3" y1="6" x2="3.01" y2="6" />
-          <line x1="3" y1="12" x2="3.01" y2="12" />
-          <line x1="3" y1="18" x2="3.01" y2="18" />
-        </svg>
-      </button>
       <button
         class="chrome-btn"
         type="button"

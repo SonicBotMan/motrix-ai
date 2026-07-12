@@ -858,7 +858,6 @@ onUnmounted(() => {
       @go-home="goHome"
       @toggle-theme="toggleTheme"
       @open-settings="openSettings"
-      @open-queue="router.push('/queue')"
     />
 
     <!-- Main content: task table (remaining space) -->

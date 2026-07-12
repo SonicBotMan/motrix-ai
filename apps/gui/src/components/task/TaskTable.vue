@@ -253,9 +253,7 @@ function handleMenuToggle(taskId: number, event: MouseEvent): void {
           <td class="col-speed">{{ task.status === 'downloading' ? task.speed : '\u00B7' }}</td>
 
           <!-- Size -->
-          <td class="col-size">
-            {{ task.size }}<template v-if="task.total"> / {{ task.total }}</template>
-          </td>
+          <td class="col-size">{{ task.size }}</td>
 
           <!-- ETA -->
           <td class="col-eta">{{ task.eta || '\u2014' }}</td>
