@@ -7,6 +7,87 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-07-13
+
+### Summary
+
+Comprehensive bug audit and fix pass. 80+ bugs fixed across aria2 lifecycle,
+RPC authentication, browser extension, core pipelines, frontend interactions,
+data integrity, and security hardening. Basic download capability verified
+end-to-end across all entry points (GUI, CLI, MCP, browser extension).
+
+### Fixed — Critical (P0)
+
+- **G1**: TaskFirstView disposed aria2 on unmount — navigating to Settings killed the daemon. Moved init/dispose to App.vue app-shell lifetime.
+- **G2**: `aria2_rpc()` helper omitted `token:{secret}` — pause_all / unpause_all / add_torrent_file all failed auth.
+- **G3**: Browser extension never sent `X-Motrix-Token` — POST /api/download always 403. Extension now fetches and caches token.
+
+### Fixed — Security
+
+- **S1**: HTTP API returned RPC token with `Access-Control-Allow-Origin: *` — localhost CSRF. CORS now restricted to browser-extension schemes.
+- **S2**: HTTP API downloads skipped user confirmation. Now emits visibility event to GUI.
+- Atomic config write (write-temp-then-rename) prevents corruption on crash.
+- Config save race condition fixed (savePending flag prevents lost updates on rapid changes).
+
+### Fixed — Download Capability
+
+- MCP IntentParser now receives `config.ai.base_url` (was hardcoded to default).
+- MCP `download_url` and `download_natural_language` now pass `{ dir: base_dir }`.
+- CLI `ask` command now passes download directory.
+- Schema version corrected to 3 in loader.ts (was 2, skipping nas migration).
+- Rust migration threshold fixed from `< 2` to `< 3`.
+- Protocol registration for magnet/ed2k/thunder added to tauri.conf.json.
+- Session save before aria2 shutdown (saveSession RPC before kill).
+- Dead clipboard monitor removed (polled every 5s but never triggered downloads).
+
+### Fixed — Data Integrity
+
+- Progress capped at 100% with `Math.min` (torrents could show >100%).
+- `f.selected` logic fixed: `=== 'true'` instead of `!== 'false'` (undefined was treated as true).
+- Core `mapToTask` null-safety: files array, path, sizes guarded.
+- Core RPC call now has 10s timeout via `AbortSignal.timeout`.
+- Memory leak fixes: `gidToId` cleaned in tasks computed, `previousStatuses` cleaned in `fetchAllTasks`.
+- `intentByGid` cleaned on `removeTask` (was only cleaned on completion).
+- PID restored to `ARIA2_CHILD` if SIGKILL needed (prevents lost process tracking).
+- `loadConfig()` uses recursive `deepMerge` instead of shallow spread (nested defaults preserved).
+- `organize_file` reads config subdirs (`movie_dir`/`tv_dir`/`software_dir`/etc.) instead of hardcoded names.
+
+### Fixed — Frontend Interactions
+
+- DetailPanel now shows live data via `liveSelectedTask` computed (was frozen snapshot).
+- DetailPanel footer buttons state-aware: Pause only for downloading, Resume only for paused, Retry only for failed, Priority only for active/pending.
+- RowMenu Resume button only shows for paused tasks (was: all non-downloading).
+- Immediate UI refresh after ALL store operations (add/retry/pause/resume/remove/clear/pauseAll/resumeAll/move×3) — no more 2-second delay.
+- Immediate refresh after torrent attach and drag-drop.
+- Delete confirmation dialog added (was: no confirmation for destructive action).
+- Batch download counts succeeded/failed (was: always "Batch complete").
+- BottomChat artificial 1100ms sending delay removed.
+- Quick action "Add magnet URL" now focuses the input (was: toast only).
+- Quick action "Download Ubuntu" now uses direct magnet link (was: triggered NL search that fails without LLM).
+- `handleSelectSearchResult` proper error handling (was: fire-and-forget, silent failure with success toast).
+- OnboardingCard theme selection now preserved (was: discarded on complete).
+- Failed filter tab added to FilterTabs (was: missing).
+- Keyboard index resets on filter/search change (was: pointed to invisible rows).
+- `fileSelection` Map cleared on detail open/close (was: stale selections leaked between tasks).
+- Config save race condition fixed (savePending flag).
+- Config save error exposed via `saveError` ref.
+- Dead ChromeBar queue button removed (navigated to redirect).
+- Dead `task.total` reference removed from TaskTable.
+- OnboardingCard "YouTube" claim corrected to "FTP".
+- `:focus-within` → `:focus` on BottomChat input (focus ring was never visible).
+- TaskTable row `height` → `min-height` (content clipping).
+- TaskTable wrapper `overflow-y: auto` added (long lists couldn't scroll).
+- Toast prune logic fixed (all-exiting case caused unbounded growth).
+- QueueView redirect to `/` (broken view used different data source).
+- `aria2AddUri` fallback RPC removed (was guaranteed to fail — no token).
+
+### Fixed — Deep Link & Extension
+
+- Browser extension popup.js/background.js: token fetch + cache + 403 retry.
+- HTTP API CORS: scheme-restricted origin echo (blocks CSRF).
+- HTTP API `http-api-download` event emission for GUI visibility toast.
+- Dead clipboard monitor removed from App.vue.
+
 ## [1.2.0] - 2026-07-11
 
 ### Added
