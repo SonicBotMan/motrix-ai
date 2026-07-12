@@ -328,16 +328,31 @@ async function handleSendMessage(message: string): Promise<void> {
   }
 }
 
-function handleSelectSearchResult(result: SearchResult): void {
+async function handleSelectSearchResult(result: SearchResult): Promise<void> {
   showSearchResults.value = false
   if (result.magnet) {
-    void aria2AddUri(result.magnet, pendingIntent.value || undefined)
     addToast({
       id: generateToastId(),
-      type: 'success',
-      text: `Downloading: ${result.title.slice(0, 40)}`,
+      type: 'info',
+      text: `Adding: ${result.title.slice(0, 40)}…`,
       createdAt: Date.now(),
     })
+    try {
+      await aria2AddUri(result.magnet, pendingIntent.value || undefined)
+      addToast({
+        id: generateToastId(),
+        type: 'success',
+        text: `Downloading: ${result.title.slice(0, 40)}`,
+        createdAt: Date.now(),
+      })
+    } catch (err) {
+      addToast({
+        id: generateToastId(),
+        type: 'error',
+        text: `Add failed: ${String(err).slice(0, 60)}`,
+        createdAt: Date.now(),
+      })
+    }
     pendingIntent.value = null
   } else {
     addToast({ id: generateToastId(), type: 'error', text: 'No magnet link for this result', createdAt: Date.now() })
