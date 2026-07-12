@@ -359,6 +359,7 @@ export const useTasksStore = defineStore('tasks', () => {
     if (aria2.connected.value) {
       try {
         await aria2.removeCompleted()
+        void aria2.fetchAllTasks()
       } catch (e) {
         logger.error('Failed to clear completed: ' + e)
       }
@@ -369,6 +370,7 @@ export const useTasksStore = defineStore('tasks', () => {
     if (aria2.connected.value) {
       try {
         await aria2.pauseAll()
+        void aria2.fetchAllTasks()
       } catch (e) {
         logger.error('Failed to pause all: ' + e)
       }
@@ -379,6 +381,7 @@ export const useTasksStore = defineStore('tasks', () => {
     if (aria2.connected.value) {
       try {
         await aria2.unpauseAll()
+        void aria2.fetchAllTasks()
       } catch (e) {
         logger.error('Failed to resume all: ' + e)
       }
@@ -390,6 +393,7 @@ export const useTasksStore = defineStore('tasks', () => {
     if (task?.gid && aria2.connected.value) {
       try {
         await aria2.moveUp(task.gid)
+        void aria2.fetchAllTasks()
       } catch (e) {
         logger.error('Failed to move up: ' + e)
       }
@@ -401,6 +405,7 @@ export const useTasksStore = defineStore('tasks', () => {
     if (task?.gid && aria2.connected.value) {
       try {
         await aria2.moveDown(task.gid)
+        void aria2.fetchAllTasks()
       } catch (e) {
         logger.error('Failed to move down: ' + e)
       }
@@ -412,6 +417,7 @@ export const useTasksStore = defineStore('tasks', () => {
     if (task?.gid && aria2.connected.value) {
       try {
         await aria2.moveToTop(task.gid)
+        void aria2.fetchAllTasks()
       } catch (e) {
         logger.error('Failed to move to top: ' + e)
       }
