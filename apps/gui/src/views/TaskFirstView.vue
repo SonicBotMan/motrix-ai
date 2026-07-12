@@ -32,6 +32,7 @@ import ToastStack, { type Toast } from '@/components/toast/ToastStack.vue'
 import OnboardingCard from '@/components/onboarding/OnboardingCard.vue'
 import SearchResultsModal from '@/components/SearchResultsModal.vue'
 import { useTasksStore, type Task } from '@/stores/tasks'
+import { formatSpeed } from '@/shared/utils/format'
 import type { SearchResult } from '@/composables/useSearch'
 
 const tasksStore = useTasksStore()
@@ -48,6 +49,15 @@ const tasks = computed(() => {
   if (!taskSearchQuery.value.trim()) return all
   const q = taskSearchQuery.value.toLowerCase().trim()
   return all.filter((t) => t.name.toLowerCase().includes(q) || t.source.toLowerCase().includes(q))
+})
+
+const globalDownloadSpeed = computed(() => {
+  const raw = tasksStore.globalStat?.downloadSpeed
+  return raw ? formatSpeed(Number(raw) || 0) : undefined
+})
+const globalUploadSpeed = computed(() => {
+  const raw = tasksStore.globalStat?.uploadSpeed
+  return raw ? formatSpeed(Number(raw) || 0) : undefined
 })
 
 // ---------------------------------------------------------------------------
@@ -883,6 +893,8 @@ onUnmounted(() => {
     <!-- Chrome bar (48px, sticky top) -->
     <ChromeBar
       :current-theme="theme === 'system' ? 'dark' : theme"
+      :download-speed="globalDownloadSpeed"
+      :upload-speed="globalUploadSpeed"
       @go-home="goHome"
       @toggle-theme="toggleTheme"
       @open-settings="openSettings"

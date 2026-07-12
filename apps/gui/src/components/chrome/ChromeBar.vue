@@ -16,8 +16,9 @@
 import { computed } from 'vue'
 
 const props = defineProps<{
-  /** Currently-active theme; 'dark' is the default per the design spec. */
   currentTheme?: 'dark' | 'light'
+  downloadSpeed?: string
+  uploadSpeed?: string
 }>()
 
 defineEmits<{
@@ -56,7 +57,14 @@ const themeLabel = computed(() => (currentTheme.value === 'dark' ? 'Switch to li
       <span class="logo-ai">AI</span>
     </div>
 
-    <div class="chrome-center" />
+    <div class="chrome-center">
+      <span v-if="props.downloadSpeed && props.downloadSpeed !== '0 B/s'" class="speed-display">
+        ↓ {{ props.downloadSpeed }}
+        <span v-if="props.uploadSpeed && props.uploadSpeed !== '0 B/s'" class="speed-upload"
+          >↑ {{ props.uploadSpeed }}</span
+        >
+      </span>
+    </div>
 
     <div class="chrome-right">
       <button
@@ -170,6 +178,22 @@ const themeLabel = computed(() => (currentTheme.value === 'dark' ? 'Switch to li
 
 .chrome-center {
   flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.speed-display {
+  font-family: var(--font-mono, monospace);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--fg-secondary, #a0a0a8);
+  white-space: nowrap;
+}
+
+.speed-upload {
+  margin-left: 8px;
+  color: var(--fg-tertiary, #6b7280);
 }
 
 .chrome-right {
