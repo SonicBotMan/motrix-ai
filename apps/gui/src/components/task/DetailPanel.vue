@@ -367,13 +367,15 @@ watch(showMoreMenu, (visible) => {
           <section class="detail-stats" aria-label="Task statistics">
             <div class="stat-cell">
               <div class="stat-label">Size</div>
-              <div class="stat-value">
-                {{ props.task.size }}<template v-if="props.task.total"> / {{ props.task.total }}</template>
-              </div>
+              <div class="stat-value">{{ props.task.size }}</div>
             </div>
             <div class="stat-cell">
-              <div class="stat-label">Speed</div>
+              <div class="stat-label">↓ Speed</div>
               <div class="stat-value">{{ props.task.speed || '·' }}</div>
+            </div>
+            <div v-if="props.task.uploadSpeed" class="stat-cell">
+              <div class="stat-label">↑ Upload</div>
+              <div class="stat-value">{{ props.task.uploadSpeed }}</div>
             </div>
             <div class="stat-cell">
               <div class="stat-label">ETA</div>
@@ -381,9 +383,16 @@ watch(showMoreMenu, (visible) => {
             </div>
             <div class="stat-cell">
               <div class="stat-label">Seeders</div>
-              <div class="stat-value">{{ props.task.connections ?? '—' }}</div>
+              <div class="stat-value">{{ props.task.seeders ?? '—' }}</div>
+            </div>
+            <div v-if="props.task.gid" class="stat-cell">
+              <div class="stat-label">GID</div>
+              <div class="stat-value stat-mono">{{ props.task.gid.slice(0, 12) }}</div>
             </div>
           </section>
+          <div v-if="props.task.errorMessage" class="detail-error-banner">
+            {{ props.task.errorMessage }}
+          </div>
 
           <!-- ── Zone 3: Progress ring ────────────────────────────── -->
           <section class="detail-ring" aria-label="Download progress">
@@ -806,8 +815,8 @@ watch(showMoreMenu, (visible) => {
 .detail-stats {
   flex: 0 0 auto;
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  height: 80px;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  min-height: 80px;
   border-bottom: 1px solid var(--border);
 }
 
@@ -841,6 +850,19 @@ watch(showMoreMenu, (visible) => {
   font-weight: 600;
   color: var(--fg);
   white-space: nowrap;
+}
+
+.stat-mono {
+  font-size: var(--text-body-sm);
+}
+
+.detail-error-banner {
+  flex: 0 0 auto;
+  padding: var(--space-2) var(--space-5);
+  background: var(--error-muted, rgba(239, 68, 68, 0.1));
+  color: var(--error, #ef4444);
+  font-size: var(--text-body-sm);
+  border-bottom: 1px solid var(--border);
 }
 
 /* ── Zone 3: Progress ring ───────────────────────────────────────── */

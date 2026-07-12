@@ -292,7 +292,13 @@ function handleMenuToggle(taskId: number, event: MouseEvent): void {
           </td>
 
           <!-- Speed -->
-          <td class="col-speed">{{ task.status === 'downloading' ? task.speed : '\u00B7' }}</td>
+          <td class="col-speed">
+            <span v-if="task.status === 'downloading'">{{ task.speed }}</span>
+            <span v-if="task.status === 'downloading' && task.uploadSpeed" class="upload-speed"
+              >↑{{ task.uploadSpeed }}</span
+            >
+            <span v-if="task.status !== 'downloading'">{{ '\u00B7' }}</span>
+          </td>
 
           <!-- Size -->
           <td class="col-size">{{ task.size }}</td>
@@ -451,6 +457,12 @@ function handleMenuToggle(taskId: number, event: MouseEvent): void {
   margin-left: 4px;
   font-size: 10px;
   opacity: 0.7;
+}
+
+.upload-speed {
+  display: block;
+  font-size: 11px;
+  opacity: 0.6;
 }
 
 /* --- Table body rows --- */
