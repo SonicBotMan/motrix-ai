@@ -84,10 +84,10 @@ export function _resetGidMapForTesting(): void {
 }
 
 function fromAria2Status(s: Aria2Status): Task {
-  const total = Number(s.totalLength) || 0
-  const completed = Number(s.completedLength) || 0
-  const progress = total > 0 ? Math.round((completed / total) * 100) : 0
-  const speed = Number(s.downloadSpeed) || 0
+  const total = Math.max(0, Number(s.totalLength) || 0)
+  const completed = Math.max(0, Number(s.completedLength) || 0)
+  const progress = total > 0 ? Math.min(100, Math.round((completed / total) * 100)) : 0
+  const speed = Math.max(0, Number(s.downloadSpeed) || 0)
   const filename = s.files?.[0]?.path?.split('/').pop() || s.bittorrent?.info?.name || `Task ${s.gid}`
 
   let id = gidToId.get(s.gid)
@@ -115,7 +115,7 @@ function fromAria2Status(s: Aria2Status): Task {
       name: f.path?.split('/').pop() || f.path || '',
       size: Number(f.length) || 0,
       path: f.path || '',
-      selected: f.selected !== 'false',
+      selected: f.selected === 'true',
     })),
   }
 }
@@ -131,7 +131,12 @@ export const useTasksStore = defineStore('tasks', () => {
 
   const tasks = computed<Task[]>(() => {
     if (aria2.connected.value) {
-      return aria2.tasks.value.map((s) => fromAria2Status(s))
+      const mapped = aria2.tasks.value.map((s) => fromAria2Status(s))
+      const currentGids = new Set(aria2.tasks.value.map((t) => t.gid))
+      for (const gid of gidToId.keys()) {
+        if (!currentGids.has(gid)) gidToId.delete(gid)
+      }
+      return mapped
     }
     return localTasks.value
   })

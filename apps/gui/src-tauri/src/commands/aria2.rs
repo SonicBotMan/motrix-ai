@@ -300,6 +300,9 @@ pub async fn stop_aria2() -> Result<String, String> {
         }
 
         if !exited {
+            if let Ok(mut child) = ARIA2_CHILD.lock() {
+                *child = pid;
+            }
             log::warn!("aria2c did not exit gracefully after 5s, sending SIGKILL");
             let _ = std::process::Command::new("kill")
                 .args(["-9", &p.to_string()])

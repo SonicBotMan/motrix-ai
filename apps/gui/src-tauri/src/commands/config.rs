@@ -123,7 +123,9 @@ pub async fn save_config(config: Value) -> Result<(), String> {
             if let Some(parent) = path.parent() {
                 std::fs::create_dir_all(parent).map_err(|e| format!("Create dir failed: {}", e))?;
             }
-            std::fs::write(&path, &json).map_err(|e| format!("Write failed: {}", e))?;
+            let tmp = path.with_extension("json.tmp");
+            std::fs::write(&tmp, &json).map_err(|e| format!("Write failed: {}", e))?;
+            std::fs::rename(&tmp, &path).map_err(|e| format!("Rename failed: {}", e))?;
             std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600))
                 .map_err(|e| format!("Set permissions failed: {}", e))?;
         }
@@ -134,7 +136,9 @@ pub async fn save_config(config: Value) -> Result<(), String> {
             if let Some(parent) = path.parent() {
                 std::fs::create_dir_all(parent).map_err(|e| format!("Create dir failed: {}", e))?;
             }
-            std::fs::write(&path, &json).map_err(|e| format!("Write failed: {}", e))?;
+            let tmp = path.with_extension("json.tmp");
+            std::fs::write(&tmp, &json).map_err(|e| format!("Write failed: {}", e))?;
+            std::fs::rename(&tmp, &path).map_err(|e| format!("Rename failed: {}", e))?;
         }
         Ok(())
     })

@@ -50,6 +50,7 @@ export class Aria2Client {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ jsonrpc: '2.0', id, method, params: allParams }),
+      signal: AbortSignal.timeout(10_000),
     })
 
     if (!res.ok) throw new Aria2Error(`aria2 RPC error: ${res.status} ${res.statusText}`)
@@ -155,14 +156,14 @@ export class Aria2Client {
           ? 0
           : Math.round((Number(status.completedLength) / Number(status.totalLength)) * 100),
       speed: {
-        down: Number(status.downloadSpeed),
-        up: Number(status.uploadSpeed),
+        down: Math.max(0, Number(status.downloadSpeed) || 0),
+        up: Math.max(0, Number(status.uploadSpeed) || 0),
       },
-      files: status.files.map((f): FileEntry => ({
-        name: f.path.split('/').pop() ?? f.path,
-        path: f.path,
-        size: Number(f.length),
-        completed: Number(f.completedLength),
+      files: (status.files ?? []).map((f): FileEntry => ({
+        name: f.path?.split('/').pop() ?? f.path ?? '',
+        path: f.path ?? '',
+        size: Math.max(0, Number(f.length) || 0),
+        completed: Math.max(0, Number(f.completedLength) || 0),
       })),
       created_at: new Date(),
       retry_count: 0,

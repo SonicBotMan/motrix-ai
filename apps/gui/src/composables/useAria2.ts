@@ -386,6 +386,11 @@ const fetchAllTasks = async () => {
     const allTasks = [...active, ...waiting, ...stopped]
     tasks.value = allTasks
 
+    const currentGids = new Set(allTasks.map((t) => t.gid))
+    for (const gid of previousStatuses.keys()) {
+      if (!currentGids.has(gid)) previousStatuses.delete(gid)
+    }
+
     for (const task of allTasks) {
       const prevStatus = previousStatuses.get(task.gid)
       const newStatus = task.status
