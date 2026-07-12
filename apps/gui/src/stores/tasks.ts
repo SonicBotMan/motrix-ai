@@ -275,6 +275,7 @@ export const useTasksStore = defineStore('tasks', () => {
     if (task.gid && aria2.connected.value) {
       try {
         await aria2.remove(task.gid)
+        void aria2.fetchAllTasks()
       } catch (e) {
         logger.error('Failed to remove task: ' + e)
       }
@@ -290,6 +291,7 @@ export const useTasksStore = defineStore('tasks', () => {
     if (task.gid && aria2.connected.value) {
       try {
         await aria2.pause(task.gid)
+        void aria2.fetchAllTasks()
       } catch (e) {
         logger.error('Failed to pause task: ' + e)
       }
@@ -310,6 +312,7 @@ export const useTasksStore = defineStore('tasks', () => {
     if (task.gid && aria2.connected.value) {
       try {
         await aria2.unpause(task.gid)
+        void aria2.fetchAllTasks()
       } catch (e) {
         logger.error('Failed to resume task: ' + e)
       }
