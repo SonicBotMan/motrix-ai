@@ -70,6 +70,11 @@ function complete() {
   selectedTheme.value = 'dark'
 }
 
+function goToStep(step: number) {
+  currentStep.value = step
+  stepKey.value += 1
+}
+
 function selectTheme(theme: 'dark' | 'light' | 'system') {
   selectedTheme.value = theme
 }
@@ -162,10 +167,7 @@ watch(
               :aria-current="currentStep === i - 1 ? 'step' : undefined"
               :aria-label="`Step ${i}`"
               type="button"
-              @click="
-                currentStep = i - 1
-                stepKey += 1
-              "
+              @click="goToStep(i - 1)"
             />
           </div>
           <div class="onboarding-actions">
