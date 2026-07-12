@@ -16,7 +16,7 @@
  * Design ref: docs/design/handoff/HANDOFF.md §3, 02-components.md
  */
 
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { invoke } from '@tauri-apps/api/core'
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
@@ -65,11 +65,11 @@ const selectedTask = ref<Task | null>(null)
 const selectedTaskId = ref<number | null>(null)
 const liveSelectedTask = computed<Task | null>(() => {
   if (!selectedTaskId.value) return null
-  const found = tasks.value.find((t) => t.id === selectedTaskId.value) ?? null
-  if (!found && showDetail.value) {
-    closeDetail()
-  }
-  return found
+  return tasks.value.find((t) => t.id === selectedTaskId.value) ?? null
+})
+
+watch(liveSelectedTask, (task) => {
+  if (!task && showDetail.value) closeDetail()
 })
 const showDetail = ref(false)
 const showMenu = ref(false)
