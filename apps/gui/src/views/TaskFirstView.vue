@@ -383,6 +383,7 @@ function handleQuickAction(index: number): void {
 async function pauseAllTasks(): Promise<void> {
   try {
     await invoke('pause_all')
+    void tasksStore.refreshTasks()
     addToast({ id: generateToastId(), type: 'success', text: 'Paused all downloads', createdAt: Date.now() })
   } catch (err) {
     addToast({ id: generateToastId(), type: 'error', text: `Pause all failed: ${String(err)}`, createdAt: Date.now() })
