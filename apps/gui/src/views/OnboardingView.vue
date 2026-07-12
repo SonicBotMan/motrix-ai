@@ -88,15 +88,15 @@ const prevStep = () => {
         <h1>Try a command</h1>
         <p class="subtitle">Type something like:</p>
         <div class="examples">
-          <div class="example" @click="router.push('/')">
+          <div class="example" @click="nextStep">
             <DownloadOutline :size="16" />
             <span>Download the latest VS Code for macOS</span>
           </div>
-          <div class="example" @click="router.push('/')">
+          <div class="example" @click="nextStep">
             <DownloadOutline :size="16" />
             <span>下流浪地球 2 4K 字幕版</span>
           </div>
-          <div class="example" @click="router.push('/')">
+          <div class="example" @click="nextStep">
             <DownloadOutline :size="16" />
             <span>magnet:?xt=urn:btih:...</span>
           </div>

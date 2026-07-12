@@ -184,16 +184,24 @@ async function handleSendMessage(message: string): Promise<void> {
     .filter(Boolean)
   if (lines.length > 1) {
     addToast({ id: generateToastId(), type: 'info', text: `Adding ${lines.length} downloads…`, createdAt: Date.now() })
+    let succeeded = 0
+    let failed = 0
     for (const line of lines) {
       if (/^(magnet:|ed2k:\/\/|https?:\/\/|ftp:\/\/)/i.test(line)) {
         try {
           await aria2AddUri(line)
+          succeeded++
         } catch {
-          /* skip failed URLs in batch */
+          failed++
         }
       }
     }
-    addToast({ id: generateToastId(), type: 'success', text: 'Batch complete', createdAt: Date.now() })
+    addToast({
+      id: generateToastId(),
+      type: failed > 0 ? 'error' : 'success',
+      text: failed > 0 ? `Batch: ${succeeded} added, ${failed} failed` : `Batch complete: ${succeeded} downloads added`,
+      createdAt: Date.now(),
+    })
     return
   }
 

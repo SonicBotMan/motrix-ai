@@ -270,6 +270,7 @@ export const useConfigStore = defineStore('config', () => {
   const config = ref<AppConfig>(deepClone(DEFAULT_CONFIG))
   const loaded = ref(false)
   const saving = ref(false)
+  const saveError = ref<string | null>(null)
 
   /** Load from the config file via Tauri, falling back to localStorage migration. */
   async function init(): Promise<void> {
@@ -285,15 +286,24 @@ export const useConfigStore = defineStore('config', () => {
   }
 
   /** Persist the current config to the file via Tauri. */
+  let savePending = false
   async function save(): Promise<void> {
-    if (saving.value) return
+    if (saving.value) {
+      savePending = true
+      return
+    }
     saving.value = true
     try {
       await invoke('save_config', { config: config.value })
     } catch (e) {
       console.error('Failed to save config:', e)
+      saveError.value = e instanceof Error ? e.message : String(e)
     } finally {
       saving.value = false
+      if (savePending) {
+        savePending = false
+        void save()
+      }
     }
   }
 
@@ -321,5 +331,5 @@ export const useConfigStore = defineStore('config', () => {
     { deep: true },
   )
 
-  return { config, loaded, saving, init, save, updateSection, reset }
+  return { config, loaded, saving, saveError, init, save, updateSection, reset }
 })
