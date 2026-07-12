@@ -84,6 +84,7 @@ watch(liveSelectedTask, (task) => {
 
 watch([activeFilter, taskSearchQuery], () => {
   keyboardIndex.value = -1
+  selectedIds.value = new Set()
 })
 const showDetail = ref(false)
 const showMenu = ref(false)
@@ -93,6 +94,40 @@ const toasts = ref<Toast[]>([])
 const showOnboarding = ref(false)
 const keyboardIndex = ref(-1)
 const bottomChatRef = ref<{ focus: () => void } | null>(null)
+const selectedIds = ref<Set<number>>(new Set())
+
+function handleToggleSelect(id: number) {
+  const next = new Set(selectedIds.value)
+  if (next.has(id)) next.delete(id)
+  else next.add(id)
+  selectedIds.value = next
+}
+
+function handleToggleSelectAll() {
+  if (selectedIds.value.size === tasks.value.length && tasks.value.length > 0) {
+    selectedIds.value = new Set()
+  } else {
+    selectedIds.value = new Set(tasks.value.map((t) => t.id))
+  }
+}
+
+async function batchDeleteSelected() {
+  const count = selectedIds.value.size
+  if (count === 0) return
+  try {
+    const { confirm } = await import('@tauri-apps/plugin-dialog')
+    const accepted = await confirm(`Delete ${count} downloads?`, { title: 'Batch Delete', kind: 'warning' })
+    if (!accepted) return
+  } catch {
+    /* non-Tauri */
+  }
+  for (const id of selectedIds.value) {
+    const task = tasks.value.find((t) => t.id === id)
+    if (task) await tasksStore.removeTask(task.gid || String(task.id))
+  }
+  addToast({ id: generateToastId(), type: 'error', text: `${count} tasks deleted`, createdAt: Date.now() })
+  selectedIds.value = new Set()
+}
 
 const showSearchResults = ref(false)
 const searchResults = ref<SearchResult[]>([])
@@ -918,12 +953,20 @@ onUnmounted(() => {
         :keyboard-index="keyboardIndex"
         :connecting="tasksStore.aria2Connecting"
         :connected="tasksStore.aria2Connected"
+        :selected-ids="selectedIds"
         @update:filter="activeFilter = $event"
         @toggle-menu="toggleRowMenu"
         @open-detail="openDetail"
         @retry-connect="tasksStore.init().catch((e) => console.warn('retry failed:', e))"
         @try-sample="handleTrySample"
+        @toggle-select="handleToggleSelect"
+        @toggle-select-all="handleToggleSelectAll"
       />
+      <div v-if="selectedIds.size > 0" class="batch-bar">
+        <span class="batch-count">{{ selectedIds.size }} selected</span>
+        <button class="batch-btn" type="button" @click="batchDeleteSelected">Delete</button>
+        <button class="batch-btn batch-btn--ghost" type="button" @click="selectedIds = new Set()">Clear</button>
+      </div>
     </main>
 
     <!-- Bottom chat input (96px, sticky bottom) -->
@@ -1024,6 +1067,34 @@ onUnmounted(() => {
   gap: 8px;
   padding: 6px 16px;
   border-bottom: 1px solid var(--border, #e2e8f0);
+}
+
+.batch-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  background: var(--primary-muted, rgba(59, 130, 246, 0.1));
+  border-bottom: 1px solid var(--border, #e2e8f0);
+}
+.batch-count {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--primary, #3b82f6);
+}
+.batch-btn {
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--error, #ef4444);
+  background: transparent;
+  border: 1px solid var(--error, #ef4444);
+  border-radius: 4px;
+  cursor: pointer;
+}
+.batch-btn--ghost {
+  color: var(--fg-tertiary, #6b7280);
+  border-color: var(--border, #e2e8f0);
 }
 
 .task-search-input {

@@ -36,12 +36,14 @@ interface Props {
   keyboardIndex?: number
   connecting?: boolean
   connected?: boolean
+  selectedIds?: Set<number>
 }
 
 const props = withDefaults(defineProps<Props>(), {
   keyboardIndex: -1,
   connecting: false,
   connected: false,
+  selectedIds: () => new Set<number>(),
 })
 
 const emit = defineEmits<{
@@ -50,6 +52,8 @@ const emit = defineEmits<{
   'update:filter': [filter: string]
   retryConnect: []
   trySample: []
+  toggleSelect: [id: number]
+  toggleSelectAll: []
 }>()
 
 // --- State ---
@@ -70,6 +74,13 @@ function toggleSort(field: SortField) {
     sortDir.value = 'desc'
   }
 }
+
+const allSelected = computed(() => {
+  return displayTasks.value.length > 0 && displayTasks.value.every((t) => props.selectedIds.has(t.id))
+})
+const someSelected = computed(() => {
+  return props.selectedIds.size > 0 && !allSelected.value
+})
 
 const setRowRef = (el: Element | null | undefined, i: number) => {
   rowRefs.value[i] = (el as HTMLTableRowElement | null) ?? null
@@ -213,6 +224,14 @@ function handleMenuToggle(taskId: number, event: MouseEvent): void {
     <table v-if="displayTasks.length > 0" class="task-table">
       <thead>
         <tr>
+          <th class="col-check">
+            <input
+              type="checkbox"
+              :checked="allSelected"
+              :indeterminate.prop="someSelected"
+              @change="emit('toggleSelectAll')"
+            />
+          </th>
           <th class="col-name sortable" @click="toggleSort('name')">
             Name<span v-if="sortField === 'name'" class="sort-arrow">{{ sortDir === 'asc' ? '▲' : '▼' }}</span>
           </th>
@@ -246,6 +265,10 @@ function handleMenuToggle(taskId: number, event: MouseEvent): void {
           }"
           @click="handleRowClick(task)"
         >
+          <!-- Checkbox -->
+          <td class="col-check" @click.stop>
+            <input type="checkbox" :checked="selectedIds.has(task.id)" @change="emit('toggleSelect', task.id)" />
+          </td>
           <!-- Name -->
           <td class="col-name">
             <div class="col-name-inner">
@@ -419,9 +442,13 @@ function handleMenuToggle(taskId: number, event: MouseEvent): void {
   padding-right: var(--space-3, 12px);
 }
 
-/* Column widths: 28% | 16% | 8% | 17% | 8% | 11% | 7% | 5% */
+/* Column widths: 3% | 25% | 16% | 8% | 17% | 8% | 11% | 7% | 5% */
+.task-table .col-check {
+  width: 3%;
+  text-align: center;
+}
 .task-table .col-name {
-  width: 28%;
+  width: 25%;
 }
 .task-table .col-source {
   width: 16%;
