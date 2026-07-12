@@ -242,6 +242,7 @@ export const useTasksStore = defineStore('tasks', () => {
       if (resolvedDir) opts.dir = resolvedDir
       const gid = Object.keys(opts).length > 0 ? await aria2.addUri(url, opts) : await aria2.addUri(url)
       if (intent && gid) intentByGid.set(gid, intent)
+      void aria2.fetchAllTasks()
       return
     }
     localTasks.value.unshift({
@@ -334,6 +335,7 @@ export const useTasksStore = defineStore('tasks', () => {
           const resolvedDir = await resolveDownloadDir()
           if (resolvedDir) opts.dir = resolvedDir
           await aria2.addUri(task.source, opts)
+          void aria2.fetchAllTasks()
         } else {
           throw new Error('Cannot retry BitTorrent task without original magnet or HTTP URL')
         }
