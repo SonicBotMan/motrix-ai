@@ -20,8 +20,6 @@ watch(
 let unlistenDeepLink: (() => void) | null = null
 let unlistenFileDrop: (() => void) | null = null
 let unlistenHttpApi: (() => void) | null = null
-let clipboardPoller: ReturnType<typeof setInterval> | null = null
-let lastClipboardUrl = ''
 
 const downloadBanner = ref<{ text: string } | null>(null)
 let bannerTimer: ReturnType<typeof setTimeout> | null = null
@@ -85,18 +83,6 @@ onMounted(async () => {
   } catch {
     /* not in Tauri context */
   }
-
-  clipboardPoller = setInterval(async () => {
-    try {
-      const text = await navigator.clipboard.readText()
-      if (!text || text === lastClipboardUrl) return
-      if (/^(magnet:|ed2k:\/\/|https?:\/\/|ftp:\/\/)/i.test(text.trim()) && text.trim().length < 2000) {
-        lastClipboardUrl = text
-      }
-    } catch {
-      /* clipboard not accessible */
-    }
-  }, 5000)
 })
 
 onUnmounted(() => {
@@ -104,7 +90,6 @@ onUnmounted(() => {
   unlistenDeepLink?.()
   unlistenFileDrop?.()
   unlistenHttpApi?.()
-  if (clipboardPoller) clearInterval(clipboardPoller)
   if (bannerTimer) clearTimeout(bannerTimer)
   tasksStore.dispose().catch((e) => console.warn('aria2 dispose failed:', e))
 })

@@ -249,6 +249,17 @@ pub async fn stop_aria2() -> Result<String, String> {
     if let Some(p) = pid {
         let secret = get_aria2_secret();
         let client = reqwest::Client::new();
+        // Save session before shutdown so downloads resume on next start.
+        let _ = client
+            .post("http://127.0.0.1:6800/jsonrpc")
+            .header("Content-Type", "application/json")
+            .body(format!(
+                r#"{{"jsonrpc":"2.0","id":"save-session","method":"aria2.saveSession","params":["token:{}"]}}"#,
+                secret
+            ))
+            .timeout(Duration::from_secs(2))
+            .send()
+            .await;
         let _ = client
             .post("http://127.0.0.1:6800/jsonrpc")
             .header("Content-Type", "application/json")
