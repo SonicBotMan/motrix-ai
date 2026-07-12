@@ -525,16 +525,29 @@ watch(showMoreMenu, (visible) => {
               Resume
             </button>
             <button
-              v-else
+              v-else-if="props.task.status === 'downloading'"
               class="footer-btn footer-btn--primary"
               type="button"
-              :disabled="props.task.status === 'completed'"
               @click="onPause"
             >
               Pause
             </button>
-            <button class="footer-btn footer-btn--ghost" type="button" @click="onRetry">Retry</button>
-            <button class="footer-btn footer-btn--ghost" type="button" @click="emit('priority')">Priority</button>
+            <button
+              v-if="props.task.status === 'failed'"
+              class="footer-btn footer-btn--ghost"
+              type="button"
+              @click="onRetry"
+            >
+              Retry
+            </button>
+            <button
+              v-if="props.task.status === 'downloading' || props.task.status === 'pending'"
+              class="footer-btn footer-btn--ghost"
+              type="button"
+              @click="emit('priority')"
+            >
+              Priority
+            </button>
           </footer>
         </template>
       </div>
