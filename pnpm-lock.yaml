@@ -67,8 +67,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/core
       '@opencode-ai/sdk':
-        specifier: ^1.17.4
-        version: 1.17.4
+        specifier: ^1.17.18
+        version: 1.17.18
       '@tauri-apps/api':
         specifier: ^2.11.1
         version: 2.11.1
@@ -144,8 +144,8 @@ importers:
   packages/core:
     dependencies:
       '@opencode-ai/sdk':
-        specifier: ^1.17.4
-        version: 1.17.4
+        specifier: ^1.17.18
+        version: 1.17.18
       better-sqlite3:
         specifier: ^11.0.0
         version: 11.10.0
@@ -517,8 +517,8 @@ packages:
   '@one-ini/wasm@0.1.1':
     resolution: {integrity: sha512-XuySG1E38YScSJoMlqovLru4KTUNSjgVTIjyh7qMX6aNN5HY5Ct5LhRJdxO79JtTzKfzV/bnWpz+zquYrISsvw==}
 
-  '@opencode-ai/sdk@1.17.4':
-    resolution: {integrity: sha512-OdHkBoNIQOjQsPnFtkcxAp9HsLAKn/MQiq7wIQURkRARmw8yhFqGiMPYbNm+UfLn6bMkx97rdPkWQARejMyiXQ==}
+  '@opencode-ai/sdk@1.17.18':
+    resolution: {integrity: sha512-c/C9PhY8PrbcxDY+JIYtOZsrmMD0KzoVvxq+RGUrZ6LQp57SuVBbT4lfwA2G8Se5RNC1N5JtYjiuaXeECnF2SQ==}
 
   '@pkgjs/parseargs@0.11.0':
     resolution: {integrity: sha512-+1VkjdD0QBLPodGrJUeqarH8VAIvQODIbwh9XpP5Syisf7YoQgsJKPNFoqqLQlu+VQ/tVSshMR6loPMn8U+dPg==}
@@ -2869,7 +2869,7 @@ snapshots:
 
   '@one-ini/wasm@0.1.1': {}
 
-  '@opencode-ai/sdk@1.17.4':
+  '@opencode-ai/sdk@1.17.18':
     dependencies:
       cross-spawn: 7.0.6
 

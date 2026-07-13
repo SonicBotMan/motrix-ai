@@ -24,7 +24,7 @@
     "clean": "rm -rf dist .turbo"
   },
   "dependencies": {
-    "@opencode-ai/sdk": "^1.17.4",
+    "@opencode-ai/sdk": "^1.17.18",
     "better-sqlite3": "^11.0.0"
   },
   "devDependencies": {
