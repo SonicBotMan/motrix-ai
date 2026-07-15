@@ -14,6 +14,8 @@
  */
 
 import { ref } from 'vue'
+import { NIcon } from 'naive-ui'
+import { AttachOutline, ArrowUpOutline } from '@vicons/ionicons5'
 
 interface Chip {
   label: string
@@ -67,21 +69,7 @@ defineExpose({
         aria-label="Attach a file"
         @click="emit('attach')"
       >
-        <svg
-          width="18"
-          height="18"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
-        >
-          <path
-            d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"
-          />
-        </svg>
+        <NIcon :component="AttachOutline" :size="18" aria-hidden="true" />
       </button>
 
       <input
@@ -95,19 +83,7 @@ defineExpose({
 
       <button type="button" class="chat-send" aria-label="Send message" :disabled="!message.trim()" @click="send">
         <span class="send-arrow">
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2.5"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            aria-hidden="true"
-          >
-            <path d="M12 19V5M5 12l7-7 7 7" />
-          </svg>
+          <NIcon :component="ArrowUpOutline" :size="16" aria-hidden="true" />
         </span>
       </button>
     </div>

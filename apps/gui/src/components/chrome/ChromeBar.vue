@@ -14,6 +14,8 @@
  */
 
 import { computed } from 'vue'
+import { NIcon } from 'naive-ui'
+import { DownloadOutline, SunnyOutline, MoonOutline, SettingsOutline } from '@vicons/ionicons5'
 
 const props = defineProps<{
   currentTheme?: 'dark' | 'light'
@@ -36,23 +38,8 @@ const themeLabel = computed(() => (currentTheme.value === 'dark' ? 'Switch to li
 <template>
   <header class="chrome">
     <div class="chrome-logo" title="Back to downloads" @click="$emit('goHome')">
-      <!-- App mark (inline SVG, never emoji) -->
-      <svg
-        class="logo-mark"
-        width="20"
-        height="20"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        aria-hidden="true"
-      >
-        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-        <polyline points="7 10 12 15 17 10" />
-        <line x1="12" y1="15" x2="12" y2="3" />
-      </svg>
+      <!-- App mark (icon, never emoji) -->
+      <NIcon class="logo-mark" :component="DownloadOutline" :size="20" aria-hidden="true" />
       <span class="logo-motrix">Motrix</span>
       <span class="logo-ai">AI</span>
     </div>
@@ -75,56 +62,12 @@ const themeLabel = computed(() => (currentTheme.value === 'dark' ? 'Switch to li
         @click="$emit('toggleTheme')"
       >
         <!-- Sun when in dark mode (clicking switches to light) -->
-        <svg
-          v-if="currentTheme === 'dark'"
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
-        >
-          <circle cx="12" cy="12" r="4" />
-          <path
-            d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"
-          />
-        </svg>
+        <NIcon v-if="currentTheme === 'dark'" :component="SunnyOutline" :size="16" aria-hidden="true" />
         <!-- Moon when in light mode (clicking switches to dark) -->
-        <svg
-          v-else
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
-        >
-          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-        </svg>
+        <NIcon v-else :component="MoonOutline" :size="16" aria-hidden="true" />
       </button>
       <button class="chrome-btn" type="button" title="Settings" aria-label="Settings" @click="$emit('openSettings')">
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
-        >
-          <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
-          <path
-            d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1Z"
-          />
-        </svg>
+        <NIcon :component="SettingsOutline" :size="16" aria-hidden="true" />
       </button>
     </div>
   </header>

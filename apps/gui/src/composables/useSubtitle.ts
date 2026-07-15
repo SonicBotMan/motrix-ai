@@ -4,6 +4,8 @@
 import { ref, computed } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import { useConfigStore } from '@/stores/config'
+import { createLogger } from '@motrix-ai/core/browser'
+const logger = createLogger('subtitle')
 
 export interface SubtitleResult {
   id: string
@@ -34,11 +36,11 @@ export function hasApiKey(): boolean {
 class RateLimiter {
   private queue: Array<() => void> = []
   private timestamps: number[] = []
+  private timer: ReturnType<typeof setTimeout> | null = null
   private readonly maxPerSecond = 5
 
   async acquire(): Promise<void> {
     const now = Date.now()
-    // Remove timestamps older than 1 second
     this.timestamps = this.timestamps.filter((t) => now - t < 1000)
 
     if (this.timestamps.length < this.maxPerSecond) {
@@ -46,7 +48,6 @@ class RateLimiter {
       return
     }
 
-    // Need to wait until we can make a request
     return new Promise<void>((resolve) => {
       this.queue.push(() => {
         this.timestamps.push(Date.now())
@@ -54,6 +55,15 @@ class RateLimiter {
       })
       this.processQueue()
     })
+  }
+
+  dispose(): void {
+    this.queue = []
+    this.timestamps = []
+    if (this.timer) {
+      clearTimeout(this.timer)
+      this.timer = null
+    }
   }
 
   private processQueue(): void {
@@ -66,10 +76,9 @@ class RateLimiter {
     }
 
     if (this.queue.length > 0) {
-      // Schedule next check after the oldest timestamp expires
       const oldestInWindow = this.timestamps[0] || now
       const waitMs = 1000 - (now - oldestInWindow) + 10
-      setTimeout(() => this.processQueue(), Math.max(waitMs, 50))
+      this.timer = setTimeout(() => this.processQueue(), Math.max(waitMs, 50))
     }
   }
 }
@@ -159,7 +168,7 @@ async function searchOpenSubtitles(query: string, languages: string[] = ['zh', '
   const data = response as Record<string, unknown>
   const rawData = data['data']
   if (!rawData || !Array.isArray(rawData)) {
-    console.warn('Unexpected OpenSubtitles response format:', data)
+    logger.warn('Unexpected OpenSubtitles response format:', data)
     return []
   }
 
@@ -193,7 +202,7 @@ async function searchOpenSubtitles(query: string, languages: string[] = ['zh', '
         uploadDate: attributes['upload_date'] ? String(attributes['upload_date']).split(' ')[0] : undefined,
       })
     } catch (parseErr) {
-      console.warn('Failed to parse subtitle result:', parseErr, item)
+      logger.warn('Failed to parse subtitle result:', parseErr, item)
     }
   }
 
@@ -251,7 +260,7 @@ export function useSubtitle() {
       subtitleResults.value = results
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e)
-      console.error('Subtitle search failed:', e)
+      logger.error('Subtitle search failed:', e)
       error.value = message
       subtitleResults.value = []
     } finally {
@@ -314,7 +323,7 @@ export function useSubtitle() {
 
       return savedPath
     } catch (e) {
-      console.error('Subtitle download failed:', e)
+      logger.error('Subtitle download failed:', e)
       error.value = e instanceof Error ? e.message : String(e)
       return null
     } finally {

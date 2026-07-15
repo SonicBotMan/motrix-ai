@@ -22,6 +22,7 @@ export type {
   SearchResult,
   Task,
   TaskStatus,
+  AIProvider,
   ResourceType,
   Quality,
   FileEntry,
@@ -30,6 +31,8 @@ export type {
   DiskThresholds,
   AppConfig,
   ArchiveTarget,
+  SubtitlesConfig,
+  UiConfig,
 } from './types.js'
 
 // AI

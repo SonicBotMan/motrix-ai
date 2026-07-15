@@ -5,6 +5,7 @@ mod tray;
 
 use tauri::Manager;
 use tauri::WindowEvent;
+use std::time::Duration;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -80,6 +81,32 @@ pub fn run() {
                     Ok(msg) => log::info!("Power: {}", msg),
                     Err(e) => log::warn!("Power management failed: {}", e),
                 }
+
+                tokio::time::sleep(Duration::from_secs(60)).await;
+                loop {
+                    tokio::time::sleep(Duration::from_secs(30)).await;
+                    let secret = commands::aria2::get_aria2_secret();
+                    let port = commands::aria2::ARIA2_RPC_PORT.load(std::sync::atomic::Ordering::SeqCst);
+                    let rpc_url = format!("http://127.0.0.1:{}/jsonrpc", port);
+                    let client = reqwest::Client::new();
+                    let healthy = client
+                        .post(&rpc_url)
+                        .header("Content-Type", "application/json")
+                        .body(format!(
+                            r#"{{"jsonrpc":"2.0","id":"health","method":"aria2.getVersion","params":["token:{}"]}}"#,
+                            secret
+                        ))
+                        .timeout(Duration::from_secs(3))
+                        .send()
+                        .await
+                        .map(|r| r.status().is_success())
+                        .unwrap_or(false);
+
+                    if !healthy {
+                        log::warn!("aria2 health check failed, attempting restart");
+                        let _ = commands::aria2::start_aria2(handle.clone(), Some(port)).await;
+                    }
+                }
             });
 
             Ok(())
@@ -109,9 +136,11 @@ pub fn run() {
             commands::aria2::pause_all,
             commands::aria2::unpause_all,
             commands::aria2::add_torrent_file,
+            commands::aria2::add_metalink_file,
             commands::intent::parse_nl_intent,
             commands::fs::organize_file,
             commands::fs::show_in_folder,
+            commands::fs::delete_file,
             commands::request_notification_permission,
             commands::send_notification,
             commands::http_api::start_http_api,
@@ -119,5 +148,5 @@ pub fn run() {
             services::power::allow_sleep,
         ])
         .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .expect("Failed to start Tauri application — check logs for details");
 }

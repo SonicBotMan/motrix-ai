@@ -3,6 +3,8 @@
 
 import { ref } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
+import { createLogger } from '@motrix-ai/core/browser'
+const logger = createLogger('search')
 
 export interface SearchResult {
   title: string
@@ -54,7 +56,7 @@ async function searchViaProxy(query: string, source: string): Promise<SearchResu
     })
     return response.results
   } catch (e) {
-    console.error(`Search via ${source} failed:`, e)
+    logger.error(`Search via ${source} failed:`, e)
     return []
   }
 }
@@ -93,9 +95,7 @@ export function useSearch() {
       }
 
       // Run all providers in parallel via Tauri proxy
-      const settled = await Promise.allSettled(
-        sources.map((source) => searchViaProxy(query, source))
-      )
+      const settled = await Promise.allSettled(sources.map((source) => searchViaProxy(query, source)))
 
       // Collect results per source for logging
       const perSource: Record<string, SearchResult[]> = {}
@@ -105,7 +105,13 @@ export function useSearch() {
       })
 
       // Merge all results (preserving source order)
-      const allSources = [...perSource.btdig, ...perSource['1337x'], ...perSource.nyaa, ...perSource.torrentgalaxy, ...perSource.mikan]
+      const allSources = [
+        ...perSource.btdig,
+        ...perSource['1337x'],
+        ...perSource.nyaa,
+        ...perSource.torrentgalaxy,
+        ...perSource.mikan,
+      ]
 
       // Deduplicate by magnet hash
       const seen = new Set<string>()
@@ -130,7 +136,7 @@ export function useSearch() {
 
       searchResults.value = all
     } catch (e) {
-      console.error('Search failed:', e)
+      logger.error('Search failed:', e)
       searchResults.value = []
     } finally {
       searching.value = false

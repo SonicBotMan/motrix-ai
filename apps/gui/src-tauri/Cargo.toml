@@ -44,3 +44,6 @@ thiserror = "2"
 
 # For tracker list timestamps
 chrono = { version = "0.4", features = ["serde"] }
+
+# For CSPRNG aria2 RPC secret generation (P1-5)
+rand = "0.8"

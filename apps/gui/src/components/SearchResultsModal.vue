@@ -25,10 +25,14 @@ const resultCount = computed(() => props.results.length)
 
 const qualityColor = (q?: string) => {
   switch (q) {
-    case '4K': return '#A855F7'
-    case '1080p': return '#3B82F6'
-    case '720p': return '#10B981'
-    default: return '#6B7280'
+    case '4K':
+      return 'var(--primary)'
+    case '1080p':
+      return 'var(--primary)'
+    case '720p':
+      return 'var(--accent)'
+    default:
+      return 'var(--fg-tertiary)'
   }
 }
 
@@ -39,9 +43,12 @@ const qualityLabel = (q?: string) => {
 
 const sourceColor = (source: string) => {
   switch (source) {
-    case 'btdig': return '#F59E0B'
-    case 'mikan': return '#EC4899'
-    default: return '#6B7280'
+    case 'btdig':
+      return 'var(--warning)'
+    case 'mikan':
+      return '#EC4899'
+    default:
+      return 'var(--fg-tertiary)'
   }
 }
 
@@ -72,33 +79,30 @@ const formatDownloads = (count: number): string => {
       <!-- Header -->
       <div class="search-header">
         <div class="search-header-left">
-          <h2 class="search-title">搜索结果: {{ query }}</h2>
-          <span v-if="!searching && resultCount > 0" class="search-count">{{ resultCount }} 个资源</span>
+          <h2 class="search-title">Search Results: {{ query }}</h2>
+          <span v-if="!searching && resultCount > 0" class="search-count">{{ resultCount }} resources</span>
         </div>
         <NButton quaternary circle size="small" @click="emit('close')">
-          <template #icon><NIcon><CloseOutline /></NIcon></template>
+          <template #icon
+            ><NIcon><CloseOutline /></NIcon
+          ></template>
         </NButton>
       </div>
 
       <!-- Loading State -->
       <div v-if="searching" class="search-loading">
         <NSpin size="medium" />
-        <span class="search-loading-text">搜索中...</span>
+        <span class="search-loading-text">Searching...</span>
       </div>
 
       <!-- Empty State -->
       <div v-else-if="resultCount === 0" class="search-empty">
-        <NEmpty description="未找到资源" />
+        <NEmpty description="No resources found" />
       </div>
 
       <!-- Results List -->
       <div v-else class="search-results">
-        <div
-          v-for="result in results"
-          :key="result.magnet"
-          class="search-result-row"
-          @click="handleRowClick(result)"
-        >
+        <div v-for="result in results" :key="result.magnet" class="search-result-row" @click="handleRowClick(result)">
           <!-- Left: Title + meta -->
           <div class="result-info">
             <div class="result-title-row">
@@ -135,8 +139,10 @@ const formatDownloads = (count: number): string => {
           <!-- Right: Download button -->
           <div class="result-action">
             <NButton type="primary" size="small" @click.stop="handleDownload(result)">
-              <template #icon><NIcon><DownloadOutline /></NIcon></template>
-              下载
+              <template #icon
+                ><NIcon><DownloadOutline /></NIcon
+              ></template>
+              Download
             </NButton>
           </div>
         </div>
@@ -146,16 +152,11 @@ const formatDownloads = (count: number): string => {
       <div v-if="subtitleResults && subtitleResults.length > 0" class="subtitle-section">
         <div class="subtitle-header">
           <NIcon :size="14"><DocumentTextOutline /></NIcon>
-          <span>字幕 ({{ subtitleResults.length }})</span>
-          <NTag v-if="subtitleSearching" size="tiny" round>搜索中...</NTag>
+          <span>Subtitles ({{ subtitleResults.length }})</span>
+          <NTag v-if="subtitleSearching" size="tiny" round>Searching...</NTag>
         </div>
         <div class="subtitle-list">
-          <div
-            v-for="sub in subtitleResults"
-            :key="sub.id"
-            class="subtitle-row"
-            @click="emit('select-subtitle', sub)"
-          >
+          <div v-for="sub in subtitleResults" :key="sub.id" class="subtitle-row" @click="emit('select-subtitle', sub)">
             <div class="subtitle-info">
               <span class="subtitle-lang">{{ sub.language }}</span>
               <span class="subtitle-name">{{ sub.fileName }}</span>
@@ -164,7 +165,9 @@ const formatDownloads = (count: number): string => {
               <span class="subtitle-rating">⭐ {{ sub.rating }}</span>
               <span class="subtitle-downloads">{{ formatDownloads(sub.downloadCount) }}</span>
               <NButton size="tiny" quaternary @click.stop="emit('select-subtitle', sub)">
-                <template #icon><NIcon><DownloadOutline /></NIcon></template>
+                <template #icon
+                  ><NIcon><DownloadOutline /></NIcon
+                ></template>
               </NButton>
             </div>
           </div>
@@ -174,7 +177,7 @@ const formatDownloads = (count: number): string => {
       <!-- Subtitle Loading -->
       <div v-else-if="subtitleSearching" class="subtitle-loading">
         <NSpin size="small" />
-        <span>搜索字幕中...</span>
+        <span>Searching subtitles...</span>
       </div>
     </div>
   </NModal>
@@ -259,7 +262,7 @@ const formatDownloads = (count: number): string => {
   gap: 12px;
   padding: 12px 20px;
   cursor: pointer;
-  transition: background 0.15s ease;
+  transition: background var(--transition-fast);
   border-bottom: 1px solid var(--border);
 }
 
@@ -308,7 +311,7 @@ const formatDownloads = (count: number): string => {
 .result-seeders {
   font-size: 12px;
   font-family: var(--font-mono);
-  color: #10B981;
+  color: #10b981;
   font-weight: 500;
 }
 
@@ -319,7 +322,7 @@ const formatDownloads = (count: number): string => {
 .result-leechers {
   font-size: 12px;
   font-family: var(--font-mono);
-  color: #EF4444;
+  color: #ef4444;
   font-weight: 500;
 }
 
@@ -359,7 +362,7 @@ const formatDownloads = (count: number): string => {
   justify-content: space-between;
   padding: 10px 20px;
   cursor: pointer;
-  transition: background 0.15s ease;
+  transition: background var(--transition-fast);
   border-bottom: 1px solid var(--border);
 }
 

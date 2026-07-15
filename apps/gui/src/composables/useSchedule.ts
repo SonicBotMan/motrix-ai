@@ -8,26 +8,10 @@
 // no-op.
 
 import { ref, onUnmounted, type Ref } from 'vue'
-
-/**
- * A named scheduling window.
- *
- * Identical to {@link import("@motrix-ai/core").ScheduleRule}.
- */
-export interface ScheduleRule {
-  /** Human label, e.g. "Night unlimited". */
-  name: string
-  /** Window start, `HH:mm` (24h). */
-  time_start: string
-  /** Window end, `HH:mm` (24h). If < time_start the window crosses midnight. */
-  time_end: string
-  /** Speed cap in bytes/s during the window; 0 = unlimited. */
-  speed_limit: number
-  /** Max concurrent downloads allowed during the window. */
-  max_concurrent: number
-  /** Whether this rule is active. Missing = enabled (matches store semantics). */
-  enabled?: boolean
-}
+import { createLogger } from '@motrix-ai/core/browser'
+import type { ScheduleRule } from '@motrix-ai/core'
+export type { ScheduleRule }
+const logger = createLogger('schedule')
 
 /** The check interval, once per minute (matches core TimeScheduler). */
 const CHECK_INTERVAL_MS = 60_000
@@ -89,7 +73,7 @@ export function useSchedule(initialRules: ScheduleRule[] = []) {
         })
       }
     } catch (e) {
-      console.warn('Schedule apply failed:', e)
+      logger.warn('Schedule apply failed:', e)
     }
   }
 

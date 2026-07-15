@@ -17,6 +17,9 @@
  * Design ref: docs/design/handoff/02-components.md §5
  */
 
+import { NIcon } from 'naive-ui'
+import { InformationCircleOutline, CheckmarkCircleOutline, AlertCircleOutline, CloseOutline } from '@vicons/ionicons5'
+
 export type ToastType = 'info' | 'success' | 'error'
 
 export interface Toast {
@@ -41,20 +44,16 @@ function typeClass(type: ToastType): string {
   return type
 }
 
-/** Type → icon path data */
-const icons: Record<ToastType, string> = {
-  info: 'M12 16v-4M12 8h.01M22 12c0 5.523-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2s10 4.477 10 10Z',
-  success: 'M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 0 0-1.385 1.392 3.4 3.4 0 0 1-2.326 1.803 3.42 3.42 0 0 0-1.544.998 3.42 3.42 0 0 0 .087 4.605 3.42 3.42 0 0 1 .984 1.877 3.42 3.42 0 0 0 .768 2.752 3.42 3.42 0 0 0 3.154 1.065 3.42 3.42 0 0 1 2.116.386 3.42 3.42 0 0 0 3.17.027 3.42 3.42 0 0 1 2.103-.416 3.42 3.42 0 0 0 3.18-1.015 3.42 3.42 0 0 0 .833-2.73 3.42 3.42 0 0 1 .436-2.09 3.42 3.42 0 0 0 .067-3.166 3.42 3.42 0 0 1-.373-2.123 3.42 3.42 0 0 0-1.014-3.18 3.42 3.42 0 0 0-2.732-.832 3.42 3.42 0 0 1-2.09-.436 3.42 3.42 0 0 0-3.165-.068 3.42 3.42 0 0 1-2.122.373Z',
-  error: 'M12 9v4M12 17h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z',
+/** Type → icon component */
+const icons: Record<ToastType, typeof InformationCircleOutline> = {
+  info: InformationCircleOutline,
+  success: CheckmarkCircleOutline,
+  error: AlertCircleOutline,
 }
 </script>
 
 <template>
-  <div
-    class="toast-stack"
-    aria-live="polite"
-    aria-atomic="false"
-  >
+  <div class="toast-stack" aria-live="polite" aria-atomic="false">
     <div
       v-for="toast in toasts"
       :key="toast.id"
@@ -67,9 +66,7 @@ const icons: Record<ToastType, string> = {
 
       <!-- Type icon avatar -->
       <div class="toast-avatar">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path :d="icons[toast.type]" />
-        </svg>
+        <NIcon :component="icons[toast.type]" :size="16" aria-hidden="true" />
       </div>
 
       <!-- Text body -->
@@ -85,9 +82,7 @@ const icons: Record<ToastType, string> = {
         aria-label="Dismiss notification"
         @click="emit('dismiss', toast.id)"
       >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M18 6 6 18M6 6l12 12" />
-        </svg>
+        <NIcon :component="CloseOutline" :size="14" />
       </button>
     </div>
   </div>
@@ -121,7 +116,7 @@ const icons: Record<ToastType, string> = {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm, 8px);
-  box-shadow: var(--shadow-lg, 0 10px 25px rgba(0,0,0,0.3), 0 4px 10px rgba(0,0,0,0.2));
+  box-shadow: var(--shadow-lg, 0 10px 25px rgba(0, 0, 0, 0.3), 0 4px 10px rgba(0, 0, 0, 0.2));
   pointer-events: auto;
   opacity: 1;
   transform: translateY(0);

@@ -26,6 +26,14 @@
  */
 
 import { computed, nextTick, ref, watch } from 'vue'
+import { NIcon } from 'naive-ui'
+import {
+  VideocamOutline,
+  MusicalNotesOutline,
+  DocumentTextOutline,
+  ArchiveOutline,
+  CloudDownloadOutline,
+} from '@vicons/ionicons5'
 import type { Task, TaskStatus, TaskType } from '@/stores/tasks'
 import FilterTabs from './FilterTabs.vue'
 import EmptyState from './EmptyState.vue'
@@ -183,14 +191,14 @@ function fillClass(status: TaskStatus): string {
   return statusPillClass(status)
 }
 
-// --- Type icons (inline SVG paths) ---
+// --- Type icons (ionicon components) ---
 
-const typeIconPaths: Record<TaskType, string> = {
-  video: 'M23 7l-7 5 7 5V7zM1 5h15v14H1V5z',
-  audio: 'M9 18V5l12-2v13M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0zM21 16a3 3 0 1 1-6 0 3 3 0 0 1 6 0z',
-  document: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M16 13H8M16 17H8M10 9H8',
-  archive: 'M21 8v13H3V8M1 3h22v5H1zM10 12h4',
-  torrent: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3',
+const typeIcons: Record<TaskType, typeof VideocamOutline> = {
+  video: VideocamOutline,
+  audio: MusicalNotesOutline,
+  document: DocumentTextOutline,
+  archive: ArchiveOutline,
+  torrent: CloudDownloadOutline,
 }
 
 // --- Row click → flash → open detail ---
@@ -272,20 +280,7 @@ function handleMenuToggle(taskId: number, event: MouseEvent): void {
           <!-- Name -->
           <td class="col-name">
             <div class="col-name-inner">
-              <svg
-                class="task-type-icon"
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2.5"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                aria-hidden="true"
-              >
-                <path :d="typeIconPaths[task.type]" />
-              </svg>
+              <NIcon class="task-type-icon" :component="typeIcons[task.type]" :size="14" aria-hidden="true" />
               <span class="task-name-text">{{ task.name }}</span>
             </div>
           </td>
@@ -335,6 +330,7 @@ function handleMenuToggle(taskId: number, event: MouseEvent): void {
               type="button"
               class="task-row-menu"
               title="Row actions"
+              aria-label="Open task actions menu"
               aria-haspopup="menu"
               :aria-expanded="openMenuId === task.id"
               @click.stop="handleMenuToggle(task.id, $event)"

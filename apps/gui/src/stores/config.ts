@@ -1,97 +1,39 @@
 // src/stores/config.ts
 // Pinia store for application configuration.
-// Single reactive entry point: loads from file via Tauri commands,
-// auto-persists on change, migrates legacy localStorage keys on first run.
-// Mirrors packages/core/src/types.ts AppConfig so the GUI does not depend
-// on @motrix-ai/core at runtime.
+// Types and defaults are imported from @motrix-ai/core (single source of truth).
 
 import { ref, watch } from 'vue'
 import { defineStore } from 'pinia'
 import { invoke } from '@tauri-apps/api/core'
+import type {
+  AppConfig,
+  AIProvider,
+  ResourceType,
+  Quality,
+  ScheduleRule,
+  DiskThresholds,
+  ArchiveTarget,
+  SubtitlesConfig,
+  UiConfig,
+} from '@motrix-ai/core'
 
-// ---------------------------------------------------------------------------
-// Types — mirror of packages/core/src/types.ts AppConfig
-// ---------------------------------------------------------------------------
-
-export type AIProvider = 'opencode' | 'anthropic' | 'openai' | 'ollama' | 'custom'
-export type ResourceType = 'movie' | 'tv' | 'software' | 'music' | 'anime' | 'other'
-export type Quality = '4K' | '1080p' | '720p' | 'other'
-
-/** Time-based scheduling rule for download throttling */
-export interface ScheduleRule {
-  name: string
-  time_start: string // HH:mm
-  time_end: string // HH:mm
-  speed_limit: number // bytes/s, 0 = unlimited
-  max_concurrent: number
-  enabled?: boolean
-}
-
-/** Disk space protection thresholds */
-export interface DiskThresholds {
-  low_gb: number // pause low-priority
-  critical_gb: number // pause all + notify
-  resume_gb: number // resume paused tasks
-}
-
-/** Archive sync target (rsync / rclone destination) */
-export interface ArchiveTarget {
-  name: string
-  host: string
-  path: string
-  match: { resource_type?: ResourceType }
-}
-
-/** Subtitle download configuration */
-export interface SubtitlesConfig {
-  enabled: boolean
-  preferred_languages: string[]
-  sources: { shooter: boolean; subhd: boolean; opensubtitles: boolean }
-  subtitle_dir?: string
-  opensubtitles_api_key?: string
-  auto_search: boolean
-}
-
-/** UI configuration */
-export interface UiConfig {
-  theme: 'dark' | 'light' | 'system'
-  language: 'en' | 'zh' | 'ja' | 'ko' | 'fr'
-  log_level: 'debug' | 'info' | 'warn' | 'error'
-}
-
-/** Full application configuration */
-export interface AppConfig {
-  ai: { provider: AIProvider; model: string; api_key?: string; base_url?: string }
-  aria2: { rpc_url: string; rpc_secret?: string }
-  network: { http_proxy: string; https_proxy: string; ftp_proxy: string; no_proxy: string }
-  downloads: {
-    base_dir: string
-    movie_dir: string
-    software_dir: string
-    other_dir: string
-    rename_template: string
-  }
-  schedule: { enabled: boolean; rules: ScheduleRule[] }
-  disk: { enabled: boolean; thresholds: DiskThresholds }
-  subtitles: SubtitlesConfig
-  archive: { enabled: boolean; targets: ArchiveTarget[] }
-  nas: {
-    enabled: boolean
-    host: string
-    port: string
-    username: string
-    moviePath: string
-    softwarePath: string
-    musicPath: string
-  }
-  ui: UiConfig
+// Re-export types for convenience — components import from here
+export type {
+  AppConfig,
+  AIProvider,
+  ResourceType,
+  Quality,
+  ScheduleRule,
+  DiskThresholds,
+  ArchiveTarget,
+  SubtitlesConfig,
+  UiConfig,
 }
 
 // ---------------------------------------------------------------------------
 // Defaults
 // ---------------------------------------------------------------------------
 
-/** Sensible defaults matching the core loader's DEFAULT_CONFIG */
 export const DEFAULT_CONFIG: AppConfig = {
   ai: { provider: 'opencode', model: 'opencode/deepseek-v4-flash-free' },
   aria2: { rpc_url: 'http://127.0.0.1:6800/jsonrpc' },
@@ -309,7 +251,7 @@ export const useConfigStore = defineStore('config', () => {
 
   /** Apply a partial update to one top-level section and let the watcher persist. */
   function updateSection<K extends keyof AppConfig>(section: K, value: Partial<AppConfig[K]>): void {
-    config.value = { ...config.value, [section]: { ...config.value[section], ...value } }
+    config.value = { ...config.value, [section]: deepMerge(config.value[section], value) }
   }
 
   /** Reset config to defaults and persist. */

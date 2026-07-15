@@ -2,6 +2,7 @@
 // 对应 PRD §6.2 任务队列模型
 
 export type TaskStatus = 'pending' | 'downloading' | 'paused' | 'completed' | 'failed'
+export type AIProvider = 'opencode' | 'anthropic' | 'openai' | 'ollama' | 'custom'
 export type ResourceType = 'movie' | 'tv' | 'software' | 'music' | 'anime' | 'other'
 export type Quality = '4K' | '1080p' | '720p' | 'other'
 
@@ -78,10 +79,9 @@ export interface DiskThresholds {
 
 /** 应用配置（对应 PRD §5 + §8.2.2） */
 export interface AppConfig {
-  /** Config schema version for migration support */
   schemaVersion?: number
   ai: {
-    provider: 'opencode' | 'anthropic' | 'openai' | 'ollama' | 'custom'
+    provider: AIProvider
     model: string
     api_key?: string
     base_url?: string
@@ -89,6 +89,12 @@ export interface AppConfig {
   aria2: {
     rpc_url: string
     rpc_secret?: string
+  }
+  network: {
+    http_proxy: string
+    https_proxy: string
+    ftp_proxy: string
+    no_proxy: string
   }
   downloads: {
     base_dir: string
@@ -144,4 +150,5 @@ export interface UiConfig {
   theme: 'dark' | 'light' | 'system'
   language: 'en' | 'zh' | 'ja' | 'ko' | 'fr'
   log_level: 'debug' | 'info' | 'warn' | 'error'
+  onboarded?: boolean
 }

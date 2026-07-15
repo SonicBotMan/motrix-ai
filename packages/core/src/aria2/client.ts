@@ -59,7 +59,7 @@ export class Aria2Client {
       logger.error(`RPC call "${method}" failed: ${data.error.code} ${data.error.message}`)
       throw new Aria2Error(`aria2 error ${data.error.code}: ${data.error.message}`)
     }
-    return data.result!
+    return data.result as T
   }
 
   /** 添加下载任务（HTTP/磁力/BT） */

@@ -13,6 +13,8 @@
  */
 
 import { ref, computed, watch, onUnmounted, nextTick } from 'vue'
+import { NIcon } from 'naive-ui'
+import { PauseOutline, PlayOutline, RefreshOutline, TrashOutline, FolderOutline } from '@vicons/ionicons5'
 import type { Task } from '@/stores/tasks'
 
 const props = defineProps<{
@@ -123,58 +125,17 @@ function run(action: 'pause' | 'resume' | 'retry' | 'delete' | 'openLocation') {
       >
         <!-- Pause / Resume (status-dependent) -->
         <button v-if="isDownloading()" class="row-menu-item" role="menuitem" type="button" @click="run('pause')">
-          <svg
-            class="row-menu-icon"
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            aria-hidden="true"
-          >
-            <rect x="6" y="4" width="4" height="16" />
-            <rect x="14" y="4" width="4" height="16" />
-          </svg>
+          <NIcon class="row-menu-icon" :component="PauseOutline" :size="14" aria-hidden="true" />
           <span>Pause</span>
         </button>
         <button v-if="isPaused()" class="row-menu-item" role="menuitem" type="button" @click="run('resume')">
-          <svg
-            class="row-menu-icon"
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            aria-hidden="true"
-          >
-            <polygon points="5 3 19 12 5 21 5 3" />
-          </svg>
+          <NIcon class="row-menu-icon" :component="PlayOutline" :size="14" aria-hidden="true" />
           <span>Resume</span>
         </button>
 
         <!-- Retry -->
         <button class="row-menu-item" role="menuitem" type="button" @click="run('retry')">
-          <svg
-            class="row-menu-icon"
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            aria-hidden="true"
-          >
-            <polyline points="23 4 23 10 17 10" />
-            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
-          </svg>
+          <NIcon class="row-menu-icon" :component="RefreshOutline" :size="14" aria-hidden="true" />
           <span>Retry</span>
         </button>
 
@@ -182,21 +143,7 @@ function run(action: 'pause' | 'resume' | 'retry' | 'delete' | 'openLocation') {
 
         <!-- Delete (danger) -->
         <button class="row-menu-item row-menu-item--danger" role="menuitem" type="button" @click="run('delete')">
-          <svg
-            class="row-menu-icon"
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            aria-hidden="true"
-          >
-            <polyline points="3 6 5 6 21 6" />
-            <path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-          </svg>
+          <NIcon class="row-menu-icon" :component="TrashOutline" :size="14" aria-hidden="true" />
           <span>Delete</span>
         </button>
 
@@ -204,20 +151,7 @@ function run(action: 'pause' | 'resume' | 'retry' | 'delete' | 'openLocation') {
 
         <!-- Open file location -->
         <button class="row-menu-item" role="menuitem" type="button" @click="run('openLocation')">
-          <svg
-            class="row-menu-icon"
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            aria-hidden="true"
-          >
-            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-          </svg>
+          <NIcon class="row-menu-icon" :component="FolderOutline" :size="14" aria-hidden="true" />
           <span>Open file location</span>
         </button>
       </div>

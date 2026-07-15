@@ -3,6 +3,8 @@
 
 import { ref, onMounted } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
+import { createLogger } from '@motrix-ai/core/browser'
+const logger = createLogger('tauri')
 
 declare global {
   interface Window {
@@ -33,7 +35,7 @@ export function useTauri() {
       downloadPath.value = path
       return path
     } catch (e) {
-      console.error('Failed to get download path:', e)
+      logger.error('Failed to get download path:', e)
       return '~/Downloads/Motrix AI'
     }
   }
@@ -63,7 +65,7 @@ export function useTauri() {
       })
       return result
     } catch (e) {
-      console.error('Failed to save file:', e)
+      logger.error('Failed to save file:', e)
       throw e
     }
   }
@@ -94,7 +96,7 @@ export function useTauri() {
       })
       return result
     } catch (e) {
-      console.error('Failed to download subtitle:', e)
+      logger.error('Failed to download subtitle:', e)
       throw e
     }
   }
@@ -104,7 +106,7 @@ export function useTauri() {
    */
   const openInFileManager = async (path: string): Promise<void> => {
     if (!isTauri.value) {
-      console.warn('Not in Tauri environment, cannot open:', path)
+      logger.warn('Not in Tauri environment, cannot open:', path)
       return
     }
 
@@ -114,7 +116,7 @@ export function useTauri() {
       const dir = path.substring(0, path.lastIndexOf('/'))
       await Command.create('open', [dir]).execute()
     } catch (e) {
-      console.error('Failed to open file manager:', e)
+      logger.error('Failed to open file manager:', e)
     }
   }
 
@@ -138,7 +140,7 @@ export function useTauri() {
         version: await os.version(),
       }
     } catch (e) {
-      console.error('Failed to get system info:', e)
+      logger.error('Failed to get system info:', e)
       return {
         os: 'unknown',
         arch: 'unknown',

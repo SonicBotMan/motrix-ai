@@ -293,6 +293,22 @@ export const useTasksStore = defineStore('tasks', () => {
     }
   }
 
+  async function removeTaskWithFiles(gid: string): Promise<void> {
+    const task = findByGid(gid)
+    if (!task) return
+
+    await removeTask(gid)
+
+    if (task.filePath) {
+      try {
+        const { invoke } = await import('@tauri-apps/api/core')
+        await invoke('delete_file', { path: task.filePath })
+      } catch (e) {
+        logger.warn('Failed to delete file: ' + e)
+      }
+    }
+  }
+
   async function pauseTask(gid: string): Promise<void> {
     const task = findByGid(gid)
     if (!task) return
@@ -470,6 +486,7 @@ export const useTasksStore = defineStore('tasks', () => {
     dispose,
     addTask,
     removeTask,
+    removeTaskWithFiles,
     pauseTask,
     resumeTask,
     retryTask,

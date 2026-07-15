@@ -24,7 +24,6 @@ type Aria2Like = {
   remove: ReturnType<typeof vi.fn>
   removeCompleted: ReturnType<typeof vi.fn>
   changeOption: ReturnType<typeof vi.fn>
-  startAria2: ReturnType<typeof vi.fn>
 }
 
 const mockState: {
@@ -54,7 +53,6 @@ vi.mock('@/composables/useAria2', () => ({
     remove: vi.fn(),
     removeCompleted: vi.fn(),
     changeOption: mockState.changeOption,
-    startAria2: vi.fn(),
   }),
 }))
 

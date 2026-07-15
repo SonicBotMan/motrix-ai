@@ -17,8 +17,7 @@ const nextStep = () => {
   } else {
     try {
       configStore.updateSection('downloads', { base_dir: downloadDir.value })
-      configStore.updateSection('ui', { language: uiLanguage.value })
-      localStorage.setItem('motrix-ai:onboarded', 'true')
+      configStore.updateSection('ui', { language: uiLanguage.value, onboarded: true })
     } catch {
       // localStorage may be unavailable in sandboxed contexts
     }
@@ -94,7 +93,7 @@ const prevStep = () => {
           </div>
           <div class="example" @click="nextStep">
             <DownloadOutline :size="16" />
-            <span>下流浪地球 2 4K 字幕版</span>
+            <span>download Wandering Earth 2 4K</span>
           </div>
           <div class="example" @click="nextStep">
             <DownloadOutline :size="16" />

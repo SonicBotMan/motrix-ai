@@ -380,7 +380,19 @@ pub async fn organize_file(
         std::fs::create_dir_all(&target_dir)
             .map_err(|e| format!("Failed to create directory: {}", e))?;
 
-        let target_path = target_dir.join(&new_filename);
+        let canon_base = base_dir.canonicalize().unwrap_or_else(|_| base_dir.clone());
+        let canon_target = target_dir
+            .canonicalize()
+            .unwrap_or_else(|_| target_dir.clone());
+        if !canon_target.starts_with(&canon_base) {
+            return Err(format!(
+                "Security: target directory escaped base after create: {} not under {}",
+                canon_target.display(),
+                canon_base.display()
+            ));
+        }
+
+        let target_path = canon_target.join(&new_filename);
 
         let final_path = if target_path.exists() && target_path != src {
             let stem = target_path
@@ -476,4 +488,29 @@ pub async fn show_in_folder(path: String) -> Result<(), String> {
     }
 
     Ok(())
+}
+
+#[command]
+pub async fn delete_file(path: String) -> Result<(), String> {
+    let p = expand_home(&path);
+    if let Some(home) = dirs::home_dir() {
+        let canon_home = home.canonicalize().unwrap_or_else(|_| home.clone());
+        let canon_p = p.canonicalize().unwrap_or_else(|_| p.clone());
+        if !canon_p.starts_with(&canon_home) {
+            return Err(format!("Refusing to delete file outside home directory: {}", p.display()));
+        }
+    }
+    tokio::task::spawn_blocking(move || {
+        if !p.exists() {
+            return Err(format!("File not found: {}", p.display()));
+        }
+        if p.is_dir() {
+            std::fs::remove_dir_all(&p).map_err(|e| format!("Failed to remove directory: {}", e))?;
+        } else {
+            std::fs::remove_file(&p).map_err(|e| format!("Failed to delete file: {}", e))?;
+        }
+        Ok(())
+    })
+    .await
+    .map_err(|e| format!("Task join error: {}", e))?
 }

@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref, watch } from 'vue'
+import { NIcon } from 'naive-ui'
+import { CloseOutline } from '@vicons/ionicons5'
 import { useConfigStore } from '@/stores/config'
 import { useSchedule, type ScheduleRule } from '@/composables/useSchedule'
 import { useTasksStore } from '@/stores/tasks'
@@ -108,8 +110,11 @@ onUnmounted(() => {
 })
 </script>
 <template>
+  <a href="#main-content" class="skip-link">Skip to main content</a>
   <n-message-provider>
-    <router-view />
+    <main id="main-content">
+      <router-view />
+    </main>
   </n-message-provider>
   <div v-if="downloadBanner" class="download-banner" role="status">
     <span class="download-banner-text">{{ downloadBanner.text }}</span>
@@ -120,18 +125,7 @@ onUnmounted(() => {
       aria-label="Dismiss notification"
       @click="downloadBanner = null"
     >
-      <svg
-        width="14"
-        height="14"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-      >
-        <path d="M18 6 6 18M6 6l12 12" />
-      </svg>
+      <NIcon :component="CloseOutline" :size="14" />
     </button>
   </div>
 </template>
@@ -189,7 +183,7 @@ body {
   box-shadow:
     0 10px 25px rgba(0, 0, 0, 0.3),
     0 4px 10px rgba(0, 0, 0, 0.2);
-  animation: downloadBannerEnter 220ms cubic-bezier(0.16, 1, 0.3, 1);
+  animation: downloadBannerEnter var(--transition) cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .download-banner-text {

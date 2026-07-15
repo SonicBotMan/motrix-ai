@@ -123,7 +123,7 @@ async function batchDeleteSelected() {
   }
   for (const id of selectedIds.value) {
     const task = tasks.value.find((t) => t.id === id)
-    if (task) await tasksStore.removeTask(task.gid || String(task.id))
+    if (task) await tasksStore.removeTaskWithFiles(task.gid || String(task.id))
   }
   addToast({ id: generateToastId(), type: 'error', text: `${count} tasks deleted`, createdAt: Date.now() })
   selectedIds.value = new Set()
@@ -460,7 +460,7 @@ async function handleAttach(): Promise<void> {
   try {
     const result = await openDialog({
       multiple: false,
-      filters: [{ name: 'Torrent', extensions: ['torrent'] }],
+      filters: [{ name: 'Torrent & Metalink', extensions: ['torrent', 'metalink', 'meta4'] }],
     })
     if (typeof result === 'string') {
       selected = result
@@ -477,22 +477,26 @@ async function handleAttach(): Promise<void> {
   if (!selected) return
 
   const fileName = selected.split('/').pop() || selected
+  const isMetalink = /\.(metalink|meta4)$/i.test(selected)
   addToast({ id: generateToastId(), type: 'info', text: `Loading ${fileName}...`, createdAt: Date.now() })
 
   try {
-    const gid = await invoke<string>('add_torrent_file', { path: selected })
-    void tasksStore.refreshTasks()
-    addToast({
-      id: generateToastId(),
-      type: 'success',
-      text: `Torrent added: ${String(gid).slice(0, 8)}`,
-      createdAt: Date.now(),
-    })
+    if (isMetalink) {
+      await invoke('add_metalink_file', { path: selected })
+    } else {
+      const gid = await invoke<string>('add_torrent_file', { path: selected })
+      void tasksStore.refreshTasks()
+      addToast({
+        id: generateToastId(),
+        type: 'success',
+        text: isMetalink ? 'Metalink added' : `Torrent added: ${String(gid).slice(0, 8)}`,
+      })
+    }
   } catch (err) {
     addToast({
       id: generateToastId(),
       type: 'error',
-      text: `Could not add torrent: ${String(err)}`,
+      text: `Could not add file: ${String(err)}`,
       createdAt: Date.now(),
     })
   }
@@ -588,7 +592,7 @@ async function deleteTask(): Promise<void> {
   if (!target) return
   try {
     const { confirm } = await import('@tauri-apps/plugin-dialog')
-    const accepted = await confirm(`Remove "${target.name}" from the download list?`, {
+    const accepted = await confirm(`Remove "${target.name}" and delete the downloaded file?`, {
       title: 'Delete Download',
       kind: 'warning',
     })
@@ -604,7 +608,7 @@ async function deleteTask(): Promise<void> {
     text: `"${target.name}" removed`,
     createdAt: Date.now(),
   })
-  await tasksStore.removeTask(target.gid || String(target.id))
+  await tasksStore.removeTaskWithFiles(target.gid || String(target.id))
 }
 
 /**

@@ -136,7 +136,7 @@ const emitConnection = (event: ConnectionEventType, detail?: string) => {
   for (const fn of connectionListeners) {
     try {
       fn(event, detail)
-    } catch (_) {
+    } catch (_e) {
       /* listener errors are isolated */
     }
   }
@@ -169,60 +169,13 @@ const call = async <T>(method: string, ...params: unknown[]): Promise<T> => {
   return data.result as T
 }
 // ---- aria2 process management ----
-
-const spawnAria2 = async () => {
-  const { Command } = await import('@tauri-apps/plugin-shell')
-  const cmd = Command.create(aria2PathRef.value, [
-    '--enable-rpc',
-    '--rpc-listen-port=6800',
-    '--rpc-listen-all=true',
-    '--continue=true',
-    '--max-concurrent-downloads=5',
-    '--split=5',
-    '--max-connection-per-server=5',
-    '--min-split-size=10M',
-    '--disk-cache=32M',
-    '--file-allocation=falloc',
-    '--auto-file-renaming=true',
-    '--allow-overwrite=false',
-    '--save-session-interval=30',
-  ])
-  const child = cmd.spawn()
-  aria2Running.value = true
-  return child
-}
-
-const startAria2 = async () => {
-  if (aria2Running.value) return
-  try {
-    await spawnAria2()
-    emitConnection('connected', 'aria2 process started')
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e)
-    emitConnection('error', `Failed to start aria2: ${msg}`)
-    throw e
-  }
-}
-
-const stopAria2 = async () => {
-  try {
-    if (connected.value) {
-      await saveSession()
-    }
-  } catch (_) {
-    /* best effort */
-  }
-
-  try {
-    await call('aria2.shutdown')
-  } catch (_) {
-    /* process may already be gone */
-  }
-
-  aria2Running.value = false
-  disconnect()
-  emitConnection('disconnected', 'aria2 process stopped')
-}
+//
+// P0-1 FIX: The frontend previously had its own spawnAria2() that started
+// aria2c with --rpc-listen-all=true and NO --rpc-secret, exposing the RPC
+// to the entire LAN without authentication. This has been removed entirely.
+// aria2 lifecycle is now managed exclusively by the Rust backend
+// (start_aria2 / stop_aria2 commands), which correctly uses
+// --rpc-listen-all=false + a generated secret.
 
 // ---- Reconnection with exponential backoff ----
 
@@ -247,7 +200,7 @@ const scheduleReconnect = () => {
       await fetchAllTasks()
       await fetchGlobalStat()
       startPolling()
-    } catch (_) {
+    } catch (_e) {
       scheduleReconnect()
     }
   }, delay)
@@ -298,12 +251,35 @@ const addUri = async (uri: string, options?: { dir?: string; filename?: string; 
 
 const tellStatus = async (gid: string, keys?: string[]) => call<Aria2Status>('aria2.tellStatus', gid, keys)
 
+const getPeers = async (gid: string) =>
+  call<
+    Array<{
+      peerId: string
+      ip: string
+      port: string
+      bitfield: string
+      amChoking: string
+      peerChoking: string
+      downloadSpeed: string
+      uploadSpeed: string
+      seeder: string
+    }>
+  >('aria2.getPeers', gid)
+
+const getServers = async (gid: string) =>
+  call<
+    Array<{
+      index: string
+      servers: Array<{ uri: string; currentUri: string; downloadSpeed: string }>
+    }>
+  >('aria2.getServers', gid)
+
 const tellActive = async (keys?: string[]) => call<Aria2Status[]>('aria2.tellActive', keys)
 
-const tellWaiting = async (offset = 0, num = 100, keys?: string[]) =>
+const tellWaiting = async (offset = 0, num = 1000, keys?: string[]) =>
   call<Aria2Status[]>('aria2.tellWaiting', offset, num, keys)
 
-const tellStopped = async (offset = 0, num = 100, keys?: string[]) =>
+const tellStopped = async (offset = 0, num = 1000, keys?: string[]) =>
   call<Aria2Status[]>('aria2.tellStopped', offset, num, keys)
 
 const pause = async (gid: string) => call<string>('aria2.pause', gid)
@@ -398,7 +374,7 @@ const fetchAllTasks = async () => {
         for (const listener of completionListeners) {
           try {
             listener(task)
-          } catch (_) {
+          } catch (_e) {
             /* listener errors are isolated */
           }
         }
@@ -486,12 +462,7 @@ async function start(): Promise<void> {
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     console.warn('Bundled aria2c failed:', msg)
-    emitConnection('error', `aria2c start failed: ${msg}`)
-    try {
-      await startAria2()
-    } catch (_) {
-      console.warn('System aria2c not available either')
-    }
+    emitConnection('error', `aria2c start failed: ${msg}. Bundled aria2c is required.`)
   }
 
   await connect()
@@ -504,9 +475,20 @@ async function dispose(): Promise<void> {
   try {
     const { invoke } = await import('@tauri-apps/api/core')
     await invoke('stop_aria2')
-  } catch (_) {
+  } catch (_e) {
     /* best effort */
   }
+}
+
+function reset(): void {
+  disposed = false
+  started = false
+  connected.value = false
+  connecting.value = false
+  aria2Running.value = false
+  reconnectAttempt = 0
+  clearReconnect()
+  stopPolling()
 }
 
 // ---- Public API ----
@@ -529,16 +511,16 @@ export function useAria2(opts: Aria2Options = {}) {
     onConnectionChange,
     onTaskComplete,
 
-    startAria2,
-    stopAria2,
-
     start,
     dispose,
+    reset,
     connect,
     disconnect,
 
     addUri,
     tellStatus,
+    getPeers,
+    getServers,
     tellActive,
     tellWaiting,
     tellStopped,

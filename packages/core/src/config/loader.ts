@@ -2,7 +2,7 @@
 // 对应 PRD §8.2.2 设置页 + §6.3 调度配置
 
 import type { AppConfig } from '../types.js'
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs'
+import { existsSync, readFileSync, writeFileSync, mkdirSync, renameSync } from 'fs'
 import { join } from 'path'
 import { homedir } from 'os'
 import { migrateConfig } from './migrations.js'
@@ -17,6 +17,12 @@ export const DEFAULT_CONFIG: AppConfig = {
   },
   aria2: {
     rpc_url: 'http://127.0.0.1:6800/jsonrpc',
+  },
+  network: {
+    http_proxy: '',
+    https_proxy: '',
+    ftp_proxy: '',
+    no_proxy: '',
   },
   downloads: {
     base_dir: join(homedir(), 'Downloads', 'Motrix AI'),
@@ -89,12 +95,27 @@ export function loadConfig(): AppConfig {
     writeFileSync(CONFIG_FILE, JSON.stringify(initial, null, 2), 'utf-8')
     return initial
   }
-  const raw = JSON.parse(readFileSync(CONFIG_FILE, 'utf-8'))
-  const migrated = migrateConfig(raw)
+  let raw: unknown
+  try {
+    raw = JSON.parse(readFileSync(CONFIG_FILE, 'utf-8'))
+  } catch {
+    const backupPath = `${CONFIG_FILE}.corrupt.${Date.now()}`
+    try {
+      renameSync(CONFIG_FILE, backupPath)
+    } catch {
+      /* best effort */
+    }
+    const fresh = deepMerge(DEFAULT_CONFIG, { schemaVersion: 3 })
+    writeFileSync(CONFIG_FILE, JSON.stringify(fresh, null, 2), 'utf-8')
+    return fresh
+  }
+  const migrated = migrateConfig(raw as Record<string, unknown>)
   return deepMerge(DEFAULT_CONFIG, migrated)
 }
 
 export function saveConfig(config: AppConfig): void {
   mkdirSync(CONFIG_DIR, { recursive: true })
-  writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2), 'utf-8')
+  const tmp = `${CONFIG_FILE}.tmp`
+  writeFileSync(tmp, JSON.stringify(config, null, 2), 'utf-8')
+  renameSync(tmp, CONFIG_FILE)
 }

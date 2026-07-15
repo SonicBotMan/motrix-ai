@@ -1,5 +1,5 @@
 // commands/list.ts — motrix-ai list 命令
-// 查看下载队列，支持按状态过滤
+// 查看下载队列，支持Filter by status
 
 import type { Command } from 'commander'
 import { Aria2Client, QueueManager, loadConfig } from '@motrix-ai/core'
@@ -35,31 +35,31 @@ export function registerListCommand(program: Command): void {
 
   program
     .command('list')
-    .option('--status <status>', '按状态过滤: downloading/paused/completed/failed/pending')
-    .description('查看当前下载队列')
+    .option('--status <status>', 'Filter by status: downloading/paused/completed/failed/pending')
+    .description('List current download queue')
     .action(async (options: { status?: TaskStatus }) => {
       // 验证 --status 值
       if (options.status && !VALID_STATUSES.includes(options.status)) {
-        console.error(`❌ 无效的状态值: ${options.status}`)
-        console.error(`   有效值: ${VALID_STATUSES.join('/')}`)
+        console.error(`❌ Invalid status: ${options.status}`)
+        console.error(`   Valid values: ${VALID_STATUSES.join('/')}`)
         process.exit(1)
       }
 
       const config = loadConfig()
-      console.log('\n📥 当前任务列表:\n')
+      console.log('\n📥 Current task list:\n')
 
       try {
         const aria2 = new Aria2Client({ rpcUrl: config.aria2.rpc_url, rpcSecret: config.aria2.rpc_secret })
         const queue = new QueueManager(aria2)
         let tasks = await queue.listAll()
 
-        // 按状态过滤
+        // Filter by status
         if (options.status) {
           tasks = tasks.filter((t) => t.status === options.status)
         }
 
         if (tasks.length === 0) {
-          const hint = options.status ? `没有状态为 "${options.status}" 的任务` : '没有下载任务'
+          const hint = options.status ? `No matching tasks` : 'No download tasks'
           console.log(`  (空) ${hint}`)
           return
         }
@@ -71,10 +71,10 @@ export function registerListCommand(program: Command): void {
           console.log(`  ${icon} ${name} | ${t.progress}%${speed}`)
         }
 
-        console.log(`\n  共 ${tasks.length} 个任务`)
-      } catch {
-        console.log('  ⚠️ 无法连接 aria2，请确认 aria2 已启动。')
-        console.log(`  尝试连接: ${config.aria2.rpc_url}`)
+        console.log(`\n  Total: ${tasks.length} tasks`)
+      } catch (_err) {
+        console.log('  ⚠️ Cannot connect to aria2，请确认 aria2 已启动。')
+        console.log(`  Connecting to: ${config.aria2.rpc_url}`)
       }
     })
 }

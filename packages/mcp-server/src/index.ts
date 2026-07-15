@@ -20,14 +20,35 @@ import {
   loadConfig,
 } from '@motrix-ai/core'
 
-const config = loadConfig()
-const aria2 = new Aria2Client({ rpcUrl: config.aria2.rpc_url, rpcSecret: config.aria2.rpc_secret })
-const queue = new QueueManager(aria2)
-const intentParser = new IntentParser({ baseUrl: config.ai.base_url })
+let _config: ReturnType<typeof loadConfig> | null = null
+let _aria2: Aria2Client | null = null
+let _queue: QueueManager | null = null
+let _intentParser: IntentParser | null = null
+
+function getConfig() {
+  return (_config ??= loadConfig())
+}
+function getAria2() {
+  return (_aria2 ??= new Aria2Client({ rpcUrl: getConfig().aria2.rpc_url, rpcSecret: getConfig().aria2.rpc_secret }))
+}
+function getQueue() {
+  return (_queue ??= new QueueManager(getAria2()))
+}
+function getIntentParser() {
+  return (_intentParser ??= new IntentParser({ baseUrl: getConfig().ai.base_url }))
+}
+
+const ALLOWED_URL_SCHEMES = ['http://', 'https://', 'ftp://', 'sftp://', 'magnet:', 'ed2k://', 'thunder://']
+
+function validateDownloadUrl(url: string): void {
+  if (!ALLOWED_URL_SCHEMES.some((scheme) => url.startsWith(scheme))) {
+    throw new Error(`Rejected URL with disallowed scheme: ${url.slice(0, 50)}`)
+  }
+}
 
 const server = new McpServer({
   name: 'motrix-ai',
-  version: '0.1.0',
+  version: '1.2.0',
   description: 'AI-native download manager MCP server',
 })
 
@@ -37,11 +58,11 @@ const server = new McpServer({
  */
 server.tool(
   'download_natural_language',
-  'Download content using natural language description',
+  'Search for downloadable content using natural language. Returns candidates WITHOUT downloading. Use confirm_download to start the actual download.',
   { query: z.string().describe("Natural language download request, e.g. 'download Wandering Earth 2 4K'") },
   async ({ query }) => {
     try {
-      const intent = await intentParser.parse(query)
+      const intent = await getIntentParser().parse(query)
       const providers = [new BtdigSearchProvider(), new MikanSearchProvider(), new DuckDuckGoSearchProvider()]
       const results = await searchAll(providers, intent)
 
@@ -57,7 +78,6 @@ server.tool(
       if (!best) {
         return { content: [{ type: 'text', text: 'No suitable resource found after ranking' }], isError: true }
       }
-      const task = await queue.add(best.magnet, query, { dir: config.downloads.base_dir })
 
       return {
         content: [
@@ -65,17 +85,46 @@ server.tool(
             type: 'text',
             text: JSON.stringify(
               {
-                success: true,
-                task_id: task.id,
-                title: best.title,
-                size: best.size,
-                seeders: best.seeders,
-                leechers: best.leechers,
-                source: best.source,
+                best_match: {
+                  title: best.title,
+                  size: best.size,
+                  seeders: best.seeders,
+                  leechers: best.leechers,
+                  source: best.source,
+                  quality: best.quality,
+                  magnet: best.magnet,
+                },
+                total_candidates: results.length,
+                next_step: 'Call confirm_download with the magnet link to start downloading',
               },
               null,
               2,
             ),
+          },
+        ],
+      }
+    } catch (e: unknown) {
+      return {
+        content: [{ type: 'text', text: `Error: ${e instanceof Error ? e.message : String(e)}` }],
+        isError: true,
+      }
+    }
+  },
+)
+
+server.tool(
+  'confirm_download',
+  'Confirm and start a download from a magnet link or URL obtained from search results',
+  { url: z.string().describe('Magnet link or URL from search results to download') },
+  async ({ url }) => {
+    try {
+      validateDownloadUrl(url)
+      const task = await getQueue().add(url, url, { dir: getConfig().downloads.base_dir })
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({ success: true, task_id: task.id, status: task.status }, null, 2),
           },
         ],
       }
@@ -98,7 +147,8 @@ server.tool(
   { url: z.string().describe('URL or magnet link (HTTP/FTP/magnet/torrent)') },
   async ({ url }) => {
     try {
-      const task = await queue.add(url, url, { dir: config.downloads.base_dir })
+      validateDownloadUrl(url)
+      const task = await getQueue().add(url, url, { dir: getConfig().downloads.base_dir })
       return {
         content: [
           {
@@ -122,7 +172,7 @@ server.tool(
  */
 server.tool('queue_list', 'List all download tasks', {}, async () => {
   try {
-    const tasks = await queue.listAll()
+    const tasks = await getQueue().listAll()
     return {
       content: [
         {
@@ -159,7 +209,7 @@ server.tool(
   { task_id: z.string().describe('Task GID to pause') },
   async ({ task_id }) => {
     try {
-      await queue.pause(task_id)
+      await getQueue().pause(task_id)
       return { content: [{ type: 'text', text: `Task ${task_id} paused` }] }
     } catch (e: unknown) {
       return {
@@ -180,7 +230,7 @@ server.tool(
   { task_id: z.string().describe('Task GID to resume') },
   async ({ task_id }) => {
     try {
-      await queue.resume(task_id)
+      await getQueue().resume(task_id)
       return { content: [{ type: 'text', text: `Task ${task_id} resumed` }] }
     } catch (e: unknown) {
       return {

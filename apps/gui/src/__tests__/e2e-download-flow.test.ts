@@ -21,7 +21,6 @@ type Aria2Like = {
   removeCompleted: ReturnType<typeof vi.fn>
   changeOption: ReturnType<typeof vi.fn>
   changeGlobalOption: ReturnType<typeof vi.fn>
-  startAria2: ReturnType<typeof vi.fn>
   getGlobalStat: ReturnType<typeof vi.fn>
   tellActive: ReturnType<typeof vi.fn>
   tellWaiting: ReturnType<typeof vi.fn>
@@ -70,7 +69,6 @@ vi.mock('@/composables/useAria2', () => ({
     removeCompleted: vi.fn().mockResolvedValue(undefined),
     changeOption: mockState.changeOption,
     changeGlobalOption: vi.fn().mockResolvedValue(undefined),
-    startAria2: vi.fn(),
     getGlobalStat: vi.fn(),
     tellActive: vi.fn().mockResolvedValue([]),
     tellWaiting: vi.fn().mockResolvedValue([]),

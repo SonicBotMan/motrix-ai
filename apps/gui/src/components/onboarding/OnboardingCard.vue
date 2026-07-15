@@ -18,6 +18,8 @@
  */
 
 import { ref, computed, watch } from 'vue'
+import { NIcon } from 'naive-ui'
+import { DownloadOutline } from '@vicons/ionicons5'
 
 interface Props {
   show: boolean
@@ -108,10 +110,7 @@ watch(
           <!-- ── Step 0: Welcome ─────────────────────────────────── -->
           <section v-if="currentStep === 0" :key="`step-${stepKey}`" class="onboarding-step">
             <div class="onboarding-logo" aria-hidden="true">
-              <svg width="56" height="56" viewBox="0 0 56 56" fill="none">
-                <rect x="4" y="4" width="48" height="48" rx="12" fill="var(--primary)" />
-                <path d="M18 38V18h4l8 12V18h4v20h-4l-8-12v12z" fill="#fff" />
-              </svg>
+              <NIcon :component="DownloadOutline" :size="56" />
             </div>
             <h1 id="onboardingH1" class="onboarding-title">Motrix AI</h1>
             <p class="onboarding-sub">Task-first desktop download manager. Watch the queue, then ask for more.</p>

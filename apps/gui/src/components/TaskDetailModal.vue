@@ -2,10 +2,17 @@
 import { computed } from 'vue'
 import { NModal, NButton, NIcon } from 'naive-ui'
 import {
-  PauseOutline, PlayOutline, RefreshOutline,
-  FolderOpenOutline, TrashOutline, CloseOutline,
-  DownloadOutline, MusicalNotesOutline, DocumentTextOutline,
-  ArchiveOutline, VideocamOutline
+  PauseOutline,
+  PlayOutline,
+  RefreshOutline,
+  FolderOpenOutline,
+  TrashOutline,
+  CloseOutline,
+  DownloadOutline,
+  MusicalNotesOutline,
+  DocumentTextOutline,
+  ArchiveOutline,
+  VideocamOutline,
 } from '@vicons/ionicons5'
 
 interface Task {
@@ -37,23 +44,35 @@ const emit = defineEmits<{
 
 const getTypeIcon = (type: string) => {
   switch (type) {
-    case 'video': return VideocamOutline
-    case 'audio': return MusicalNotesOutline
-    case 'document': return DocumentTextOutline
-    case 'archive': return ArchiveOutline
-    case 'torrent': return DownloadOutline
-    default: return DocumentTextOutline
+    case 'video':
+      return VideocamOutline
+    case 'audio':
+      return MusicalNotesOutline
+    case 'document':
+      return DocumentTextOutline
+    case 'archive':
+      return ArchiveOutline
+    case 'torrent':
+      return DownloadOutline
+    default:
+      return DocumentTextOutline
   }
 }
 
 const getStatusColor = (status: string) => {
   switch (status) {
-    case 'downloading': return '#3B82F6'
-    case 'completed': return '#10B981'
-    case 'paused': return '#F59E0B'
-    case 'pending': return '#94A3B8'
-    case 'failed': return '#EF4444'
-    default: return '#3B82F6'
+    case 'downloading':
+      return 'var(--primary)'
+    case 'completed':
+      return 'var(--accent)'
+    case 'paused':
+      return 'var(--warning)'
+    case 'pending':
+      return 'var(--fg-tertiary)'
+    case 'failed':
+      return 'var(--error)'
+    default:
+      return '#3B82F6'
   }
 }
 
@@ -66,9 +85,7 @@ const dashoffset = computed(() => {
 // Mock files for demo
 const files = computed(() => {
   if (!props.task) return []
-  return [
-    { name: props.task.name, size: props.task.size, checked: true },
-  ]
+  return [{ name: props.task.name, size: props.task.size, checked: true }]
 })
 
 // Mock timeline for demo
@@ -76,7 +93,11 @@ const timeline = computed(() => {
   if (!props.task) return []
   const now = new Date()
   return [
-    { time: formatTime(now), text: `${props.task.status.toUpperCase()} — ${props.task.progress}% complete`, type: props.task.status },
+    {
+      time: formatTime(now),
+      text: `${props.task.status.toUpperCase()} — ${props.task.progress}% complete`,
+      type: props.task.status,
+    },
     { time: formatTime(new Date(now.getTime() - 60000)), text: 'Connecting to peers (47 seeders)', type: 'completed' },
     { time: formatTime(new Date(now.getTime() - 120000)), text: 'Metadata received', type: 'completed' },
     { time: formatTime(new Date(now.getTime() - 180000)), text: 'Resolving magnet link', type: 'completed' },
@@ -110,7 +131,9 @@ const formatTime = (date: Date) => {
           </div>
         </div>
         <NButton quaternary circle size="small" @click="emit('close')">
-          <template #icon><NIcon><CloseOutline /></NIcon></template>
+          <template #icon
+            ><NIcon><CloseOutline /></NIcon
+          ></template>
         </NButton>
       </div>
 
@@ -119,21 +142,20 @@ const formatTime = (date: Date) => {
         <!-- Progress Ring -->
         <div class="detail-progress-ring">
           <svg class="progress-ring-svg" width="96" height="96" viewBox="0 0 96 96">
-            <circle class="progress-ring-bg" cx="48" cy="48" r="40" stroke-width="6"/>
+            <circle class="progress-ring-bg" cx="48" cy="48" r="40" stroke-width="6" />
             <circle
               class="progress-ring-fill"
-              cx="48" cy="48" r="40"
+              cx="48"
+              cy="48"
+              r="40"
               stroke-width="6"
               :stroke-dasharray="circumference"
               :stroke-dashoffset="dashoffset"
               :stroke="getStatusColor(task.status)"
             />
-            <text
-              class="progress-ring-text"
-              x="48" y="52"
-              text-anchor="middle"
-              dominant-baseline="central"
-            >{{ task.progress }}%</text>
+            <text class="progress-ring-text" x="48" y="52" text-anchor="middle" dominant-baseline="central">
+              {{ task.progress }}%
+            </text>
           </svg>
           <div class="detail-progress-info">
             <div class="detail-size">{{ task.size }}</div>
@@ -201,47 +223,43 @@ const formatTime = (date: Date) => {
 
       <!-- Actions -->
       <div class="detail-actions">
-        <NButton
-          v-if="task.status === 'downloading'"
-          type="primary"
-          @click="emit('pause', task.id)"
-        >
-          <template #icon><NIcon><PauseOutline /></NIcon></template>
+        <NButton v-if="task.status === 'downloading'" type="primary" @click="emit('pause', task.id)">
+          <template #icon
+            ><NIcon><PauseOutline /></NIcon
+          ></template>
           Pause
         </NButton>
-        <NButton
-          v-else-if="task.status === 'paused'"
-          type="primary"
-          @click="emit('resume', task.id)"
-        >
-          <template #icon><NIcon><PlayOutline /></NIcon></template>
+        <NButton v-else-if="task.status === 'paused'" type="primary" @click="emit('resume', task.id)">
+          <template #icon
+            ><NIcon><PlayOutline /></NIcon
+          ></template>
           Resume
         </NButton>
-        <NButton
-          v-else-if="task.status === 'failed'"
-          type="primary"
-          @click="emit('retry', task.id)"
-        >
-          <template #icon><NIcon><RefreshOutline /></NIcon></template>
+        <NButton v-else-if="task.status === 'failed'" type="primary" @click="emit('retry', task.id)">
+          <template #icon
+            ><NIcon><RefreshOutline /></NIcon
+          ></template>
           Retry
         </NButton>
 
         <NButton v-if="task.status === 'downloading'" @click="emit('pause', task.id)">
-          <template #icon><NIcon><PauseOutline /></NIcon></template>
+          <template #icon
+            ><NIcon><PauseOutline /></NIcon
+          ></template>
           Pause
         </NButton>
 
         <NButton @click="emit('openLocation', task.id)">
-          <template #icon><NIcon><FolderOpenOutline /></NIcon></template>
+          <template #icon
+            ><NIcon><FolderOpenOutline /></NIcon
+          ></template>
           Open Location
         </NButton>
 
-        <NButton
-          type="error"
-          style="margin-left: auto"
-          @click="emit('cancel', task.id)"
-        >
-          <template #icon><NIcon><TrashOutline /></NIcon></template>
+        <NButton type="error" style="margin-left: auto" @click="emit('cancel', task.id)">
+          <template #icon
+            ><NIcon><TrashOutline /></NIcon
+          ></template>
           Cancel
         </NButton>
       </div>
@@ -285,11 +303,26 @@ const formatTime = (date: Date) => {
   flex-shrink: 0;
 }
 
-.detail-icon.video { background: var(--primary-muted); color: var(--primary); }
-.detail-icon.document { background: var(--accent-muted); color: var(--accent); }
-.detail-icon.archive { background: var(--warning-muted); color: var(--warning); }
-.detail-icon.torrent { background: var(--error-muted); color: var(--error); }
-.detail-icon.audio { background: rgba(139, 92, 246, 0.12); color: #8B5CF6; }
+.detail-icon.video {
+  background: var(--primary-muted);
+  color: var(--primary);
+}
+.detail-icon.document {
+  background: var(--accent-muted);
+  color: var(--accent);
+}
+.detail-icon.archive {
+  background: var(--warning-muted);
+  color: var(--warning);
+}
+.detail-icon.torrent {
+  background: var(--error-muted);
+  color: var(--error);
+}
+.detail-icon.audio {
+  background: rgba(139, 92, 246, 0.12);
+  color: #8b5cf6;
+}
 
 .detail-title-area {
   min-width: 0;
@@ -464,10 +497,18 @@ const formatTime = (date: Date) => {
   background: var(--border);
 }
 
-.timeline-item.downloading::before { background: var(--primary); }
-.timeline-item.completed::before { background: var(--accent); }
-.timeline-item.paused::before { background: var(--warning); }
-.timeline-item.failed::before { background: var(--error); }
+.timeline-item.downloading::before {
+  background: var(--primary);
+}
+.timeline-item.completed::before {
+  background: var(--accent);
+}
+.timeline-item.paused::before {
+  background: var(--warning);
+}
+.timeline-item.failed::before {
+  background: var(--error);
+}
 
 .timeline-item:first-child {
   border-left-color: transparent;

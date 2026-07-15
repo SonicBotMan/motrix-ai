@@ -3,6 +3,8 @@
 
 import { ref } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
+import { createLogger } from '@motrix-ai/core/browser'
+const logger = createLogger('notification')
 
 export function useNotification() {
   /** Current notification permission status. */
@@ -18,7 +20,7 @@ export function useNotification() {
       permission.value = result as typeof permission.value
       return result === 'granted'
     } catch (e) {
-      console.error('Failed to request notification permission:', e)
+      logger.error('Failed to request notification permission:', e)
       return false
     }
   }
@@ -32,7 +34,7 @@ export function useNotification() {
     try {
       await invoke('send_notification', { title, body })
     } catch (e) {
-      console.error('Failed to send notification:', e)
+      logger.error('Failed to send notification:', e)
     }
   }
 

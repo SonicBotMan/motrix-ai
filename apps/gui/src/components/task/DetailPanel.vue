@@ -21,6 +21,16 @@
  */
 
 import { computed, ref, watch, onUnmounted, nextTick } from 'vue'
+import { NIcon } from 'naive-ui'
+import {
+  DownloadOutline,
+  EllipsisHorizontal,
+  CopyOutline,
+  FolderOutline,
+  TrashOutline,
+  CloseOutline,
+  ChevronDownOutline,
+} from '@vicons/ionicons5'
 import type { Task } from '@/stores/tasks'
 import { bytesToSize } from '@/shared/utils/format'
 
@@ -52,6 +62,53 @@ const emit = defineEmits<{
 }>()
 
 const panelRef = ref<HTMLElement | null>(null)
+
+const peers = ref<Array<{ ip: string; port: string; downloadSpeed: string; uploadSpeed: string }>>([])
+
+function formatPeerSpeed(speedStr: string): string {
+  const speed = Number(speedStr) || 0
+  if (speed >= 1_000_000) return `${(speed / 1_000_000).toFixed(1)}MB/s`
+  if (speed >= 1_000) return `${(speed / 1_000).toFixed(0)}KB/s`
+  return `${speed}B/s`
+}
+
+let peerPollTimer: ReturnType<typeof setInterval> | null = null
+
+async function fetchPeers(): Promise<void> {
+  if (!props.task?.gid) {
+    peers.value = []
+    return
+  }
+  try {
+    const { useAria2 } = await import('@/composables/useAria2')
+    const aria2 = useAria2()
+    if (aria2.connected.value) {
+      peers.value = await aria2.getPeers(props.task.gid)
+    }
+  } catch {
+    peers.value = []
+  }
+}
+
+watch(
+  () => props.task?.gid,
+  (gid) => {
+    if (peerPollTimer) {
+      clearInterval(peerPollTimer)
+      peerPollTimer = null
+    }
+    if (gid) {
+      void fetchPeers()
+      peerPollTimer = setInterval(() => void fetchPeers(), 3000)
+    } else {
+      peers.value = []
+    }
+  },
+)
+
+onUnmounted(() => {
+  if (peerPollTimer) clearInterval(peerPollTimer)
+})
 const isClosing = ref(false)
 const showMoreMenu = ref(false)
 const moreMenuRef = ref<HTMLElement | null>(null)
@@ -224,20 +281,7 @@ watch(showMoreMenu, (visible) => {
           <header class="detail-header">
             <div class="detail-header-left">
               <div class="detail-icon" aria-hidden="true">
-                <svg
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                  <polyline points="7 10 12 15 17 10" />
-                  <line x1="12" y1="15" x2="12" y2="3" />
-                </svg>
+                <NIcon :component="DownloadOutline" :size="20" />
               </div>
               <div class="detail-header-text">
                 <h2 id="detailName" class="detail-name" :title="props.task.name">
@@ -259,11 +303,7 @@ watch(showMoreMenu, (visible) => {
                   type="button"
                   @click.stop="toggleMoreMenu"
                 >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                    <circle cx="5" cy="12" r="1.6" />
-                    <circle cx="12" cy="12" r="1.6" />
-                    <circle cx="19" cy="12" r="1.6" />
-                  </svg>
+                  <NIcon :component="EllipsisHorizontal" :size="16" aria-hidden="true" />
                 </button>
                 <Transition name="row-menu">
                   <div v-if="showMoreMenu" class="detail-more-dropdown" role="menu" aria-label="More actions">
@@ -273,21 +313,7 @@ watch(showMoreMenu, (visible) => {
                       type="button"
                       @click.stop="onMoreAction('copySource')"
                     >
-                      <svg
-                        class="row-menu-icon"
-                        width="14"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        aria-hidden="true"
-                      >
-                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                      </svg>
+                      <NIcon class="row-menu-icon" :component="CopyOutline" :size="14" aria-hidden="true" />
                       <span>Copy source</span>
                     </button>
                     <button
@@ -296,20 +322,7 @@ watch(showMoreMenu, (visible) => {
                       type="button"
                       @click.stop="onMoreAction('openLocation')"
                     >
-                      <svg
-                        class="row-menu-icon"
-                        width="14"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        aria-hidden="true"
-                      >
-                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-                      </svg>
+                      <NIcon class="row-menu-icon" :component="FolderOutline" :size="14" aria-hidden="true" />
                       <span>Open file location</span>
                     </button>
                     <div class="row-menu-sep" role="separator" />
@@ -319,21 +332,7 @@ watch(showMoreMenu, (visible) => {
                       type="button"
                       @click.stop="onMoreAction('delete')"
                     >
-                      <svg
-                        class="row-menu-icon"
-                        width="14"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        aria-hidden="true"
-                      >
-                        <polyline points="3 6 5 6 21 6" />
-                        <path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                      </svg>
+                      <NIcon class="row-menu-icon" :component="TrashOutline" :size="14" aria-hidden="true" />
                       <span>Delete</span>
                     </button>
                   </div>
@@ -346,19 +345,7 @@ watch(showMoreMenu, (visible) => {
                 type="button"
                 @click="requestClose"
               >
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  aria-hidden="true"
-                >
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
+                <NIcon :component="CloseOutline" :size="16" aria-hidden="true" />
               </button>
             </div>
           </header>
@@ -389,7 +376,18 @@ watch(showMoreMenu, (visible) => {
               <div class="stat-label">GID</div>
               <div class="stat-value stat-mono">{{ props.task.gid.slice(0, 12) }}</div>
             </div>
+            <div v-if="peers.length > 0" class="stat-cell">
+              <div class="stat-label">Peers</div>
+              <div class="stat-value">{{ peers.length }}</div>
+            </div>
           </section>
+          <div v-if="peers.length > 0" class="peer-list-section">
+            <div class="peer-list-header">Peer Details</div>
+            <div v-for="(peer, i) in peers.slice(0, 10)" :key="i" class="peer-row">
+              <span class="peer-ip">{{ peer.ip }}:{{ peer.port }}</span>
+              <span class="peer-speed">↓{{ formatPeerSpeed(peer.downloadSpeed) }}</span>
+            </div>
+          </div>
           <div v-if="props.task.errorMessage" class="detail-error-banner">
             {{ props.task.errorMessage }}
           </div>
@@ -437,20 +435,7 @@ watch(showMoreMenu, (visible) => {
                 <span class="summary-title"
                   >Files <span class="summary-count">({{ files.length }})</span></span
                 >
-                <svg
-                  class="summary-chevron"
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  aria-hidden="true"
-                >
-                  <polyline points="6 9 12 15 18 9" />
-                </svg>
+                <NIcon class="summary-chevron" :component="ChevronDownOutline" :size="14" aria-hidden="true" />
               </summary>
               <div v-if="files.length" class="files-list">
                 <div v-for="(f, i) in files" :key="i" class="file-row">
@@ -477,20 +462,7 @@ watch(showMoreMenu, (visible) => {
             <details class="detail-section">
               <summary class="detail-summary">
                 <span class="summary-title">Sources</span>
-                <svg
-                  class="summary-chevron"
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  aria-hidden="true"
-                >
-                  <polyline points="6 9 12 15 18 9" />
-                </svg>
+                <NIcon class="summary-chevron" :component="ChevronDownOutline" :size="14" aria-hidden="true" />
               </summary>
               <div class="sources-list">
                 <p class="source-url" :title="props.task.source">{{ props.task.source }}</p>
@@ -502,20 +474,7 @@ watch(showMoreMenu, (visible) => {
                 <span class="summary-title"
                   >Timeline <span class="summary-count">({{ timeline.length }})</span></span
                 >
-                <svg
-                  class="summary-chevron"
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  aria-hidden="true"
-                >
-                  <polyline points="6 9 12 15 18 9" />
-                </svg>
+                <NIcon class="summary-chevron" :component="ChevronDownOutline" :size="14" aria-hidden="true" />
               </summary>
               <div v-if="timeline.length" class="timeline-list">
                 <div v-for="(ev, i) in timeline" :key="i" class="timeline-row">

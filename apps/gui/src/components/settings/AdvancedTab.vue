@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { NButton, NInput, NSelect } from 'naive-ui'
 import { TrashOutline } from '@vicons/ionicons5'
 import { useAria2 } from '@/composables/useAria2'
@@ -12,6 +12,25 @@ const aria2 = useAria2()
 const manager = useAria2Manager()
 const message = useMessage()
 const store = useConfigStore()
+
+const userAgent = ref('')
+
+aria2
+  .getGlobalOption()
+  .then((opts) => {
+    userAgent.value = opts['user-agent'] || ''
+  })
+  .catch(() => {})
+
+watch(userAgent, async (val) => {
+  if (val && aria2.connected.value) {
+    try {
+      await aria2.changeGlobalOption({ 'user-agent': val })
+    } catch (_e) {
+      /* best effort */
+    }
+  }
+})
 
 const aria2RpcUrl = computed<string>({
   get: () => store.config.aria2.rpc_url,
@@ -66,6 +85,11 @@ async function clearDownloadHistory() {
     <div class="setting-group">
       <label>{{ t('settings.logLevel') }}</label>
       <NSelect v-model:value="logLevel" :options="logLevelOptions" />
+    </div>
+
+    <div class="setting-group">
+      <label>User Agent</label>
+      <NInput v-model:value="userAgent" placeholder="Leave empty for aria2 default" />
     </div>
 
     <div class="danger-zone">

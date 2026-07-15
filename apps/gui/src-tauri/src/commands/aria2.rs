@@ -1,6 +1,7 @@
 // commands/aria2.rs — Bundled aria2c process management.
 // Start/stop/diagnose the aria2c daemon with RPC enabled.
 
+use std::sync::atomic::{AtomicBool, AtomicU16, Ordering};
 use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 use tauri::command;
@@ -8,6 +9,14 @@ use tauri::Manager;
 
 /// Global store for the aria2c child PID
 static ARIA2_CHILD: Mutex<Option<u32>> = Mutex::new(None);
+
+/// P0-2 FIX: Prevents concurrent start_aria2 calls from both passing the
+/// "already running" check and spawning duplicate processes.
+static ARIA2_STARTING: AtomicBool = AtomicBool::new(false);
+
+/// P0-3 FIX: Stores the actual RPC port so aria2_rpc / stop_aria2 use the
+/// correct port instead of a hardcoded 6800.
+pub static ARIA2_RPC_PORT: AtomicU16 = AtomicU16::new(6800);
 
 /// Random secret generated on first start, reused across restarts within
 /// a single app session. Passed to aria2 via --rpc-secret and included
@@ -17,14 +26,15 @@ static ARIA2_SECRET: OnceLock<String> = OnceLock::new();
 /// Return the current session's aria2 RPC secret, generating one if needed.
 pub fn get_aria2_secret() -> &'static str {
     ARIA2_SECRET.get_or_init(|| {
-        use std::time::{SystemTime, UNIX_EPOCH};
-        let seed = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map(|d| d.as_nanos())
-            .unwrap_or(0);
-        let pid = std::process::id();
-        format!("{:x}{:x}", seed, pid)
+        use rand::RngCore;
+        let mut bytes = [0u8; 32];
+        rand::thread_rng().fill_bytes(&mut bytes);
+        hex_encode(&bytes)
     })
+}
+
+fn hex_encode(bytes: &[u8]) -> String {
+    bytes.iter().map(|b| format!("{:02x}", b)).collect()
 }
 
 /// Tauri command exposing the secret to the frontend so it can include
@@ -38,9 +48,13 @@ pub fn get_rpc_secret() -> String {
 #[command]
 pub async fn start_aria2(app: tauri::AppHandle, rpc_port: Option<u16>) -> Result<String, String> {
     let port = rpc_port.unwrap_or(6800);
+
+    if ARIA2_STARTING.compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst).is_err() {
+        return Err("aria2 is already starting".to_string());
+    }
+
     let rpc_url = format!("http://127.0.0.1:{}/jsonrpc", port);
 
-    // Check if already running (release lock before any await!)
     let already_running = {
         let child = ARIA2_CHILD
             .lock()
@@ -62,6 +76,7 @@ pub async fn start_aria2(app: tauri::AppHandle, rpc_port: Option<u16>) -> Result
             .await
         {
             if resp.status().is_success() {
+                ARIA2_STARTING.store(false, Ordering::SeqCst);
                 return Ok(rpc_url);
             }
         }
@@ -167,9 +182,13 @@ pub async fn start_aria2(app: tauri::AppHandle, rpc_port: Option<u16>) -> Result
         cmd.process_group(0);
     }
 
-    let child = cmd
-        .spawn()
-        .map_err(|e| format!("Failed to start aria2c: {}", e))?;
+    let child = match cmd.spawn() {
+        Ok(c) => c,
+        Err(e) => {
+            ARIA2_STARTING.store(false, Ordering::SeqCst);
+            return Err(format!("Failed to start aria2c: {}", e));
+        }
+    };
 
     let pid = child.id();
     {
@@ -180,28 +199,38 @@ pub async fn start_aria2(app: tauri::AppHandle, rpc_port: Option<u16>) -> Result
     }
 
     // Wait for startup
-    tokio::time::sleep(Duration::from_millis(800)).await;
-
-    // Verify RPC is alive
     let rpc_url = format!("http://127.0.0.1:{}/jsonrpc", port);
     let client = reqwest::Client::new();
-    let check = client
-        .post(&rpc_url)
-        .header("Content-Type", "application/json")
-        .body(format!(
-            r#"{{"jsonrpc":"2.0","id":"check","method":"aria2.getVersion","params":["token:{}"]}}"#,
-            secret
-        ))
-        .timeout(Duration::from_secs(3))
-        .send()
-        .await;
+    let body = format!(
+        r#"{{"jsonrpc":"2.0","id":"check","method":"aria2.getVersion","params":["token:{}"]}}"#,
+        secret
+    );
 
-    match check {
-        Ok(resp) if resp.status().is_success() => {
+    let mut rpc_ready = false;
+    for attempt in 0..10u32 {
+        tokio::time::sleep(Duration::from_millis(200)).await;
+        if let Ok(resp) = client
+            .post(&rpc_url)
+            .header("Content-Type", "application/json")
+            .body(&body)
+            .timeout(Duration::from_secs(2))
+            .send()
+            .await
+        {
+            if resp.status().is_success() {
+                rpc_ready = true;
+                break;
+            }
+        }
+    }
+    let _ = &body;
+
+    if rpc_ready {
+            ARIA2_RPC_PORT.store(port, Ordering::SeqCst);
+            ARIA2_STARTING.store(false, Ordering::SeqCst);
             log::info!("aria2c started on port {} (PID {})", port, pid);
             Ok(rpc_url)
-        }
-        _ => {
+        } else {
             {
                 let mut global_child = ARIA2_CHILD
                     .lock()
@@ -213,6 +242,7 @@ pub async fn start_aria2(app: tauri::AppHandle, rpc_port: Option<u16>) -> Result
                 }
                 *global_child = None;
             }
+            ARIA2_STARTING.store(false, Ordering::SeqCst);
             let log_path = session_dir.join("aria2.log");
             // Read the last log line on a blocking thread so we don't
             // stall the async runtime on slow disks.
@@ -231,12 +261,13 @@ pub async fn start_aria2(app: tauri::AppHandle, rpc_port: Option<u16>) -> Result
                 log_tail
             ))
         }
-    }
 }
 
 /// Stop the bundled aria2c daemon.
 #[command]
 pub async fn stop_aria2() -> Result<String, String> {
+    let port = ARIA2_RPC_PORT.load(Ordering::SeqCst);
+    let rpc_url = format!("http://127.0.0.1:{}/jsonrpc", port);
     let pid = {
         let mut child = ARIA2_CHILD
             .lock()
@@ -249,9 +280,8 @@ pub async fn stop_aria2() -> Result<String, String> {
     if let Some(p) = pid {
         let secret = get_aria2_secret();
         let client = reqwest::Client::new();
-        // Save session before shutdown so downloads resume on next start.
         let _ = client
-            .post("http://127.0.0.1:6800/jsonrpc")
+            .post(&rpc_url)
             .header("Content-Type", "application/json")
             .body(format!(
                 r#"{{"jsonrpc":"2.0","id":"save-session","method":"aria2.saveSession","params":["token:{}"]}}"#,
@@ -261,7 +291,7 @@ pub async fn stop_aria2() -> Result<String, String> {
             .send()
             .await;
         let _ = client
-            .post("http://127.0.0.1:6800/jsonrpc")
+            .post(&rpc_url)
             .header("Content-Type", "application/json")
             .body(format!(
                 r#"{{"jsonrpc":"2.0","id":"shutdown","method":"aria2.shutdown","params":["token:{}"]}}"#,
@@ -366,8 +396,10 @@ async fn aria2_rpc(method: &str, params: serde_json::Value) -> Result<serde_json
         "method": method,
         "params": serde_json::Value::Array(params_arr),
     });
+    let port = ARIA2_RPC_PORT.load(Ordering::SeqCst);
+    let rpc_url = format!("http://127.0.0.1:{}/jsonrpc", port);
     let resp = client
-        .post("http://127.0.0.1:6800/jsonrpc")
+        .post(&rpc_url)
         .header("Content-Type", "application/json")
         .json(&body)
         .timeout(Duration::from_secs(5))
@@ -440,6 +472,38 @@ pub async fn add_torrent_file(path: String) -> Result<String, String> {
             v.as_str()
                 .map(String::from)
                 .ok_or_else(|| "aria2 returned non-string gid".to_string())
+        })
+}
+
+/// Add a .metalink/.meta4 file to aria2 by reading and base64-encoding it.
+#[command]
+pub async fn add_metalink_file(path: String) -> Result<Vec<String>, String> {
+    const MAX_METALINK_SIZE: u64 = 5 * 1024 * 1024;
+    let path_for_stat = path.clone();
+    let size =
+        tokio::task::spawn_blocking(move || std::fs::metadata(&path_for_stat).map(|m| m.len()))
+            .await
+            .map_err(|e| format!("Stat join error: {}", e))?
+            .map_err(|e| format!("Failed to stat metalink file: {}", e))?;
+    if size > MAX_METALINK_SIZE {
+        return Err(format!(
+            "Metalink file too large ({} bytes, max {} bytes)",
+            size, MAX_METALINK_SIZE
+        ));
+    }
+
+    let bytes = tokio::task::spawn_blocking(move || std::fs::read(&path))
+        .await
+        .map_err(|e| format!("Read join error: {}", e))?
+        .map_err(|e| format!("Failed to read metalink file: {}", e))?;
+    use base64::Engine as _;
+    let base64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
+    aria2_rpc("aria2.addMetalink", serde_json::json!([base64]))
+        .await
+        .and_then(|v| {
+            v.as_array()
+                .map(|arr| arr.iter().filter_map(|a| a.as_str().map(String::from)).collect())
+                .ok_or_else(|| "aria2 returned non-array result for addMetalink".to_string())
         })
 }
 

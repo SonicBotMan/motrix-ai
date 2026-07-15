@@ -27,7 +27,6 @@ vi.mock('@/composables/useAria2', () => ({
     removeCompleted: vi.fn(),
     changeOption: changeOptionSpy,
     changeGlobalOption: changeGlobalOptionSpy,
-    startAria2: vi.fn(),
     getGlobalStat: vi.fn(),
     tellActive: vi.fn().mockResolvedValue([]),
     tellWaiting: vi.fn().mockResolvedValue([]),

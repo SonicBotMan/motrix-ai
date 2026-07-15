@@ -12,6 +12,8 @@
  */
 
 import { watch, onUnmounted, nextTick, ref } from 'vue'
+import { NIcon } from 'naive-ui'
+import { CloseOutline } from '@vicons/ionicons5'
 
 interface Props {
   /** Control visibility */
@@ -70,11 +72,7 @@ function requestClose() {
 <template>
   <Teleport to="body">
     <Transition name="ui-modal">
-      <div
-        v-if="props.show"
-        class="ui-modal-backdrop"
-        @click.self="requestClose"
-      >
+      <div v-if="props.show" class="ui-modal-backdrop" @click.self="requestClose">
         <div
           ref="panelRef"
           class="ui-modal-panel"
@@ -88,16 +86,8 @@ function requestClose() {
             <slot name="header">
               <h2 id="ui-modal-title" class="ui-modal-title">{{ props.title }}</h2>
             </slot>
-            <button
-              class="ui-modal-close"
-              aria-label="Close dialog"
-              title="Close"
-              @click="requestClose"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-                <line x1="18" y1="6" x2="6" y2="18" />
-                <line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
+            <button class="ui-modal-close" aria-label="Close dialog" title="Close" @click="requestClose">
+              <NIcon :component="CloseOutline" :size="16" />
             </button>
           </header>
           <div class="ui-modal-body">
