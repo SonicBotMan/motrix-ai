@@ -210,7 +210,7 @@ pub async fn start_aria2(app: tauri::AppHandle, rpc_port: Option<u16>) -> Result
     );
 
     let mut rpc_ready = false;
-    for attempt in 0..10u32 {
+    for _attempt in 0..10u32 {
         tokio::time::sleep(Duration::from_millis(200)).await;
         if let Ok(resp) = client
             .post(&rpc_url)
