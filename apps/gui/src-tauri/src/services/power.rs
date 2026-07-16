@@ -39,11 +39,12 @@ pub async fn prevent_sleep() -> Result<String, String> {
     #[cfg(target_os = "windows")]
     {
         use std::ffi::c_uint;
-        type EXECUTION_STATE = c_uint;
-        const ES_CONTINUOUS: EXECUTION_STATE = 0x80000000;
-        const ES_SYSTEM_REQUIRED: EXECUTION_STATE = 0x00000001;
+        #[allow(non_camel_case_types)]
+        type ExecutionState = c_uint;
+        const ES_CONTINUOUS: ExecutionState = 0x80000000;
+        const ES_SYSTEM_REQUIRED: ExecutionState = 0x00000001;
         extern "system" {
-            fn SetThreadExecutionState(esFlags: EXECUTION_STATE) -> EXECUTION_STATE;
+            fn SetThreadExecutionState(esFlags: ExecutionState) -> ExecutionState;
         }
         unsafe {
             SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED);
@@ -85,10 +86,11 @@ pub fn release_inhibitor_blocking() {
     #[cfg(target_os = "windows")]
     {
         use std::ffi::c_uint;
-        type EXECUTION_STATE = c_uint;
-        const ES_CONTINUOUS: EXECUTION_STATE = 0x80000000;
+        #[allow(non_camel_case_types)]
+        type ExecutionState = c_uint;
+        const ES_CONTINUOUS: ExecutionState = 0x80000000;
         extern "system" {
-            fn SetThreadExecutionState(esFlags: EXECUTION_STATE) -> EXECUTION_STATE;
+            fn SetThreadExecutionState(esFlags: ExecutionState) -> ExecutionState;
         }
         unsafe {
             SetThreadExecutionState(ES_CONTINUOUS);
