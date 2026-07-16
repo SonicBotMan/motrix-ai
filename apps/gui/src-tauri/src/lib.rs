@@ -3,9 +3,9 @@ mod error;
 mod services;
 mod tray;
 
+use std::time::Duration;
 use tauri::Manager;
 use tauri::WindowEvent;
-use std::time::Duration;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {

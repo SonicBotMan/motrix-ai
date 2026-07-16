@@ -490,6 +490,7 @@ async function handleAttach(): Promise<void> {
         id: generateToastId(),
         type: 'success',
         text: isMetalink ? 'Metalink added' : `Torrent added: ${String(gid).slice(0, 8)}`,
+        createdAt: Date.now(),
       })
     }
   } catch (err) {

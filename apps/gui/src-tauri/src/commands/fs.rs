@@ -497,7 +497,10 @@ pub async fn delete_file(path: String) -> Result<(), String> {
         let canon_home = home.canonicalize().unwrap_or_else(|_| home.clone());
         let canon_p = p.canonicalize().unwrap_or_else(|_| p.clone());
         if !canon_p.starts_with(&canon_home) {
-            return Err(format!("Refusing to delete file outside home directory: {}", p.display()));
+            return Err(format!(
+                "Refusing to delete file outside home directory: {}",
+                p.display()
+            ));
         }
     }
     tokio::task::spawn_blocking(move || {
@@ -505,7 +508,8 @@ pub async fn delete_file(path: String) -> Result<(), String> {
             return Err(format!("File not found: {}", p.display()));
         }
         if p.is_dir() {
-            std::fs::remove_dir_all(&p).map_err(|e| format!("Failed to remove directory: {}", e))?;
+            std::fs::remove_dir_all(&p)
+                .map_err(|e| format!("Failed to remove directory: {}", e))?;
         } else {
             std::fs::remove_file(&p).map_err(|e| format!("Failed to delete file: {}", e))?;
         }

@@ -49,7 +49,10 @@ pub fn get_rpc_secret() -> String {
 pub async fn start_aria2(app: tauri::AppHandle, rpc_port: Option<u16>) -> Result<String, String> {
     let port = rpc_port.unwrap_or(6800);
 
-    if ARIA2_STARTING.compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst).is_err() {
+    if ARIA2_STARTING
+        .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+        .is_err()
+    {
         return Err("aria2 is already starting".to_string());
     }
 
@@ -226,41 +229,41 @@ pub async fn start_aria2(app: tauri::AppHandle, rpc_port: Option<u16>) -> Result
     let _ = &body;
 
     if rpc_ready {
-            ARIA2_RPC_PORT.store(port, Ordering::SeqCst);
-            ARIA2_STARTING.store(false, Ordering::SeqCst);
-            log::info!("aria2c started on port {} (PID {})", port, pid);
-            Ok(rpc_url)
-        } else {
-            {
-                let mut global_child = ARIA2_CHILD
-                    .lock()
-                    .map_err(|e| format!("Lock error: {}", e))?;
-                if let Some(p) = *global_child {
-                    let _ = std::process::Command::new("kill")
-                        .args(["-9", &p.to_string()])
-                        .output();
-                }
-                *global_child = None;
+        ARIA2_RPC_PORT.store(port, Ordering::SeqCst);
+        ARIA2_STARTING.store(false, Ordering::SeqCst);
+        log::info!("aria2c started on port {} (PID {})", port, pid);
+        Ok(rpc_url)
+    } else {
+        {
+            let mut global_child = ARIA2_CHILD
+                .lock()
+                .map_err(|e| format!("Lock error: {}", e))?;
+            if let Some(p) = *global_child {
+                let _ = std::process::Command::new("kill")
+                    .args(["-9", &p.to_string()])
+                    .output();
             }
-            ARIA2_STARTING.store(false, Ordering::SeqCst);
-            let log_path = session_dir.join("aria2.log");
-            // Read the last log line on a blocking thread so we don't
-            // stall the async runtime on slow disks.
-            let log_tail = tokio::task::spawn_blocking(move || {
-                std::fs::read_to_string(&log_path)
-                    .unwrap_or_default()
-                    .lines()
-                    .last()
-                    .unwrap_or("")
-                    .to_string()
-            })
-            .await
-            .unwrap_or_default();
-            Err(format!(
-                "aria2c started but RPC verification failed: {}",
-                log_tail
-            ))
+            *global_child = None;
         }
+        ARIA2_STARTING.store(false, Ordering::SeqCst);
+        let log_path = session_dir.join("aria2.log");
+        // Read the last log line on a blocking thread so we don't
+        // stall the async runtime on slow disks.
+        let log_tail = tokio::task::spawn_blocking(move || {
+            std::fs::read_to_string(&log_path)
+                .unwrap_or_default()
+                .lines()
+                .last()
+                .unwrap_or("")
+                .to_string()
+        })
+        .await
+        .unwrap_or_default();
+        Err(format!(
+            "aria2c started but RPC verification failed: {}",
+            log_tail
+        ))
+    }
 }
 
 /// Stop the bundled aria2c daemon.
@@ -502,7 +505,11 @@ pub async fn add_metalink_file(path: String) -> Result<Vec<String>, String> {
         .await
         .and_then(|v| {
             v.as_array()
-                .map(|arr| arr.iter().filter_map(|a| a.as_str().map(String::from)).collect())
+                .map(|arr| {
+                    arr.iter()
+                        .filter_map(|a| a.as_str().map(String::from))
+                        .collect()
+                })
                 .ok_or_else(|| "aria2 returned non-array result for addMetalink".to_string())
         })
 }
