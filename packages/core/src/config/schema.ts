@@ -490,6 +490,7 @@ export function validateConfig(raw: unknown): AppConfig {
   return {
     ai: validateAi(raw.ai, DEFAULT_CONFIG.ai),
     aria2: validateAria2(raw.aria2, DEFAULT_CONFIG.aria2),
+    network: { http_proxy: '', https_proxy: '', ftp_proxy: '', no_proxy: '' },
     downloads: validateDownloads(raw.downloads, DEFAULT_CONFIG.downloads),
     schedule: validateSchedule(raw.schedule, DEFAULT_CONFIG.schedule),
     disk: validateDisk(raw.disk, DEFAULT_CONFIG.disk),
