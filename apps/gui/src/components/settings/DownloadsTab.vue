@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { createLogger } from '@motrix-ai/core/browser'
+const logger = createLogger('downloads')
 import { computed, ref, watch } from 'vue'
 import { NButton, NInput, NInputNumber, NSwitch } from 'naive-ui'
 import { FolderOpenOutline } from '@vicons/ionicons5'
@@ -26,28 +28,28 @@ watch(maxConcurrent, async (val) => {
   try {
     await aria2.changeGlobalOption({ 'max-concurrent-downloads': String(val) })
   } catch (e) {
-    console.warn('Failed to apply maxConcurrent:', e)
+    logger.warn('Failed to apply maxConcurrent:', e)
   }
 })
 watch(downloadSpeedLimit, async (val) => {
   try {
     await aria2.changeGlobalOption({ 'max-overall-download-limit': String(val * 1024) })
   } catch (e) {
-    console.warn('Failed to apply downloadSpeedLimit:', e)
+    logger.warn('Failed to apply downloadSpeedLimit:', e)
   }
 })
 watch(uploadSpeedLimit, async (val) => {
   try {
     await aria2.changeGlobalOption({ 'max-overall-upload-limit': String(val * 1024) })
   } catch (e) {
-    console.warn('Failed to apply uploadSpeedLimit:', e)
+    logger.warn('Failed to apply uploadSpeedLimit:', e)
   }
 })
 watch(autoRetry, async (val) => {
   try {
     await aria2.changeGlobalOption({ 'max-tries': val ? String(maxRetries.value) : '0' })
   } catch (e) {
-    console.warn('Failed to apply autoRetry:', e)
+    logger.warn('Failed to apply autoRetry:', e)
   }
 })
 watch(maxRetries, async (val) => {
@@ -55,7 +57,7 @@ watch(maxRetries, async (val) => {
     try {
       await aria2.changeGlobalOption({ 'max-tries': String(val) })
     } catch (e) {
-      console.warn('Failed to apply maxRetries:', e)
+      logger.warn('Failed to apply maxRetries:', e)
     }
   }
 })
@@ -66,7 +68,7 @@ async function pickDownloadDir() {
     const selected = await open({ directory: true, multiple: false })
     if (selected && typeof selected === 'string') downloadDir.value = selected
   } catch (e) {
-    console.warn('Folder picker not available:', e)
+    logger.warn('Folder picker not available:', e)
     message.info('Folder picker is only available in the desktop app')
   }
 }

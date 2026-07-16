@@ -2,6 +2,8 @@
 // NL Intent Parsing — calls Rust backend (heuristic + optional LLM).
 // Reads LLM config reactively from useConfigStore().config.ai.
 
+import { createLogger } from '@motrix-ai/core/browser'
+const logger = createLogger('opencode')
 import { ref, computed } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import { useConfigStore } from '@/stores/config'
@@ -66,7 +68,7 @@ export function useOpenCode() {
       })
       return result
     } catch (e) {
-      console.error('NL parsing failed:', e)
+      logger.error('NL parsing failed:', e)
       // Fallback: minimal inline parsing.
       return {
         title: input.replace(/^下[载个]?|^download|^get/i, '').trim() || input,

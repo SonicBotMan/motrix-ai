@@ -1,11 +1,7 @@
 // src/composables/useSchedule.ts
 // Reactive time-based scheduling for the GUI.
-//
-// Mirrors the logic in @motrix-ai/core's TimeScheduler (PRD §6.3.1) but runs
-// entirely in the renderer, exposing reactive state a Vue component can bind.
-// `ScheduleRule` is defined locally because @motrix-ai/core is not currently a
-// GUI dependency; the shape is identical so swapping to the import later is a
-// no-op.
+// Mirrors the logic in @motrix-ai/core's TimeScheduler but runs entirely
+// in the renderer, exposing reactive state a Vue component can bind.
 
 import { ref, onUnmounted, type Ref } from 'vue'
 import { createLogger } from '@motrix-ai/core/browser'

@@ -17,6 +17,9 @@
 //      away killed the aria2 daemon for the whole app.
 
 import { ref, type Ref } from 'vue'
+import { createLogger } from '@motrix-ai/core/browser'
+
+const logger = createLogger('aria2')
 
 // ---- Types ----
 
@@ -382,7 +385,7 @@ const fetchAllTasks = async () => {
       previousStatuses.set(task.gid, newStatus)
     }
   } catch (e) {
-    console.error('Failed to fetch tasks:', e)
+    logger.error('Failed to fetch tasks:', e)
   }
 }
 
@@ -390,7 +393,7 @@ const fetchGlobalStat = async () => {
   try {
     globalStat.value = await getGlobalStat()
   } catch (e) {
-    console.error('Failed to fetch global stat:', e)
+    logger.error('Failed to fetch global stat:', e)
   }
 }
 
@@ -443,7 +446,7 @@ async function start(): Promise<void> {
     const { invoke } = await import('@tauri-apps/api/core')
     const diag = await invoke<Aria2BinaryDiagnostic>('check_aria2_binary')
     if (!diag.exists) {
-      console.error('Bundled aria2c NOT FOUND at:', diag.binary_path)
+      logger.error('Bundled aria2c NOT FOUND at:', diag.binary_path)
       emitConnection('error', 'Bundled aria2c binary not found')
     } else {
       await invoke<string>('start_aria2', { rpcPort: 6800 })
@@ -461,7 +464,7 @@ async function start(): Promise<void> {
     }
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
-    console.warn('Bundled aria2c failed:', msg)
+    logger.warn('Bundled aria2c failed:', msg)
     emitConnection('error', `aria2c start failed: ${msg}. Bundled aria2c is required.`)
   }
 

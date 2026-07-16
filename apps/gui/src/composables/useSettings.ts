@@ -9,9 +9,10 @@
 
 import { ref, watch, computed } from 'vue'
 import { useConfigStore } from '@/stores/config'
+import strings from '@/locales/strings'
+import type { Language } from '@/locales/strings'
 
 type Theme = 'dark' | 'light' | 'system'
-type Language = 'en' | 'zh' | 'ja' | 'ko' | 'fr'
 
 // ---- Reactive settings (backed by the config store) ----
 // `useConfigStore()` is called inside the accessors so it resolves lazily,
@@ -81,7 +82,6 @@ try {
 }
 
 // ---- i18n strings ----
-import strings from '@/locales/strings'
 
 export function t(key: string, params?: Record<string, unknown>): string {
   const template = strings[key]?.[language.value] ?? key

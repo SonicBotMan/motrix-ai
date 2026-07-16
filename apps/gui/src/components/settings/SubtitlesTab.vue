@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { createLogger } from '@motrix-ai/core/browser'
+const logger = createLogger('subtitles')
 import { computed } from 'vue'
 import { NButton, NInput, NSwitch } from 'naive-ui'
 import { FolderOpenOutline } from '@vicons/ionicons5'
@@ -45,7 +47,7 @@ async function pickSubtitleDir() {
     const selected = await open({ directory: true, multiple: false })
     if (selected && typeof selected === 'string') subtitleDir.value = selected
   } catch (e) {
-    console.warn('Folder picker not available:', e)
+    logger.warn('Folder picker not available:', e)
     message.info('Folder picker is only available in the desktop app')
   }
 }
