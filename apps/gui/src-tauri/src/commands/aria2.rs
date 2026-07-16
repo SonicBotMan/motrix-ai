@@ -215,7 +215,7 @@ pub async fn start_aria2(app: tauri::AppHandle, rpc_port: Option<u16>) -> Result
         if let Ok(resp) = client
             .post(&rpc_url)
             .header("Content-Type", "application/json")
-            .body(&body)
+            .body(body.clone())
             .timeout(Duration::from_secs(2))
             .send()
             .await

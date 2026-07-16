@@ -71,7 +71,7 @@ pub fn run() {
                 }
 
                 // Start the local HTTP API for browser extension bridge
-                match commands::http_api::start_http_api(Some(18900), handle).await {
+                match commands::http_api::start_http_api(Some(18900), handle.clone()).await {
                     Ok(url) => log::info!("HTTP API started: {}", url),
                     Err(e) => log::warn!("HTTP API failed to start: {}", e),
                 }

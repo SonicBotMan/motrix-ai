@@ -25,11 +25,11 @@ pub fn create_tray<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
     let _tray = TrayIconBuilder::new()
         .icon(
             app.default_window_icon()
-                .unwrap_or_else(|_| {
+                .cloned()
+                .unwrap_or_else(|| {
                     log::warn!("Failed to load default window icon");
                     tauri::image::Image::new(&[], 0, 0)
-                })
-                .clone(),
+                }),
         )
         .tooltip("Motrix AI")
         .menu(&menu)
