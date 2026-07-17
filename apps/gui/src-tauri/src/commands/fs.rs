@@ -54,31 +54,56 @@ fn safe_join(base: &Path, components: &[&str]) -> Result<PathBuf, String> {
     Ok(out)
 }
 
+/// Extract the canonical relative subdir name from a configured value.
+///
+/// - Values without path separators (e.g. `"Movies"`, `"My Custom Folder"`)
+///   are returned as-is.
+/// - Values with separators (e.g. legacy `"~/Downloads/Motrix AI/Movies"`)
+///   have their basename extracted via `Path::file_name()`.
+/// - If extraction fails (e.g. the value is just `/` or ends with `..`),
+///   returns `fallback`.
+fn extract_subdir_name(value: &str, fallback: &str) -> String {
+    if !value.contains('/') && !value.contains('\\') {
+        return value.to_string();
+    }
+    Path::new(value)
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| fallback.to_string())
+}
+
 /// Read a configured subdirectory name from the `downloads` section of
 /// config.json (e.g. `movie_dir`, `software_dir`, `other_dir`).
-/// Returns `fallback` when the field is missing or empty, so callers keep
-/// the historical hardcoded behaviour when the user has not customised it.
+/// Returns `fallback` when the field is missing or empty.
+///
+/// Values are canonical relative names (e.g. `"Movies"`), joined under
+/// base_dir by organize_file. Legacy configs that stored full paths
+/// (e.g. `"~/Downloads/Motrix AI/Movies"`) are handled transparently:
+/// if the value contains a path separator, the basename is extracted.
 fn configured_subdir(field: &str, fallback: &str) -> String {
     let home = match dirs::home_dir() {
         Some(h) => h,
         None => return fallback.to_string(),
     };
     let config_path = home.join(".motrix-ai").join("config.json");
-    if let Ok(content) = std::fs::read_to_string(&config_path) {
-        if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
-            if let Some(v) = json
-                .get("downloads")
-                .and_then(|d| d.get(field))
-                .and_then(|v| v.as_str())
-            {
-                let trimmed = v.trim();
-                if !trimmed.is_empty() {
-                    return trimmed.to_string();
-                }
-            }
-        }
+    let raw: Option<String> = if let Ok(content) = std::fs::read_to_string(&config_path) {
+        serde_json::from_str::<serde_json::Value>(&content)
+            .ok()
+            .and_then(|json| {
+                json.get("downloads")
+                    .and_then(|d| d.get(field))
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.trim().to_string())
+            })
+    } else {
+        None
+    };
+
+    match raw {
+        Some(s) if !s.is_empty() => extract_subdir_name(&s, fallback),
+        _ => fallback.to_string(),
     }
-    fallback.to_string()
 }
 
 /// Save file to disk. Validates the path stays within the user's home directory.
@@ -517,4 +542,63 @@ pub async fn delete_file(path: String) -> Result<(), String> {
     })
     .await
     .map_err(|e| format!("Task join error: {}", e))?
+}
+
+#[cfg(test)]
+mod tests {
+    mod extract_subdir_name {
+        use super::super::*;
+
+        #[test]
+        fn returns_relative_name_unchanged() {
+            assert_eq!(extract_subdir_name("Movies", "fallback"), "Movies");
+            assert_eq!(extract_subdir_name("My Custom Folder", "fallback"), "My Custom Folder");
+            assert_eq!(extract_subdir_name("TV", "fallback"), "TV");
+        }
+
+        #[test]
+        fn extracts_basename_from_legacy_full_path() {
+            // Forward slashes work on both Unix and Windows — both platforms
+            // recognize / as a separator. This covers the pre-A2b default form
+            // ("~/Downloads/Motrix AI/Movies") which must not produce
+            // "~_Downloads_..." after sanitize_path_component.
+            assert_eq!(
+                extract_subdir_name("~/Downloads/Motrix AI/Movies", "fallback"),
+                "Movies"
+            );
+            assert_eq!(
+                extract_subdir_name("/home/user/Downloads/Movies", "fallback"),
+                "Movies"
+            );
+        }
+
+        #[cfg(windows)]
+        #[test]
+        fn extracts_basename_from_windows_style_path() {
+            // Windows-only: Path::file_name() on Windows recognizes \ as separator.
+            // On Unix, \ is treated as part of the filename, so this test is conditional.
+            assert_eq!(
+                extract_subdir_name("C:\\Users\\me\\Movies", "fallback"),
+                "Movies"
+            );
+        }
+
+        #[test]
+        fn returns_fallback_for_root_only_path() {
+            // Path::new("/").file_name() returns None on both Unix and Windows.
+            assert_eq!(extract_subdir_name("/", "fallback"), "fallback");
+        }
+
+        #[test]
+        fn handles_trailing_separator() {
+            // Path::new("/foo/bar/").file_name() returns Some("bar") on both platforms.
+            assert_eq!(extract_subdir_name("/foo/bar/", "fallback"), "bar");
+        }
+
+        #[test]
+        fn empty_basename_falls_back() {
+            // Path::new("/a/../..").file_name() returns None.
+            assert_eq!(extract_subdir_name("/a/../..", "fallback"), "fallback");
+        }
+    }
 }
