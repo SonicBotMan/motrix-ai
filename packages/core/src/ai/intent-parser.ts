@@ -178,9 +178,9 @@ export class IntentParser {
         search_keywords: structured.search_keywords,
         resource_type: structured.resource_type ?? 'other',
       }
-    } catch {
-      logger.warn('OpenCode unavailable, falling back to heuristic')
-      // OpenCode 不可用,使用内置启发式解析. Error logged above.
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : String(err)
+      logger.warn('OpenCode unavailable, falling back to heuristic', { error: detail })
       return this.parseHeuristic(input)
     }
   }

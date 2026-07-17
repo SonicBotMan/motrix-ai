@@ -149,4 +149,31 @@ describe('IntentParser edge cases — heuristic fallback', () => {
     // The prefix "下载" should be stripped
     expect(result.title).not.toMatch(/^下载/)
   })
+
+  it('logs the underlying error message when falling back to heuristic', async () => {
+    const { IntentParser } = await import('../ai/intent-parser.js')
+    const { createOpencodeClient } = await import('@opencode-ai/sdk')
+    const parser = new IntentParser()
+
+    vi.mocked(createOpencodeClient).mockImplementation(() => {
+      throw new Error('connection refused')
+    })
+
+    const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    try {
+      await parser.parse('any input')
+
+      expect(consoleWarnSpy).toHaveBeenCalled()
+      const args = consoleWarnSpy.mock.calls[0] ?? []
+      const joined = args.map(String).join(' ')
+      expect(joined).toContain('intent-parser')
+      expect(
+        args.some((arg) => arg && typeof arg === 'object' && 'error' in arg && arg.error === 'connection refused'),
+      ).toBe(true)
+    } finally {
+      consoleWarnSpy.mockRestore()
+      vi.mocked(createOpencodeClient).mockReset()
+    }
+  })
 })
