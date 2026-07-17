@@ -261,6 +261,8 @@ Spec: docs/superpowers/specs/2026-07-17-a2b-subdir-semantics-fix-design.md §4.3
 
 - [ ] **Step 1: Add the test module (TDD red phase)**
 
+**Important:** `Path::file_name()` is platform-aware — Unix only recognizes `/` as separator; Windows recognizes both `/` and `\`. Tests that depend on backslash handling are `#[cfg(windows)]`. Platform-independent tests use forward slashes only.
+
 In `apps/gui/src-tauri/src/commands/fs.rs`, append at the very end of the file:
 
 ```rust
@@ -279,8 +281,10 @@ mod tests {
 
         #[test]
         fn extracts_basename_from_legacy_full_path() {
-            // The pre-A2b default form — must not produce "~_Downloads_..."
-            // after sanitize_path_component.
+            // Forward slashes work on both Unix and Windows — both platforms
+            // recognize / as a separator. This covers the pre-A2b default form
+            // ("~/Downloads/Motrix AI/Movies") which must not produce
+            // "~_Downloads_..." after sanitize_path_component.
             assert_eq!(
                 extract_subdir_name("~/Downloads/Motrix AI/Movies", "fallback"),
                 "Movies"
@@ -291,8 +295,11 @@ mod tests {
             );
         }
 
+        #[cfg(windows)]
         #[test]
         fn extracts_basename_from_windows_style_path() {
+            // Windows-only: Path::file_name() on Windows recognizes \ as separator.
+            // On Unix, \ is treated as part of the filename, so this test is conditional.
             assert_eq!(
                 extract_subdir_name("C:\\Users\\me\\Movies", "fallback"),
                 "Movies"
@@ -301,14 +308,13 @@ mod tests {
 
         #[test]
         fn returns_fallback_for_root_only_path() {
-            // Path::new("/").file_name() returns None — must fall back gracefully.
+            // Path::new("/").file_name() returns None on both Unix and Windows.
             assert_eq!(extract_subdir_name("/", "fallback"), "fallback");
-            assert_eq!(extract_subdir_name("\\", "fallback"), "fallback");
         }
 
         #[test]
         fn handles_trailing_separator() {
-            // Path::new("/foo/bar/").file_name() returns Some("bar").
+            // Path::new("/foo/bar/").file_name() returns Some("bar") on both platforms.
             assert_eq!(extract_subdir_name("/foo/bar/", "fallback"), "bar");
         }
 

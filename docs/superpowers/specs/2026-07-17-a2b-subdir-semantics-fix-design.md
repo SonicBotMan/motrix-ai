@@ -288,6 +288,13 @@ The split into `configured_subdir` (config reading) + `extract_subdir_name` (pos
 
 **File:** `apps/gui/src-tauri/src/commands/fs.rs` (append `#[cfg(test)] mod tests` block at end of file)
 
+**Important:** `Path::file_name()` is platform-aware:
+
+- Unix: only `/` is a separator (backslash is part of the filename)
+- Windows: both `/` and `\` are separators
+
+Tests that depend on backslash handling are `#[cfg(windows)]`. Platform-independent tests use forward slashes only.
+
 ```rust
 #[cfg(test)]
 mod tests {
@@ -305,8 +312,10 @@ mod tests {
 
         #[test]
         fn extracts_basename_from_legacy_full_path() {
-            // The pre-A2b default form — must not produce "~_Downloads_..."
-            // after sanitize_path_component.
+            // Forward slashes work on both Unix and Windows — both platforms
+            // recognize / as a separator. This covers the pre-A2b default form
+            // ("~/Downloads/Motrix AI/Movies") which must not produce
+            // "~_Downloads_..." after sanitize_path_component.
             assert_eq!(
                 extract_subdir_name("~/Downloads/Motrix AI/Movies", "fallback"),
                 "Movies"
@@ -317,8 +326,11 @@ mod tests {
             );
         }
 
+        #[cfg(windows)]
         #[test]
         fn extracts_basename_from_windows_style_path() {
+            // Windows-only: Path::file_name() on Windows recognizes \ as separator.
+            // On Unix, \ is treated as part of the filename, so this test is conditional.
             assert_eq!(
                 extract_subdir_name("C:\\Users\\me\\Movies", "fallback"),
                 "Movies"
@@ -327,20 +339,18 @@ mod tests {
 
         #[test]
         fn returns_fallback_for_root_only_path() {
-            // Path::new("/").file_name() returns None — must fall back gracefully.
+            // Path::new("/").file_name() returns None on both Unix and Windows.
             assert_eq!(extract_subdir_name("/", "fallback"), "fallback");
-            assert_eq!(extract_subdir_name("\\", "fallback"), "fallback");
         }
 
         #[test]
         fn handles_trailing_separator() {
-            // Path::new("/foo/bar/").file_name() returns Some("bar").
+            // Path::new("/foo/bar/").file_name() returns Some("bar") on both platforms.
             assert_eq!(extract_subdir_name("/foo/bar/", "fallback"), "bar");
         }
 
         #[test]
         fn empty_basename_falls_back() {
-            // A value ending in `..` would resolve weirdly; ensure fallback wins.
             // Path::new("/a/../..").file_name() returns None.
             assert_eq!(extract_subdir_name("/a/../..", "fallback"), "fallback");
         }
@@ -348,7 +358,11 @@ mod tests {
 }
 ```
 
-Seven tests covering: relative names, legacy Unix paths, Windows paths, root paths, trailing separators, edge cases.
+Test count:
+
+- Platform-independent: 5 tests (run on all CI platforms)
+- Windows-only: 1 test (`#[cfg(windows)]`)
+- Total on Linux/macOS CI: 5. Total on Windows CI: 6.
 
 ---
 
