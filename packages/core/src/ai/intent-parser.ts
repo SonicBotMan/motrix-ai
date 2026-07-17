@@ -3,6 +3,18 @@
 // 已验证：OpenCode SDK JSON Schema 结构化输出
 
 import type { DownloadIntent, Quality, ResourceType } from '../types.js'
+import { createLogger } from '../logger.js'
+
+/** Structural view of the OpenCode SDK methods we use. */
+interface OpencodeClientLike {
+  session: {
+    create(): Promise<{ data?: { id: string | number } }>
+    prompt(args: unknown): Promise<{ data?: unknown }>
+  }
+}
+type OpencodeClient = OpencodeClientLike
+
+const logger = createLogger('intent-parser')
 
 interface IntentParserOptions {
   baseUrl?: string // OpenCode server URL，默认 http://127.0.0.1:4096
@@ -27,8 +39,7 @@ const INTENT_SCHEMA = {
 } as const
 
 export class IntentParser {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- SDK client has complex union types
-  private client: any = null
+  private client: OpencodeClient | null = null
   private sessionId: string | null = null
   private baseUrl: string
 
@@ -36,17 +47,22 @@ export class IntentParser {
     this.baseUrl = options.baseUrl ?? 'http://127.0.0.1:4096'
   }
 
-  private async ensureClient() {
-    if (this.client) return
+  private async ensureClient(): Promise<OpencodeClient> {
+    if (this.client) return this.client
     const { createOpencodeClient } = await import('@opencode-ai/sdk')
     this.client = createOpencodeClient({ baseUrl: this.baseUrl })
+    return this.client
   }
 
   private async ensureSession(): Promise<string> {
     if (this.sessionId) return this.sessionId
-    await this.ensureClient()
-    const res = await this.client!.session.create()
-    this.sessionId = res.data!.id as string
+    const client = await this.ensureClient()
+    const res = await client.session.create()
+    const id = res.data?.id
+    if (id === undefined) {
+      throw new Error('[intent-parser] OpenCode session.create returned no session id')
+    }
+    this.sessionId = String(id)
     return this.sessionId
   }
 
@@ -115,10 +131,10 @@ export class IntentParser {
    */
   async parse(input: string): Promise<DownloadIntent> {
     try {
-      await this.ensureClient()
+      const client = await this.ensureClient()
       const sessionId = await this.ensureSession()
 
-      const result = await this.client!.session.prompt({
+      const result = await client.session.prompt({
         path: { id: sessionId },
         body: {
           parts: [
@@ -163,7 +179,7 @@ export class IntentParser {
         resource_type: structured.resource_type ?? 'other',
       }
     } catch {
-      console.warn('[intent-parser] OpenCode unavailable, falling back to heuristic')
+      logger.warn('OpenCode unavailable, falling back to heuristic')
       // OpenCode 不可用,使用内置启发式解析. Error logged above.
       return this.parseHeuristic(input)
     }
