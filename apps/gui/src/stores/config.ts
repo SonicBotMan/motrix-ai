@@ -164,7 +164,8 @@ export const useConfigStore = defineStore('config', () => {
   async function init(): Promise<void> {
     try {
       const fileConfig = await invoke<AppConfig>('load_config')
-      config.value = deepMerge(DEFAULT_CONFIG, fileConfig)
+      // Clone required: DEFAULT_CONFIG is a shared singleton; deepMerge shallow-copies nested arrays/objects.
+      config.value = deepMerge(deepClone(DEFAULT_CONFIG), fileConfig)
     } catch {
       config.value = migrateFromLocalStorage()
       cleanupOldKeys()
