@@ -35,9 +35,30 @@ export const DEFAULT_CONFIG: AppConfig = {
   schedule: {
     enabled: true,
     rules: [
-      { name: 'Night Full Speed', time_start: '23:00', time_end: '07:00', speed_limit: 0, max_concurrent: 5 },
-      { name: 'Daytime Throttle', time_start: '07:00', time_end: '18:00', speed_limit: 5_000_000, max_concurrent: 2 },
-      { name: 'Evening Moderate', time_start: '18:00', time_end: '23:00', speed_limit: 10_000_000, max_concurrent: 3 },
+      {
+        name: 'Night Full Speed',
+        time_start: '23:00',
+        time_end: '07:00',
+        speed_limit: 0,
+        max_concurrent: 5,
+        enabled: true,
+      },
+      {
+        name: 'Daytime Throttle',
+        time_start: '07:00',
+        time_end: '18:00',
+        speed_limit: 5_000_000,
+        max_concurrent: 2,
+        enabled: true,
+      },
+      {
+        name: 'Evening Moderate',
+        time_start: '18:00',
+        time_end: '23:00',
+        speed_limit: 10_000_000,
+        max_concurrent: 3,
+        enabled: true,
+      },
     ],
   },
   disk: {

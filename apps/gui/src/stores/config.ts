@@ -38,6 +38,8 @@ export type {
 
 // Re-export DEFAULT_CONFIG for convenience (single source of truth: @motrix-ai/core).
 // Components and tests import from here as '@/stores/config'.
+// NOTE: do NOT mutate this object — it is a shared singleton from @motrix-ai/core.
+// Use deepClone() below if you need a locally-modifiable copy.
 export const DEFAULT_CONFIG = CORE_DEFAULT_CONFIG
 
 // ---------------------------------------------------------------------------

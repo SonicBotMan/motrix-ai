@@ -44,11 +44,19 @@ describe('DEFAULT_CONFIG', () => {
     expect(DEFAULT_CONFIG.schemaVersion).toBeUndefined()
   })
 
-  it('has at least one default schedule rule', () => {
+  it('has at least one default schedule rule with required fields', () => {
     expect(DEFAULT_CONFIG.schedule.rules.length).toBeGreaterThan(0)
-    expect(DEFAULT_CONFIG.schedule.rules[0]).toHaveProperty('name')
-    expect(DEFAULT_CONFIG.schedule.rules[0]).toHaveProperty('time_start')
-    expect(DEFAULT_CONFIG.schedule.rules[0]).toHaveProperty('time_end')
+    const rule = DEFAULT_CONFIG.schedule.rules[0]
+    expect(rule).toHaveProperty('name')
+    expect(rule).toHaveProperty('time_start')
+    expect(rule).toHaveProperty('time_end')
+    expect(rule).toHaveProperty('enabled', true)
+  })
+
+  it('all default schedule rules have enabled: true', () => {
+    for (const rule of DEFAULT_CONFIG.schedule.rules) {
+      expect(rule.enabled).toBe(true)
+    }
   })
 
   it('has a valid theme value', () => {
