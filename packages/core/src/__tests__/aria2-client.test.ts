@@ -170,6 +170,19 @@ describe('Aria2Client', () => {
       const client = new Aria2Client()
       await expect(client.tellActive()).rejects.toThrow()
     })
+
+    it('throws Aria2Error with "malformed response" when result and error both absent', async () => {
+      // JSON-RPC 2.0 §5.1 violation: response must contain result OR error
+      fetchSpy.mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ jsonrpc: '2.0', id: 'test' }),
+      } as unknown as Response)
+
+      const client = new Aria2Client()
+      await expect(client.tellActive()).rejects.toThrow(Aria2Error)
+      await expect(client.tellActive()).rejects.toThrow(/malformed response/)
+    })
   })
 
   describe('mapToTask', () => {

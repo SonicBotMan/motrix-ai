@@ -59,7 +59,12 @@ export class Aria2Client {
       logger.error(`RPC call "${method}" failed: ${data.error.code} ${data.error.message}`)
       throw new Aria2Error(`aria2 error ${data.error.code}: ${data.error.message}`)
     }
-    return data.result as T
+    if (data.result === undefined) {
+      // JSON-RPC 2.0 §5.1: response MUST contain either result or error.
+      logger.error(`RPC call "${method}" returned malformed response: no result and no error`)
+      throw new Aria2Error(`aria2 RPC "${method}" returned malformed response (no result, no error)`)
+    }
+    return data.result
   }
 
   /** 添加下载任务（HTTP/磁力/BT） */
