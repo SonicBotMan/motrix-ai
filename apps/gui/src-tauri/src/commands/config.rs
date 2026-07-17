@@ -11,10 +11,12 @@ fn default_config() -> Value {
         "ai": { "provider": "opencode", "model": "opencode/deepseek-v4-flash-free" },
         "aria2": { "rpc_url": "http://127.0.0.1:6800/jsonrpc" },
         "downloads": {
+            // subdirs are relative names (joined under base_dir by fs.rs::organize_file).
+            // MUST mirror packages/core/src/config/defaults.ts — keep in sync manually.
             "base_dir": "~/Downloads/Motrix AI",
-            "movie_dir": "~/Downloads/Motrix AI/Movies",
-            "software_dir": "~/Downloads/Motrix AI/Software",
-            "other_dir": "~/Downloads/Motrix AI/Other",
+            "movie_dir": "Movies",
+            "software_dir": "Software",
+            "other_dir": "Other",
             "rename_template": "{title} ({year})/{title}.{quality}.{ext}"
         },
         "schedule": {
