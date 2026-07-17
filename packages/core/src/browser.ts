@@ -59,3 +59,7 @@ export { TemplateEngine, DEFAULT_TEMPLATES } from './file/templates.js'
 
 export { TimeScheduler } from './scheduler/time-based.js'
 export { RetryScheduler } from './scheduler/retry.js'
+
+// Default config values (browser-safe — no Node.js APIs).
+// Path fields use `~/` prefix; Rust side expands at use sites.
+export { DEFAULT_CONFIG } from './config/defaults.js'

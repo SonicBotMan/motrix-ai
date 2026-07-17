@@ -6,70 +6,44 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync, renameSync } from '
 import { join } from 'path'
 import { homedir } from 'os'
 import { migrateConfig } from './migrations.js'
+import { DEFAULT_CONFIG as DEFAULTS_WITH_TILDE } from './defaults.js'
 
 const CONFIG_DIR = join(homedir(), '.motrix-ai')
 const CONFIG_FILE = join(CONFIG_DIR, 'config.json')
 
-export const DEFAULT_CONFIG: AppConfig = {
-  ai: {
-    provider: 'opencode',
-    model: 'opencode/deepseek-v4-flash-free',
-  },
-  aria2: {
-    rpc_url: 'http://127.0.0.1:6800/jsonrpc',
-  },
-  network: {
-    http_proxy: '',
-    https_proxy: '',
-    ftp_proxy: '',
-    no_proxy: '',
-  },
-  downloads: {
-    base_dir: join(homedir(), 'Downloads', 'Motrix AI'),
-    movie_dir: join(homedir(), 'Downloads', 'Motrix AI', 'Movies'),
-    software_dir: join(homedir(), 'Downloads', 'Motrix AI', 'Software'),
-    other_dir: join(homedir(), 'Downloads', 'Motrix AI', 'Other'),
-    rename_template: '{title} ({year})/{title}.{quality}.{ext}',
-  },
-  schedule: {
-    enabled: true,
-    rules: [
-      { name: 'Night Full Speed', time_start: '23:00', time_end: '07:00', speed_limit: 0, max_concurrent: 5 },
-      { name: 'Daytime Throttle', time_start: '07:00', time_end: '18:00', speed_limit: 5_000_000, max_concurrent: 2 },
-      { name: 'Evening Moderate', time_start: '18:00', time_end: '23:00', speed_limit: 10_000_000, max_concurrent: 3 },
-    ],
-  },
-  disk: {
-    enabled: true,
-    thresholds: { low_gb: 5, critical_gb: 2, resume_gb: 20 },
-  },
-  subtitles: {
-    enabled: true,
-    preferred_languages: ['zh', 'en'],
-    sources: { shooter: true, subhd: true, opensubtitles: false },
-    subtitle_dir: '~/Downloads/Motrix AI/Subtitles',
-    opensubtitles_api_key: '',
-    auto_search: true,
-  },
-  archive: {
-    enabled: false,
-    targets: [],
-  },
-  nas: {
-    enabled: false,
-    host: '192.168.1.100',
-    port: '22',
-    username: '',
-    moviePath: '/volume1/Media/Movies',
-    softwarePath: '/volume1/Software',
-    musicPath: '/volume1/Music',
-  },
-  ui: {
-    theme: 'dark',
-    language: 'en',
-    log_level: 'info',
-  },
+/** Expand a `~/...` (or `~\...` on Windows) path to an absolute path. */
+function expandTilde(p: string): string {
+  if (p === '~') return homedir()
+  if (p.startsWith('~/')) return join(homedir(), p.slice(2))
+  if (p.startsWith('~\\')) return join(homedir(), p.slice(2))
+  return p
 }
+
+/** Apply tilde expansion to all path-bearing fields of an AppConfig. */
+function expandPaths<T extends AppConfig>(config: T): T {
+  return {
+    ...config,
+    downloads: {
+      ...config.downloads,
+      base_dir: expandTilde(config.downloads.base_dir),
+      movie_dir: expandTilde(config.downloads.movie_dir),
+      software_dir: expandTilde(config.downloads.software_dir),
+      other_dir: expandTilde(config.downloads.other_dir),
+    },
+    subtitles: {
+      ...config.subtitles,
+      subtitle_dir: config.subtitles.subtitle_dir ? expandTilde(config.subtitles.subtitle_dir) : undefined,
+    },
+  }
+}
+
+/**
+ * DEFAULT_CONFIG for Node contexts (CLI, MCP server). Path fields are
+ * tilde-expanded via os.homedir() so CLI/MCP consumers can use them
+ * directly without re-expanding. Browser contexts (GUI) should import
+ * from @motrix-ai/core/browser instead, which exports the raw `~/` form.
+ */
+export const DEFAULT_CONFIG: AppConfig = expandPaths(DEFAULTS_WITH_TILDE)
 
 export function deepMerge<T>(defaults: T, override: unknown): T {
   if (override === null || override === undefined) return defaults

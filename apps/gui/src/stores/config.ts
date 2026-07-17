@@ -17,6 +17,8 @@ import type {
   UiConfig,
 } from '@motrix-ai/core'
 
+import { DEFAULT_CONFIG as CORE_DEFAULT_CONFIG } from '@motrix-ai/core/browser'
+
 // Re-export types for convenience — components import from here
 export type {
   AppConfig,
@@ -34,67 +36,11 @@ export type {
 // Defaults
 // ---------------------------------------------------------------------------
 
-export const DEFAULT_CONFIG: AppConfig = {
-  ai: { provider: 'opencode', model: 'opencode/deepseek-v4-flash-free' },
-  aria2: { rpc_url: 'http://127.0.0.1:6800/jsonrpc' },
-  network: { http_proxy: '', https_proxy: '', ftp_proxy: '', no_proxy: '' },
-  downloads: {
-    base_dir: '~/Downloads/Motrix AI',
-    movie_dir: '~/Downloads/Motrix AI/Movies',
-    software_dir: '~/Downloads/Motrix AI/Software',
-    other_dir: '~/Downloads/Motrix AI/Other',
-    rename_template: '{title} ({year})/{title}.{quality}.{ext}',
-  },
-  schedule: {
-    enabled: true,
-    rules: [
-      {
-        name: 'Night Full Speed',
-        time_start: '23:00',
-        time_end: '07:00',
-        speed_limit: 0,
-        max_concurrent: 5,
-        enabled: true,
-      },
-      {
-        name: 'Daytime Throttle',
-        time_start: '07:00',
-        time_end: '18:00',
-        speed_limit: 5_000_000,
-        max_concurrent: 2,
-        enabled: true,
-      },
-      {
-        name: 'Evening Moderate',
-        time_start: '18:00',
-        time_end: '23:00',
-        speed_limit: 10_000_000,
-        max_concurrent: 3,
-        enabled: true,
-      },
-    ],
-  },
-  disk: { enabled: true, thresholds: { low_gb: 5, critical_gb: 2, resume_gb: 20 } },
-  subtitles: {
-    enabled: true,
-    preferred_languages: ['zh', 'en'],
-    sources: { shooter: true, subhd: true, opensubtitles: false },
-    subtitle_dir: '~/Downloads/Motrix AI/Subtitles',
-    opensubtitles_api_key: '',
-    auto_search: true,
-  },
-  archive: { enabled: false, targets: [] },
-  nas: {
-    enabled: false,
-    host: '192.168.1.100',
-    port: '22',
-    username: '',
-    moviePath: '/volume1/Media/Movies',
-    softwarePath: '/volume1/Software',
-    musicPath: '/volume1/Music',
-  },
-  ui: { theme: 'dark', language: 'en', log_level: 'info' },
-}
+// Re-export DEFAULT_CONFIG for convenience (single source of truth: @motrix-ai/core).
+// Components and tests import from here as '@/stores/config'.
+// NOTE: do NOT mutate this object — it is a shared singleton from @motrix-ai/core.
+// Use deepClone() below if you need a locally-modifiable copy.
+export const DEFAULT_CONFIG = CORE_DEFAULT_CONFIG
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -218,7 +164,8 @@ export const useConfigStore = defineStore('config', () => {
   async function init(): Promise<void> {
     try {
       const fileConfig = await invoke<AppConfig>('load_config')
-      config.value = deepMerge(DEFAULT_CONFIG, fileConfig)
+      // Clone required: DEFAULT_CONFIG is a shared singleton; deepMerge shallow-copies nested arrays/objects.
+      config.value = deepMerge(deepClone(DEFAULT_CONFIG), fileConfig)
     } catch {
       config.value = migrateFromLocalStorage()
       cleanupOldKeys()
