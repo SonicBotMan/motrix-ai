@@ -552,7 +552,10 @@ mod tests {
         #[test]
         fn returns_relative_name_unchanged() {
             assert_eq!(extract_subdir_name("Movies", "fallback"), "Movies");
-            assert_eq!(extract_subdir_name("My Custom Folder", "fallback"), "My Custom Folder");
+            assert_eq!(
+                extract_subdir_name("My Custom Folder", "fallback"),
+                "My Custom Folder"
+            );
             assert_eq!(extract_subdir_name("TV", "fallback"), "TV");
         }
 
