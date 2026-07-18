@@ -88,6 +88,32 @@ const logLevelOptions = [
   { label: 'Error', value: 'error' },
 ]
 
+const aria2RpcUrlError = computed(() => {
+  const url = aria2RpcUrl.value.trim()
+  if (url && !url.startsWith('http://') && !url.startsWith('https://')) {
+    return 'RPC URL must start with http:// or https://'
+  }
+  return ''
+})
+
+const btTrackerWarning = computed(() => {
+  const trackers = btTracker.value.trim()
+  if (!trackers) return ''
+
+  const urls = trackers
+    .split(',')
+    .map((u) => u.trim())
+    .filter(Boolean)
+  const invalidUrls = urls.filter(
+    (u) => !u.startsWith('http://') && !u.startsWith('https://') && !u.startsWith('udp://'),
+  )
+
+  if (invalidUrls.length > 0) {
+    return `Some tracker URLs may be invalid. Valid formats: http://, https://, udp://`
+  }
+  return ''
+})
+
 async function clearDownloadHistory() {
   try {
     manager.clearHistory()
@@ -105,7 +131,8 @@ async function clearDownloadHistory() {
 
     <div class="setting-group">
       <label>{{ t('settings.rpcUrl') }}</label>
-      <NInput v-model:value="aria2RpcUrl" />
+      <NInput v-model:value="aria2RpcUrl" :status="aria2RpcUrlError ? 'error' : undefined" />
+      <p v-if="aria2RpcUrlError" class="form-error">{{ aria2RpcUrlError }}</p>
     </div>
 
     <div class="setting-group">
@@ -136,6 +163,7 @@ async function clearDownloadHistory() {
     <div class="setting-group">
       <label>BitTorrent Trackers</label>
       <NInput v-model:value="btTracker" placeholder="http://tracker1.com/announce,http://tracker2.com/announce" />
+      <p v-if="btTrackerWarning" class="form-warning">{{ btTrackerWarning }}</p>
     </div>
 
     <div class="setting-group">
@@ -157,3 +185,17 @@ async function clearDownloadHistory() {
     </div>
   </div>
 </template>
+
+<style scoped>
+.form-error {
+  color: var(--error);
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.form-warning {
+  color: var(--warning);
+  font-size: 12px;
+  margin-top: 4px;
+}
+</style>

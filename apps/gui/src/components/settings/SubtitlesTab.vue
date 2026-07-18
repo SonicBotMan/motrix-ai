@@ -41,6 +41,18 @@ const subtitleLanguagesText = computed({
   },
 })
 
+const subtitleDirError = computed(() => {
+  const dir = subtitleDir.value.trim()
+  if (!dir) return ''
+
+  // Common invalid path characters (Windows + Unix)
+  const invalidChars = /[<>:"|?*]/
+  if (invalidChars.test(dir)) {
+    return 'Path contains invalid characters'
+  }
+  return ''
+})
+
 async function pickSubtitleDir() {
   try {
     const { open } = await import('@tauri-apps/plugin-dialog')
@@ -92,11 +104,20 @@ async function saveSubtitleApiKey() {
     <div class="setting-group">
       <label>{{ t('settings.subtitleDownloadDir') }}</label>
       <div class="folder-row">
-        <NInput v-model:value="subtitleDir" />
+        <NInput v-model:value="subtitleDir" :status="subtitleDirError ? 'error' : undefined" />
         <NButton size="small" @click="pickSubtitleDir">
           <template #icon><FolderOpenOutline /></template>
         </NButton>
       </div>
+      <p v-if="subtitleDirError" class="form-error">{{ subtitleDirError }}</p>
     </div>
   </div>
 </template>
+
+<style scoped>
+.form-error {
+  color: var(--error);
+  font-size: 12px;
+  margin-top: 4px;
+}
+</style>

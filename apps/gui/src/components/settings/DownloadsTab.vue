@@ -17,6 +17,13 @@ const downloadDir = computed<string>({
   get: () => store.config.downloads.base_dir,
   set: (v: string) => store.updateSection('downloads', { base_dir: v }),
 })
+
+const downloadDirError = computed(() => {
+  const val = downloadDir.value.trim()
+  if (!val) return 'Download directory is required'
+  return ''
+})
+
 // aria2 daemon runtime options — applied via watchers below, not persisted to config.
 const maxConcurrent = ref(5)
 const downloadSpeedLimit = ref(0)
@@ -95,11 +102,12 @@ async function applyAria2Settings() {
     <div class="setting-group">
       <label>{{ t('settings.downloadDir') }}</label>
       <div class="folder-row">
-        <NInput v-model:value="downloadDir" />
+        <NInput v-model:value="downloadDir" :status="downloadDirError ? 'error' : undefined" />
         <NButton size="small" @click="pickDownloadDir">
           <template #icon><FolderOpenOutline /></template>
         </NButton>
       </div>
+      <p v-if="downloadDirError" class="form-error">{{ downloadDirError }}</p>
     </div>
 
     <div class="setting-group">
@@ -135,3 +143,11 @@ async function applyAria2Settings() {
     <NButton type="primary" @click="applyAria2Settings">{{ t('settings.applyNow') }}</NButton>
   </div>
 </template>
+
+<style scoped>
+.form-error {
+  color: var(--error);
+  font-size: 12px;
+  margin-top: 4px;
+}
+</style>
