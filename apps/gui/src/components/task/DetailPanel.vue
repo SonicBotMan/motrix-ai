@@ -33,6 +33,7 @@ import {
 } from '@vicons/ionicons5'
 import type { Task } from '@/stores/tasks'
 import { bytesToSize } from '@/shared/utils/format'
+import DetailProgressRing from './DetailProgressRing.vue'
 
 interface TimelineEvent {
   time: string
@@ -127,47 +128,6 @@ const statusInfo = computed(() => {
       return { label: 'FAILED', cls: 'error' }
     default:
       return { label: 'PENDING', cls: '' }
-  }
-})
-
-/** Ring stroke color follows status, same mapping as the progress bar */
-const ringColor = computed(() => {
-  if (!props.task) return 'var(--border)'
-  switch (props.task.status) {
-    case 'downloading':
-      return 'var(--primary)'
-    case 'paused':
-      return 'var(--warning)'
-    case 'completed':
-      return 'var(--accent)'
-    case 'failed':
-      return 'var(--error)'
-    default:
-      return 'var(--border)'
-  }
-})
-
-/** Circumference of r=48 ring → 2π·48 ≈ 301.6 */
-const RING_CIRC = 2 * Math.PI * 48
-const ringDashoffset = computed(() => {
-  const pct = Math.max(0, Math.min(100, props.task?.progress ?? 0))
-  return RING_CIRC * (1 - pct / 100)
-})
-
-/** Caption under the ring */
-const ringCaption = computed(() => {
-  if (!props.task) return ''
-  switch (props.task.status) {
-    case 'downloading':
-      return `Downloading · ${props.task.eta || '—'} remaining`
-    case 'paused':
-      return 'Paused'
-    case 'completed':
-      return 'Completed'
-    case 'failed':
-      return 'Failed. Retry to resume.'
-    default:
-      return 'Queued'
   }
 })
 
@@ -393,40 +353,7 @@ watch(showMoreMenu, (visible) => {
           </div>
 
           <!-- ── Zone 3: Progress ring ────────────────────────────── -->
-          <section class="detail-ring" aria-label="Download progress">
-            <svg
-              class="ring-svg"
-              width="120"
-              height="120"
-              viewBox="0 0 120 120"
-              role="progressbar"
-              :aria-valuenow="props.task.progress"
-              aria-valuemin="0"
-              aria-valuemax="100"
-              :aria-valuetext="`${props.task.progress}% complete`"
-            >
-              <!-- background ring -->
-              <circle cx="60" cy="60" r="48" fill="none" stroke="var(--border)" stroke-width="4" />
-              <!-- foreground ring (rotate on the <g> so text stays upright) -->
-              <g transform="rotate(-90 60 60)">
-                <circle
-                  cx="60"
-                  cy="60"
-                  r="48"
-                  fill="none"
-                  :stroke="ringColor"
-                  stroke-width="4"
-                  stroke-linecap="round"
-                  :stroke-dasharray="RING_CIRC"
-                  :stroke-dashoffset="ringDashoffset"
-                />
-              </g>
-              <text x="60" y="60" text-anchor="middle" dominant-baseline="central" class="ring-text">
-                {{ props.task.progress }}%
-              </text>
-            </svg>
-            <p class="ring-caption">{{ ringCaption }}</p>
-          </section>
+          <DetailProgressRing :task="props.task" />
 
           <!-- ── Zone 4: Collapsible sections ──────────────────────── -->
           <section class="detail-sections">
@@ -822,35 +749,6 @@ watch(showMoreMenu, (visible) => {
   color: var(--error, #ef4444);
   font-size: var(--text-body-sm);
   border-bottom: 1px solid var(--border);
-}
-
-/* ── Zone 3: Progress ring ───────────────────────────────────────── */
-.detail-ring {
-  flex: 0 0 auto;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-6) var(--space-5) var(--space-5);
-}
-
-.ring-svg {
-  display: block;
-}
-
-.ring-text {
-  font-family: var(--font-ui);
-  font-size: 26px;
-  font-weight: 600;
-  fill: var(--fg);
-}
-
-.ring-caption {
-  margin: 0;
-  font-family: var(--font-ui);
-  font-size: var(--text-body-sm);
-  color: var(--fg-tertiary);
-  text-align: center;
 }
 
 /* ── Zone 4: Sections (scrollable) ───────────────────────────────── */
