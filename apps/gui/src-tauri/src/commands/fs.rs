@@ -428,10 +428,25 @@ pub async fn organize_file(
                 .extension()
                 .map(|e| format!(".{}", e.to_string_lossy()))
                 .unwrap_or_default();
-            target_dir.join(format!("{} (2){}", stem, ext))
+            canon_target.join(format!("{} (2){}", stem, ext))
         } else {
             target_path
         };
+
+        // P0-4 FIX: Re-validate canonical path right before write to close TOCTOU window.
+        // A symlink swap between the earlier canonicalize (line 408) and this write
+        // could redirect the file outside base_dir.
+        let canon_final = final_path
+            .canonicalize()
+            .unwrap_or_else(|_| final_path.clone());
+        let canon_base_now = base_dir.canonicalize().unwrap_or_else(|_| base_dir.clone());
+        if !canon_final.starts_with(&canon_base_now) {
+            return Err(format!(
+                "Security: final path escaped base dir before write: {} not under {}",
+                canon_final.display(),
+                canon_base_now.display()
+            ));
+        }
 
         if src != final_path {
             std::fs::rename(&src, &final_path)

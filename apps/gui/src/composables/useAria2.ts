@@ -128,6 +128,7 @@ let rpcId = 0
 let pollTimer: ReturnType<typeof setInterval> | null = null
 let reconnectAttempt = 0
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null
+let restartAttempted = false
 let disposed = false
 let started = false
 
@@ -185,6 +186,21 @@ const call = async <T>(method: string, ...params: unknown[]): Promise<T> => {
 const scheduleReconnect = () => {
   if (disposed) return
   if (reconnectAttempt >= maxReconnectRef.value) {
+    if (!restartAttempted) {
+      restartAttempted = true
+      emitConnection('reconnecting', 'Restarting aria2c daemon...')
+      reconnectTimer = setTimeout(async () => {
+        try {
+          const { invoke } = await import('@tauri-apps/api/core')
+          await invoke('start_aria2', { rpcPort: 6800 })
+          reconnectAttempt = 0
+          scheduleReconnect()
+        } catch {
+          emitConnection('error', 'aria2c restart failed. Please restart the app.')
+        }
+      }, 2000)
+      return
+    }
     emitConnection('error', `Max reconnect attempts (${maxReconnectRef.value}) reached`)
     return
   }
@@ -490,6 +506,7 @@ function reset(): void {
   connecting.value = false
   aria2Running.value = false
   reconnectAttempt = 0
+  restartAttempted = false
   clearReconnect()
   stopPolling()
 }
