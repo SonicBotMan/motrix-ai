@@ -72,7 +72,7 @@ const getStatusColor = (status: string) => {
     case 'failed':
       return 'var(--error)'
     default:
-      return '#3B82F6'
+      return 'var(--primary)'
   }
 }
 
@@ -320,8 +320,8 @@ const formatTime = (date: Date) => {
   color: var(--error);
 }
 .detail-icon.audio {
-  background: rgba(139, 92, 246, 0.12);
-  color: #8b5cf6;
+  background: var(--primary-muted);
+  color: var(--primary);
 }
 
 .detail-title-area {

@@ -1,9 +1,9 @@
-// commands/pause.ts — motrix-ai pause / resume / remove / pause-all / resume-all 命令
+// commands/pause.ts — motrix-ai pause / resume / remove / pause-all / resume-all commands
 
 import type { Command } from 'commander'
 import { Aria2Client, QueueManager, loadConfig } from '@motrix-ai/core'
 
-/** 从 config 创建 QueueManager 实例 */
+/** Create QueueManager instance from config */
 function createQueue() {
   const config = loadConfig()
   const aria2 = new Aria2Client({
@@ -26,15 +26,15 @@ function isConnectionError(err: unknown): boolean {
   )
 }
 
-/** 打印 aria2 连接失败提示，区分连接错误和 RPC 错误（QA #6 修复） */
+/** Print aria2 connection failure hint, distinguishing connection errors from RPC errors (QA #6 fix) */
 function printCommandError(err: unknown, rpcUrl: string, action: string): void {
   if (isConnectionError(err)) {
-    console.error('\n❌ Cannot connect to aria2，请确认 aria2 已启动。')
-    console.error(`   尝试连接: ${rpcUrl}`)
+    console.error('\n❌ Cannot connect to aria2, please confirm aria2 is running.')
+    console.error(`   Trying to connect: ${rpcUrl}`)
   } else {
-    // aria2 接受了请求但返回了 JSON-RPC 错误（例如 GID 已完成、任务不存在）
+    // aria2 accepted the request but returned a JSON-RPC error (e.g., GID already completed, task doesn't exist)
     const detail = err instanceof Error ? err.message : String(err)
-    console.error(`\n❌ ${action}失败: ${detail}`)
+    console.error(`\n❌ ${action} failed: ${detail}`)
   }
 }
 
@@ -53,9 +53,9 @@ export function registerPauseCommand(program: Command): void {
       const { queue, rpcUrl } = createQueue()
       try {
         await queue.pause(gid)
-        console.log(`\n⏸  任务 ${gid}  paused`)
+        console.log(`\n⏸  Task ${gid}  paused`)
       } catch (err) {
-        printCommandError(err, rpcUrl, `暂停 ${gid}`)
+        printCommandError(err, rpcUrl, `Pause ${gid}`)
       }
     })
 
@@ -68,9 +68,9 @@ export function registerPauseCommand(program: Command): void {
       const { queue, rpcUrl } = createQueue()
       try {
         await queue.resume(gid)
-        console.log(`\n▶  任务 ${gid}  resumed`)
+        console.log(`\n▶  Task ${gid}  resumed`)
       } catch (err) {
-        printCommandError(err, rpcUrl, `恢复 ${gid}`)
+        printCommandError(err, rpcUrl, `Resume ${gid}`)
       }
     })
 
@@ -83,9 +83,9 @@ export function registerPauseCommand(program: Command): void {
       const { queue, rpcUrl } = createQueue()
       try {
         await queue.remove(gid)
-        console.log(`\n🗑  任务 ${gid}  removed`)
+        console.log(`\n🗑  Task ${gid}  removed`)
       } catch (err) {
-        printCommandError(err, rpcUrl, `删除 ${gid}`)
+        printCommandError(err, rpcUrl, `Remove ${gid}`)
       }
     })
 
@@ -101,7 +101,7 @@ export function registerPauseCommand(program: Command): void {
         for (const t of active) {
           await queue.pause(t.id)
         }
-        console.log(`\n⏸   paused ${active.length} 个任务`)
+        console.log(`\n⏸   Paused ${active.length} tasks`)
       } catch (err) {
         printCommandError(err, rpcUrl, 'Pause all tasks')
       }
@@ -119,7 +119,7 @@ export function registerPauseCommand(program: Command): void {
         for (const t of paused) {
           await queue.resume(t.id)
         }
-        console.log(`\n▶   resumed ${paused.length} 个任务`)
+        console.log(`\n▶   Resumed ${paused.length} tasks`)
       } catch (err) {
         printCommandError(err, rpcUrl, 'Resume all tasks')
       }
