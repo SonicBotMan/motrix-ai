@@ -26,17 +26,10 @@
  */
 
 import { computed, nextTick, ref, watch } from 'vue'
-import { NIcon } from 'naive-ui'
-import {
-  VideocamOutline,
-  MusicalNotesOutline,
-  DocumentTextOutline,
-  ArchiveOutline,
-  CloudDownloadOutline,
-} from '@vicons/ionicons5'
-import type { Task, TaskStatus, TaskType } from '@/stores/tasks'
+import type { Task } from '@/stores/tasks'
 import FilterTabs from './FilterTabs.vue'
 import EmptyState from './EmptyState.vue'
+import TaskRow from './TaskRow.vue'
 
 interface Props {
   tasks: Task[]
@@ -66,9 +59,13 @@ const emit = defineEmits<{
 
 // --- State ---
 
+type ScrollableElement = {
+  scrollIntoView(options?: { block?: string; behavior?: string; inline?: string }): void
+}
+
 const flashingRowId = ref<number | null>(null)
 const openMenuId = ref<number | null>(null)
-const rowRefs = ref<Array<HTMLTableRowElement | null>>([])
+const rowRefs = ref<Array<ScrollableElement | null>>([])
 
 type SortField = 'name' | 'progress' | 'speed' | 'size' | 'status'
 const sortField = ref<SortField | null>(null)
@@ -90,8 +87,14 @@ const someSelected = computed(() => {
   return props.selectedIds.size > 0 && !allSelected.value
 })
 
-const setRowRef = (el: Element | null | undefined, i: number) => {
-  rowRefs.value[i] = (el as HTMLTableRowElement | null) ?? null
+// --- Ref helpers for template ---
+
+function setRowRef(el: unknown, i: number) {
+  rowRefs.value[i] = el as ScrollableElement | null
+}
+
+function handleToggleMenuPayload(p: { taskId: number; event: MouseEvent }) {
+  handleMenuToggle(p.taskId, p.event)
 }
 
 // --- Keyboard-index visual feedback (BUG-2 fix) ---
@@ -146,62 +149,7 @@ const displayTasks = computed<Task[]>(() => {
   })
 })
 
-// --- Helpers ---
-
-/** Truncate source URLs for display */
-function formatSource(source: string): string {
-  if (!source) return ''
-  if (source.startsWith('magnet:')) {
-    // Extract the btih infohash so each magnet task shows a unique,
-    // recognizable value rather than a fake placeholder.
-    const match = source.match(/xt=urn:btih:([a-zA-Z0-9]+)/i)
-    return match ? `magnet:${match[1].slice(0, 12)}…` : 'magnet:?'
-  }
-  if (source.startsWith('torrent://')) {
-    return source.replace('torrent://', 'torrent: ')
-  }
-  try {
-    const url = new URL(source)
-    return url.hostname.replace('www.', '')
-  } catch {
-    return source
-  }
-}
-
-/** Map TaskStatus to pill class name */
-function statusPillClass(status: TaskStatus): string {
-  if (status === 'failed') return 'error'
-  return status
-}
-
-/** Map TaskStatus to pill label */
-function statusLabel(status: TaskStatus): string {
-  const labels: Record<string, string> = {
-    downloading: 'DOWNLOADING',
-    paused: 'PAUSED',
-    completed: 'COMPLETED',
-    failed: 'FAILED',
-    pending: 'PENDING',
-  }
-  return labels[status] || status.toUpperCase()
-}
-
-/** Map TaskType to progress fill color class */
-function fillClass(status: TaskStatus): string {
-  return statusPillClass(status)
-}
-
-// --- Type icons (ionicon components) ---
-
-const typeIcons: Record<TaskType, typeof VideocamOutline> = {
-  video: VideocamOutline,
-  audio: MusicalNotesOutline,
-  document: DocumentTextOutline,
-  archive: ArchiveOutline,
-  torrent: CloudDownloadOutline,
-}
-
-// --- Row click → flash → open detail ---
+// --- Computed ---
 
 function handleRowClick(task: Task): void {
   // 180ms row flash, then emit openDetail
@@ -261,84 +209,20 @@ function handleMenuToggle(taskId: number, event: MouseEvent): void {
         </tr>
       </thead>
       <tbody id="taskTableBody">
-        <tr
+        <TaskRow
           v-for="(task, i) in displayTasks"
           :key="task.id"
-          :ref="(el) => setRowRef(el as Element | null, i)"
-          :data-task-id="task.id"
-          :style="{ '--row-i': i }"
-          :class="{
-            selected: keyboardIndex === i,
-            'row-flash': flashingRowId === task.id,
-          }"
-          @click="handleRowClick(task)"
-        >
-          <!-- Checkbox -->
-          <td class="col-check" @click.stop>
-            <input type="checkbox" :checked="selectedIds.has(task.id)" @change="emit('toggleSelect', task.id)" />
-          </td>
-          <!-- Name -->
-          <td class="col-name">
-            <div class="col-name-inner">
-              <NIcon class="task-type-icon" :component="typeIcons[task.type]" :size="14" aria-hidden="true" />
-              <span class="task-name-text">{{ task.name }}</span>
-            </div>
-          </td>
-
-          <!-- Source -->
-          <td class="col-source">{{ formatSource(task.source) }}</td>
-
-          <!-- Status pill -->
-          <td class="col-status">
-            <span class="status-pill" :class="statusPillClass(task.status)">
-              {{ statusLabel(task.status) }}
-            </span>
-          </td>
-
-          <!-- Progress -->
-          <td class="col-progress">
-            <div class="col-progress-inner">
-              <div class="task-progress">
-                <div
-                  class="task-progress-fill"
-                  :class="fillClass(task.status)"
-                  :style="{ width: task.progress + '%' }"
-                />
-              </div>
-              <span class="task-progress-pct">{{ task.progress }}%</span>
-            </div>
-          </td>
-
-          <!-- Speed -->
-          <td class="col-speed">
-            <span v-if="task.status === 'downloading'">{{ task.speed }}</span>
-            <span v-if="task.status === 'downloading' && task.uploadSpeed" class="upload-speed"
-              >↑{{ task.uploadSpeed }}</span
-            >
-            <span v-if="task.status !== 'downloading'">{{ '\u00B7' }}</span>
-          </td>
-
-          <!-- Size -->
-          <td class="col-size">{{ task.size }}</td>
-
-          <!-- ETA -->
-          <td class="col-eta">{{ task.eta || '\u2014' }}</td>
-
-          <!-- Actions -->
-          <td class="col-actions">
-            <button
-              type="button"
-              class="task-row-menu"
-              title="Row actions"
-              aria-label="Open task actions menu"
-              aria-haspopup="menu"
-              :aria-expanded="openMenuId === task.id"
-              @click.stop="handleMenuToggle(task.id, $event)"
-            >
-              &#8943;
-            </button>
-          </td>
-        </tr>
+          :ref="(el) => setRowRef(el, i)"
+          :task="task"
+          :row-index="i"
+          :selected="selectedIds.has(task.id)"
+          :keyboard-selected="keyboardIndex === i"
+          :flashing="flashingRowId === task.id"
+          :menu-open="openMenuId === task.id"
+          @click="handleRowClick"
+          @toggle-menu="handleToggleMenuPayload"
+          @toggle-select="(id: number) => emit('toggleSelect', id)"
+        />
       </tbody>
     </table>
 
@@ -439,32 +323,32 @@ function handleMenuToggle(taskId: number, event: MouseEvent): void {
 }
 
 /* Column widths: 3% | 25% | 16% | 8% | 17% | 8% | 11% | 7% | 5% */
-.task-table .col-check {
+.task-table :deep(.col-check) {
   width: 3%;
   text-align: center;
 }
-.task-table .col-name {
+.task-table :deep(.col-name) {
   width: 25%;
 }
-.task-table .col-source {
+.task-table :deep(.col-source) {
   width: 16%;
 }
-.task-table .col-status {
+.task-table :deep(.col-status) {
   width: 8%;
 }
-.task-table .col-progress {
+.task-table :deep(.col-progress) {
   width: 17%;
 }
-.task-table .col-speed {
+.task-table :deep(.col-speed) {
   width: 8%;
 }
-.task-table .col-size {
+.task-table :deep(.col-size) {
   width: 11%;
 }
-.task-table .col-eta {
+.task-table :deep(.col-eta) {
   width: 7%;
 }
-.task-table .col-actions {
+.task-table :deep(.col-actions) {
   width: 5%;
 }
 
@@ -480,273 +364,6 @@ function handleMenuToggle(taskId: number, event: MouseEvent): void {
   margin-left: 4px;
   font-size: 10px;
   opacity: 0.7;
-}
-
-.upload-speed {
-  display: block;
-  font-size: 11px;
-  opacity: 0.6;
-}
-
-/* --- Table body rows --- */
-
-.task-table tbody tr {
-  min-height: var(--row-height, 56px);
-  cursor: pointer;
-  border-bottom: 1px solid var(--border);
-  animation: rowReveal 220ms var(--ease-default, cubic-bezier(0.2, 0.8, 0.2, 1)) backwards;
-  animation-delay: calc(var(--row-i, 0) * 28ms);
-  transition: background var(--transition-fast, 150ms) var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1));
-}
-
-@keyframes rowReveal {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.task-table tbody tr:hover {
-  background: var(--primary-subtle);
-}
-
-.task-table tbody tr.selected {
-  background: var(--primary-muted);
-  box-shadow: inset 2px 0 0 0 var(--primary);
-}
-
-.task-table tbody tr.row-flash {
-  background: var(--primary-muted);
-  transform: scale(1.005);
-  transition: all 180ms var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1));
-}
-
-/* --- Cells --- */
-
-.task-table td {
-  padding: 0 var(--space-3, 12px);
-  font-family: var(--font-ui);
-  font-size: 13px;
-  color: var(--fg);
-  vertical-align: middle;
-  overflow: hidden;
-}
-
-/* Name column — td must stay table-cell, flex goes on inner div */
-.col-name {
-  /* td default: table-cell */
-}
-
-.col-name-inner {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2, 8px);
-  overflow: hidden;
-}
-
-.task-type-icon {
-  flex-shrink: 0;
-  color: var(--fg-tertiary);
-}
-
-.task-name-text {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-weight: 500;
-  min-width: 0;
-}
-
-/* Source column */
-.col-source {
-  color: var(--fg-secondary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* Mono columns */
-.col-speed,
-.col-size,
-.col-eta,
-.task-progress-pct {
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
-  font-feature-settings: 'tnum' 1;
-  white-space: nowrap;
-}
-
-.col-speed,
-.col-size,
-.col-eta {
-  color: var(--fg-secondary);
-}
-
-/* --- Status pills --- */
-
-.status-pill {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: 20px;
-  padding: 0 var(--space-2, 8px);
-  font-family: var(--font-ui);
-  font-size: 11px;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  border-radius: var(--radius-full, 9999px);
-  white-space: nowrap;
-}
-
-.status-pill.downloading {
-  background: var(--primary-muted);
-  color: var(--primary);
-}
-
-.status-pill.paused {
-  background: var(--warning-muted);
-  color: var(--warning);
-}
-
-.status-pill.completed {
-  background: var(--accent-muted);
-  color: var(--accent);
-}
-
-.status-pill.error,
-.status-pill.failed {
-  background: var(--error-muted);
-  color: var(--error);
-}
-
-.status-pill.pending {
-  background: var(--surface-hover);
-  color: var(--fg-tertiary);
-}
-
-/* --- Progress bar — td must stay table-cell, flex goes on inner div --- */
-
-.col-progress {
-  /* td default: table-cell */
-}
-
-.col-progress-inner {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2, 8px);
-}
-
-.task-progress {
-  flex: 1;
-  height: 6px;
-  background: var(--border);
-  border-radius: var(--radius-full, 9999px);
-  overflow: hidden;
-  position: relative;
-}
-
-.task-progress-fill {
-  height: 100%;
-  border-radius: var(--radius-full, 9999px);
-  position: relative;
-  transition: width 300ms var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1));
-}
-
-.task-progress-fill.downloading {
-  background: linear-gradient(
-    90deg,
-    var(--primary) 0%,
-    var(--primary) 40%,
-    var(--primary-hover) 50%,
-    var(--primary) 60%,
-    var(--primary) 100%
-  );
-  background-size: 200% 100%;
-  animation: shimmer 2s linear infinite;
-}
-
-.task-progress-fill.downloading::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: inherit;
-  background-size: 200% 100%;
-  animation: shimmer 2s linear infinite;
-}
-
-@keyframes shimmer {
-  0% {
-    background-position: -200% 0;
-  }
-  100% {
-    background-position: 200% 0;
-  }
-}
-
-.task-progress-fill.paused {
-  background: var(--warning);
-}
-
-.task-progress-fill.completed {
-  background: var(--accent);
-}
-
-.task-progress-fill.error,
-.task-progress-fill.failed {
-  background: var(--error);
-}
-
-.task-progress-pct {
-  font-size: 12px;
-  color: var(--fg-secondary);
-  min-width: 36px;
-  text-align: right;
-}
-
-/* --- Actions (row menu) --- */
-
-.col-actions {
-  text-align: right;
-  white-space: nowrap;
-}
-
-.task-row-menu {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  border: none;
-  background: transparent;
-  color: var(--fg-muted);
-  font-size: 16px;
-  line-height: 1;
-  cursor: pointer;
-  border-radius: var(--radius-xs, 6px);
-  opacity: 0.7;
-  transition:
-    opacity var(--transition-fast, 150ms) var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1)),
-    color var(--transition-fast, 150ms) var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1)),
-    background var(--transition-fast, 150ms) var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1));
-}
-
-.task-row-menu:hover,
-tr:hover .task-row-menu {
-  opacity: 1;
-  color: var(--fg);
-}
-
-.task-row-menu:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 3px;
-  box-shadow: 0 0 0 6px var(--focus-ring-soft);
-  opacity: 1;
 }
 
 /* --- Empty state --- */
@@ -838,23 +455,4 @@ tr:hover .task-row-menu {
 }
 
 /* --- Reduced motion --- */
-
-@media (prefers-reduced-motion: reduce) {
-  .task-table tbody tr {
-    animation: none !important;
-  }
-
-  .task-table tbody tr.row-flash {
-    transform: none;
-  }
-
-  .task-progress-fill.downloading,
-  .task-progress-fill.downloading::after {
-    animation: none !important;
-  }
-
-  .task-progress-fill {
-    transition-duration: 0.01ms !important;
-  }
-}
 </style>
