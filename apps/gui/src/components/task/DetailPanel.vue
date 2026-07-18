@@ -34,6 +34,7 @@ import {
 import type { Task } from '@/stores/tasks'
 import { bytesToSize } from '@/shared/utils/format'
 import DetailProgressRing from './DetailProgressRing.vue'
+import DetailPeerList from './DetailPeerList.vue'
 
 interface TimelineEvent {
   time: string
@@ -64,52 +65,6 @@ const emit = defineEmits<{
 
 const panelRef = ref<HTMLElement | null>(null)
 
-const peers = ref<Array<{ ip: string; port: string; downloadSpeed: string; uploadSpeed: string }>>([])
-
-function formatPeerSpeed(speedStr: string): string {
-  const speed = Number(speedStr) || 0
-  if (speed >= 1_000_000) return `${(speed / 1_000_000).toFixed(1)}MB/s`
-  if (speed >= 1_000) return `${(speed / 1_000).toFixed(0)}KB/s`
-  return `${speed}B/s`
-}
-
-let peerPollTimer: ReturnType<typeof setInterval> | null = null
-
-async function fetchPeers(): Promise<void> {
-  if (!props.task?.gid) {
-    peers.value = []
-    return
-  }
-  try {
-    const { useAria2 } = await import('@/composables/useAria2')
-    const aria2 = useAria2()
-    if (aria2.connected.value) {
-      peers.value = await aria2.getPeers(props.task.gid)
-    }
-  } catch {
-    peers.value = []
-  }
-}
-
-watch(
-  () => props.task?.gid,
-  (gid) => {
-    if (peerPollTimer) {
-      clearInterval(peerPollTimer)
-      peerPollTimer = null
-    }
-    if (gid) {
-      void fetchPeers()
-      peerPollTimer = setInterval(() => void fetchPeers(), 3000)
-    } else {
-      peers.value = []
-    }
-  },
-)
-
-onUnmounted(() => {
-  if (peerPollTimer) clearInterval(peerPollTimer)
-})
 const isClosing = ref(false)
 const showMoreMenu = ref(false)
 const moreMenuRef = ref<HTMLElement | null>(null)
@@ -336,18 +291,8 @@ watch(showMoreMenu, (visible) => {
               <div class="stat-label">GID</div>
               <div class="stat-value stat-mono">{{ props.task.gid.slice(0, 12) }}</div>
             </div>
-            <div v-if="peers.length > 0" class="stat-cell">
-              <div class="stat-label">Peers</div>
-              <div class="stat-value">{{ peers.length }}</div>
-            </div>
           </section>
-          <div v-if="peers.length > 0" class="peer-list-section">
-            <div class="peer-list-header">Peer Details</div>
-            <div v-for="(peer, i) in peers.slice(0, 10)" :key="i" class="peer-row">
-              <span class="peer-ip">{{ peer.ip }}:{{ peer.port }}</span>
-              <span class="peer-speed">↓{{ formatPeerSpeed(peer.downloadSpeed) }}</span>
-            </div>
-          </div>
+          <DetailPeerList :gid="props.task?.gid" />
           <div v-if="props.task.errorMessage" class="detail-error-banner">
             {{ props.task.errorMessage }}
           </div>
