@@ -27,11 +27,20 @@ describe('DEFAULT_CONFIG', () => {
     }
   })
 
-  it('uses ~/ prefix for all download path fields (browser-safe canonical form)', () => {
+  it('uses ~/ prefix for base_dir (browser-safe canonical form)', () => {
     expect(DEFAULT_CONFIG.downloads.base_dir).toMatch(/^~\//)
-    expect(DEFAULT_CONFIG.downloads.movie_dir).toMatch(/^~\//)
-    expect(DEFAULT_CONFIG.downloads.software_dir).toMatch(/^~\//)
-    expect(DEFAULT_CONFIG.downloads.other_dir).toMatch(/^~\//)
+  })
+
+  it('uses relative names for subdir fields (not full paths)', () => {
+    // Subdirs are joined under base_dir by Rust's organize_file.
+    // Full-path values would be sanitized into ~_Downloads_... nonsense dirs.
+    expect(DEFAULT_CONFIG.downloads.movie_dir).toBe('Movies')
+    expect(DEFAULT_CONFIG.downloads.software_dir).toBe('Software')
+    expect(DEFAULT_CONFIG.downloads.other_dir).toBe('Other')
+    // Ensure no separator characters slipped in
+    expect(DEFAULT_CONFIG.downloads.movie_dir).not.toMatch(/[/\\]/)
+    expect(DEFAULT_CONFIG.downloads.software_dir).not.toMatch(/[/\\]/)
+    expect(DEFAULT_CONFIG.downloads.other_dir).not.toMatch(/[/\\]/)
   })
 
   it('uses ~/ prefix for subtitle_dir when present', () => {

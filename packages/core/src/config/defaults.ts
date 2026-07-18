@@ -27,9 +27,14 @@ export const DEFAULT_CONFIG: AppConfig = {
   },
   downloads: {
     base_dir: '~/Downloads/Motrix AI',
-    movie_dir: '~/Downloads/Motrix AI/Movies',
-    software_dir: '~/Downloads/Motrix AI/Software',
-    other_dir: '~/Downloads/Motrix AI/Other',
+    // Subdir fields are RELATIVE NAMES, not paths. They are joined under
+    // base_dir by Rust's organize_file (fs.rs:333+). The fallbacks in
+    // configured_subdir (fs.rs:326-331) match these values.
+    // Legacy configs with "~/Downloads/.../Movies" full-path values are
+    // handled transparently by configured_subdir's basename extraction.
+    movie_dir: 'Movies',
+    software_dir: 'Software',
+    other_dir: 'Other',
     rename_template: '{title} ({year})/{title}.{quality}.{ext}',
   },
   schedule: {
