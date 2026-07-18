@@ -1,21 +1,21 @@
-// commands/add.ts — motrix-ai add 命令
-// 直接添加 URL/磁力/.torrent 到下载队列
+// commands/add.ts — motrix-ai add command
+// Directly add URL/magnet/.torrent to download queue
 
 import type { Command } from 'commander'
 import { Aria2Client, QueueManager, loadConfig } from '@motrix-ai/core'
 import { existsSync, readFileSync, statSync } from 'fs'
 
-/** 判断输入是否为磁力链接 */
+/** Check if input is a magnet link */
 function isMagnet(input: string): boolean {
   return input.startsWith('magnet:')
 }
 
-/** 判断输入是否为 HTTP/HTTPS URL */
+/** Check if input is an HTTP/HTTPS URL */
 function isHttpUrl(input: string): boolean {
   return input.startsWith('http://') || input.startsWith('https://')
 }
 
-/** 判断输入是否为本地 .torrent 文件路径 */
+/** Check if input is a local .torrent file path */
 function isTorrentFile(input: string): boolean {
   return (input.endsWith('.torrent') || /\.(torrent)$/i.test(input)) && existsSync(input)
 }
@@ -31,9 +31,9 @@ function isTorrentFile(input: string): boolean {
 export function registerAddCommand(program: Command): void {
   program
     .command('add')
-    .argument('<url-or-magnet>', '下载链接（HTTP/HTTPS URL、磁力链接或 .torrent 文件路径）')
-    .option('--name <name>', '自定义任务名称')
-    .description('直接添加下载链接到队列')
+    .argument('<url-or-magnet>', 'Download URL (HTTP/HTTPS URL, magnet link, or .torrent file path)')
+    .option('--name <name>', 'Custom task name')
+    .description('Add download URL directly to queue')
     .action(async (input: string, options: { name?: string }) => {
       const config = loadConfig()
       console.log(`\n
@@ -49,12 +49,12 @@ export function registerAddCommand(program: Command): void {
         let task
 
         if (isTorrentFile(input)) {
-          // .torrent 文件 → aria2.addTorrent
+          // .torrent file → aria2.addTorrent
           console.log(`   Type: .torrent file`)
           console.log(`   Path: ${input}`)
           const torrentStat = statSync(input)
           if (torrentStat.size > 5 * 1024 * 1024) {
-            console.error(`❌ .torrent 文件过大: ${(torrentStat.size / 1024 / 1024).toFixed(1)}MB (最大 5MB)`)
+            console.error(`❌ .torrent file too large: ${(torrentStat.size / 1024 / 1024).toFixed(1)}MB (max 5MB)`)
             return
           }
           const torrentBase64 = readFileSync(input).toString('base64')
@@ -63,7 +63,7 @@ export function registerAddCommand(program: Command): void {
           })
           task = await queue.getStatus(gid)
         } else if (isMagnet(input)) {
-          // 磁力链接
+          // Magnet link
           console.log(`   Type: Magnet link`)
           const label = options.name ?? input.slice(0, 60)
           task = await queue.add(input, label, { dir: config.downloads.base_dir })
@@ -77,7 +77,7 @@ export function registerAddCommand(program: Command): void {
           console.error('   Supported formats:')
           console.error('   - Magnet: magnet:?xt=urn:btih:...')
           console.error('   - HTTP/HTTPS URL: https://example.com/file.zip')
-          console.error('   - .torrent 文件Path: /path/to/file.torrent')
+          console.error('   - .torrent file path: /path/to/file.torrent')
           return
         }
 
@@ -90,7 +90,7 @@ export function registerAddCommand(program: Command): void {
         console.log(`   Status: ${task.status}`)
       } catch (err) {
         console.error('\n❌ Failed to add task: ' + (err instanceof Error ? err.message : String(err)))
-        console.error(`   尝试连接: ${config.aria2.rpc_url}`)
+        console.error(`   Trying to connect: ${config.aria2.rpc_url}`)
       }
     })
 }

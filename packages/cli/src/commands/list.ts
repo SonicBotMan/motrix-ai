@@ -1,11 +1,11 @@
-// commands/list.ts — motrix-ai list 命令
-// 查看下载队列，支持Filter by status
+// commands/list.ts — motrix-ai list command
+// View download queue, support filtering by status
 
 import type { Command } from 'commander'
 import { Aria2Client, QueueManager, loadConfig } from '@motrix-ai/core'
 import type { TaskStatus } from '@motrix-ai/core'
 
-/** 状态图标映射 */
+/** Status icon mapping */
 const STATUS_ICONS: Record<TaskStatus, string> = {
   downloading: '▶',
   paused: '⏸',
@@ -14,7 +14,7 @@ const STATUS_ICONS: Record<TaskStatus, string> = {
   pending: '⏳',
 }
 
-/** 格式化文件大小 */
+/** Format file size */
 function formatSize(bytes: number): string {
   if (bytes >= 1_000_000_000) return `${(bytes / 1_000_000_000).toFixed(2)} GB`
   if (bytes >= 1_000_000) return `${(bytes / 1_000_000).toFixed(1)} MB`
@@ -38,7 +38,7 @@ export function registerListCommand(program: Command): void {
     .option('--status <status>', 'Filter by status: downloading/paused/completed/failed/pending')
     .description('List current download queue')
     .action(async (options: { status?: TaskStatus }) => {
-      // 验证 --status 值
+      // Validate --status value
       if (options.status && !VALID_STATUSES.includes(options.status)) {
         console.error(`❌ Invalid status: ${options.status}`)
         console.error(`   Valid values: ${VALID_STATUSES.join('/')}`)
@@ -60,7 +60,7 @@ export function registerListCommand(program: Command): void {
 
         if (tasks.length === 0) {
           const hint = options.status ? `No matching tasks` : 'No download tasks'
-          console.log(`  (空) ${hint}`)
+          console.log(`  (empty) ${hint}`)
           return
         }
 
@@ -73,7 +73,7 @@ export function registerListCommand(program: Command): void {
 
         console.log(`\n  Total: ${tasks.length} tasks`)
       } catch (_err) {
-        console.log('  ⚠️ Cannot connect to aria2，请确认 aria2 已启动。')
+        console.log('  ⚠️ Cannot connect to aria2, please confirm aria2 is running.')
         console.log(`  Connecting to: ${config.aria2.rpc_url}`)
       }
     })
