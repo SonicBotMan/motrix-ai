@@ -35,6 +35,7 @@ import type { Task } from '@/stores/tasks'
 import { bytesToSize } from '@/shared/utils/format'
 import DetailProgressRing from './DetailProgressRing.vue'
 import DetailPeerList from './DetailPeerList.vue'
+import DetailFooter from './DetailFooter.vue'
 
 interface TimelineEvent {
   time: string
@@ -88,7 +89,6 @@ const statusInfo = computed(() => {
 
 const files = computed(() => props.task?.files ?? [])
 const timeline = computed(() => props.task?.timeline ?? [])
-const isPaused = computed(() => props.task?.status === 'paused')
 
 function formatFileSize(bytes: number): string {
   return bytesToSize(bytes)
@@ -121,16 +121,6 @@ onUnmounted(() => {
   document.removeEventListener('keydown', handleKeydown)
   document.removeEventListener('click', handleMoreMenuOutsideClick, true)
 })
-
-function onPause() {
-  emit('pause')
-}
-function onResume() {
-  emit('resume')
-}
-function onRetry() {
-  emit('retry')
-}
 
 /** Toggle the more-actions dropdown */
 function toggleMoreMenu() {
@@ -360,35 +350,13 @@ watch(showMoreMenu, (visible) => {
           </section>
 
           <!-- ── Zone 5: Sticky footer ────────────────────────────── -->
-          <footer class="detail-footer">
-            <button v-if="isPaused" class="footer-btn footer-btn--primary" type="button" @click="onResume">
-              Resume
-            </button>
-            <button
-              v-else-if="props.task.status === 'downloading'"
-              class="footer-btn footer-btn--primary"
-              type="button"
-              @click="onPause"
-            >
-              Pause
-            </button>
-            <button
-              v-if="props.task.status === 'failed'"
-              class="footer-btn footer-btn--ghost"
-              type="button"
-              @click="onRetry"
-            >
-              Retry
-            </button>
-            <button
-              v-if="props.task.status === 'downloading' || props.task.status === 'pending'"
-              class="footer-btn footer-btn--ghost"
-              type="button"
-              @click="emit('priority')"
-            >
-              Priority
-            </button>
-          </footer>
+          <DetailFooter
+            :status="props.task.status"
+            @pause="emit('pause')"
+            @resume="emit('resume')"
+            @retry="emit('retry')"
+            @priority="emit('priority')"
+          />
         </template>
       </div>
     </div>
@@ -855,76 +823,5 @@ watch(showMoreMenu, (visible) => {
   color: var(--fg-secondary);
   word-break: break-all;
   line-height: 1.5;
-}
-
-/* ── Zone 5: Footer ──────────────────────────────────────────────── */
-.detail-footer {
-  flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-3) var(--space-5);
-  border-top: 1px solid var(--border);
-  background: var(--surface);
-}
-
-.footer-btn {
-  flex: 1 1 0;
-  height: 32px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-family: var(--font-ui);
-  font-size: var(--text-body-sm);
-  font-weight: 500;
-  border: 1px solid transparent;
-  border-radius: var(--radius-xs);
-  cursor: pointer;
-  transition:
-    background var(--transition-fast) var(--ease-out),
-    border-color var(--transition-fast) var(--ease-out),
-    color var(--transition-fast) var(--ease-out);
-}
-
-.footer-btn:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 2px;
-  box-shadow: 0 0 0 6px var(--focus-ring-soft);
-}
-
-.footer-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.footer-btn--primary {
-  background: var(--primary);
-  color: #fff;
-}
-
-.footer-btn--primary:not(:disabled):hover {
-  background: var(--primary-hover);
-}
-
-.footer-btn--ghost {
-  background: transparent;
-  color: var(--fg-secondary);
-  border-color: var(--border);
-}
-
-.footer-btn--ghost:not(:disabled):hover {
-  background: var(--surface-hover);
-  color: var(--fg);
-  border-color: var(--border-hover);
-}
-
-.footer-btn--danger {
-  background: transparent;
-  color: var(--error);
-  border-color: var(--error);
-}
-
-.footer-btn--danger:not(:disabled):hover {
-  background: var(--error-muted);
 }
 </style>
