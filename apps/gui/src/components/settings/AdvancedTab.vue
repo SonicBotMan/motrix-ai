@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { NButton, NInput, NSelect } from 'naive-ui'
+import { NButton, NInput, NSelect, NSwitch } from 'naive-ui'
 import { TrashOutline } from '@vicons/ionicons5'
 import { useAria2 } from '@/composables/useAria2'
 import { useAria2Manager } from '@/composables/useAria2Manager'
@@ -14,18 +14,54 @@ const message = useMessage()
 const store = useConfigStore()
 
 const userAgent = ref('')
+const checkCertificate = ref(true)
+const btTracker = ref('')
+const customHeaders = ref('')
 
 aria2
   .getGlobalOption()
   .then((opts) => {
     userAgent.value = opts['user-agent'] || ''
+    checkCertificate.value = opts['check-certificate'] !== 'false'
+    btTracker.value = opts['bt-tracker'] || ''
+    customHeaders.value = opts['header'] || ''
   })
   .catch(() => {})
 
 watch(userAgent, async (val) => {
-  if (val && aria2.connected.value) {
+  if (aria2.connected.value) {
     try {
       await aria2.changeGlobalOption({ 'user-agent': val })
+    } catch (_e) {
+      /* best effort */
+    }
+  }
+})
+
+watch(checkCertificate, async (val) => {
+  if (aria2.connected.value) {
+    try {
+      await aria2.changeGlobalOption({ 'check-certificate': val ? 'true' : 'false' })
+    } catch (_e) {
+      /* best effort */
+    }
+  }
+})
+
+watch(btTracker, async (val) => {
+  if (aria2.connected.value) {
+    try {
+      await aria2.changeGlobalOption({ 'bt-tracker': val })
+    } catch (_e) {
+      /* best effort */
+    }
+  }
+})
+
+watch(customHeaders, async (val) => {
+  if (aria2.connected.value) {
+    try {
+      await aria2.changeGlobalOption({ header: val })
     } catch (_e) {
       /* best effort */
     }
@@ -90,6 +126,26 @@ async function clearDownloadHistory() {
     <div class="setting-group">
       <label>User Agent</label>
       <NInput v-model:value="userAgent" placeholder="Leave empty for aria2 default" />
+    </div>
+
+    <div class="setting-group">
+      <label>Check HTTPS Certificates</label>
+      <NSwitch v-model:value="checkCertificate" />
+    </div>
+
+    <div class="setting-group">
+      <label>BitTorrent Trackers</label>
+      <NInput v-model:value="btTracker" placeholder="http://tracker1.com/announce,http://tracker2.com/announce" />
+    </div>
+
+    <div class="setting-group">
+      <label>Custom HTTP Headers</label>
+      <NInput
+        v-model:value="customHeaders"
+        type="textarea"
+        :rows="3"
+        placeholder="X-Custom-Header: value&#10;Another-Header: value"
+      />
     </div>
 
     <div class="danger-zone">
