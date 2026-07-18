@@ -14,9 +14,26 @@ export class QueueManager {
   /** 添加任务 */
   async add(uri: string, sourceQuery?: string, options?: { dir?: string }): Promise<Task> {
     const gid = await this.aria2.addUri(uri, options)
-    await new Promise((resolve) => setTimeout(resolve, 200))
-    const status = await this.aria2.tellStatus(gid)
-    return this.aria2.mapToTask(status, sourceQuery)
+    // Poll for task registration instead of a fixed 200ms sleep.
+    // aria2 may take a variable amount of time to register the task after addUri.
+    const MAX_RETRIES = 5
+    const RETRY_DELAY_MS = 100
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      try {
+        const status = await this.aria2.tellStatus(gid)
+        return this.aria2.mapToTask(status, sourceQuery)
+      } catch (err) {
+        if (attempt === MAX_RETRIES - 1) {
+          throw new Error(
+            `Task ${gid} not found after ${MAX_RETRIES} attempts: ${err instanceof Error ? err.message : String(err)}`,
+            { cause: err },
+          )
+        }
+        await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS))
+      }
+    }
+    // Unreachable — loop always returns or throws
+    throw new Error(`Task ${gid} registration failed`)
   }
 
   /** 暂停任务 */
