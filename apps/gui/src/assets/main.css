@@ -57,7 +57,7 @@ html, body {
   }
 }
 
-@media (max-width: 600px) {
+@media (max-width: 768px) {
   table {
     font-size: 12px;
   }
