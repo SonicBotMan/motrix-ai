@@ -59,9 +59,13 @@ const emit = defineEmits<{
 
 // --- State ---
 
+type ScrollableElement = {
+  scrollIntoView(options?: { block?: string; behavior?: string; inline?: string }): void
+}
+
 const flashingRowId = ref<number | null>(null)
 const openMenuId = ref<number | null>(null)
-const rowRefs = ref<Array<unknown | null>>([])
+const rowRefs = ref<Array<ScrollableElement | null>>([])
 
 type SortField = 'name' | 'progress' | 'speed' | 'size' | 'status'
 const sortField = ref<SortField | null>(null)
@@ -86,7 +90,7 @@ const someSelected = computed(() => {
 // --- Ref helpers for template ---
 
 function setRowRef(el: unknown, i: number) {
-  rowRefs.value[i] = el
+  rowRefs.value[i] = el as ScrollableElement | null
 }
 
 function handleToggleMenuPayload(p: { taskId: number; event: MouseEvent }) {
