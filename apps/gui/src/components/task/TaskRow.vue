@@ -396,4 +396,15 @@ tr:hover .task-row-menu {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Responsive: match TaskTable's Source column hide + reduced padding */
+@media (max-width: 900px) {
+  .col-source {
+    display: none;
+  }
+  td {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+}
 </style>

@@ -455,4 +455,20 @@ function handleMenuToggle(taskId: number, event: MouseEvent): void {
 }
 
 /* --- Reduced motion --- */
+
+/* Responsive: hide Source column + reduce padding on narrow windows */
+@media (max-width: 900px) {
+  .task-table th.col-source,
+  .task-table :deep(td.col-source) {
+    display: none;
+  }
+  .task-table th {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+  .task-table :deep(td) {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+}
 </style>
