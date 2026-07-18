@@ -33,6 +33,9 @@ import {
 } from '@vicons/ionicons5'
 import type { Task } from '@/stores/tasks'
 import { bytesToSize } from '@/shared/utils/format'
+import DetailProgressRing from './DetailProgressRing.vue'
+import DetailPeerList from './DetailPeerList.vue'
+import DetailFooter from './DetailFooter.vue'
 
 interface TimelineEvent {
   time: string
@@ -63,52 +66,6 @@ const emit = defineEmits<{
 
 const panelRef = ref<HTMLElement | null>(null)
 
-const peers = ref<Array<{ ip: string; port: string; downloadSpeed: string; uploadSpeed: string }>>([])
-
-function formatPeerSpeed(speedStr: string): string {
-  const speed = Number(speedStr) || 0
-  if (speed >= 1_000_000) return `${(speed / 1_000_000).toFixed(1)}MB/s`
-  if (speed >= 1_000) return `${(speed / 1_000).toFixed(0)}KB/s`
-  return `${speed}B/s`
-}
-
-let peerPollTimer: ReturnType<typeof setInterval> | null = null
-
-async function fetchPeers(): Promise<void> {
-  if (!props.task?.gid) {
-    peers.value = []
-    return
-  }
-  try {
-    const { useAria2 } = await import('@/composables/useAria2')
-    const aria2 = useAria2()
-    if (aria2.connected.value) {
-      peers.value = await aria2.getPeers(props.task.gid)
-    }
-  } catch {
-    peers.value = []
-  }
-}
-
-watch(
-  () => props.task?.gid,
-  (gid) => {
-    if (peerPollTimer) {
-      clearInterval(peerPollTimer)
-      peerPollTimer = null
-    }
-    if (gid) {
-      void fetchPeers()
-      peerPollTimer = setInterval(() => void fetchPeers(), 3000)
-    } else {
-      peers.value = []
-    }
-  },
-)
-
-onUnmounted(() => {
-  if (peerPollTimer) clearInterval(peerPollTimer)
-})
 const isClosing = ref(false)
 const showMoreMenu = ref(false)
 const moreMenuRef = ref<HTMLElement | null>(null)
@@ -130,50 +87,8 @@ const statusInfo = computed(() => {
   }
 })
 
-/** Ring stroke color follows status, same mapping as the progress bar */
-const ringColor = computed(() => {
-  if (!props.task) return 'var(--border)'
-  switch (props.task.status) {
-    case 'downloading':
-      return 'var(--primary)'
-    case 'paused':
-      return 'var(--warning)'
-    case 'completed':
-      return 'var(--accent)'
-    case 'failed':
-      return 'var(--error)'
-    default:
-      return 'var(--border)'
-  }
-})
-
-/** Circumference of r=48 ring → 2π·48 ≈ 301.6 */
-const RING_CIRC = 2 * Math.PI * 48
-const ringDashoffset = computed(() => {
-  const pct = Math.max(0, Math.min(100, props.task?.progress ?? 0))
-  return RING_CIRC * (1 - pct / 100)
-})
-
-/** Caption under the ring */
-const ringCaption = computed(() => {
-  if (!props.task) return ''
-  switch (props.task.status) {
-    case 'downloading':
-      return `Downloading · ${props.task.eta || '—'} remaining`
-    case 'paused':
-      return 'Paused'
-    case 'completed':
-      return 'Completed'
-    case 'failed':
-      return 'Failed. Retry to resume.'
-    default:
-      return 'Queued'
-  }
-})
-
 const files = computed(() => props.task?.files ?? [])
 const timeline = computed(() => props.task?.timeline ?? [])
-const isPaused = computed(() => props.task?.status === 'paused')
 
 function formatFileSize(bytes: number): string {
   return bytesToSize(bytes)
@@ -206,16 +121,6 @@ onUnmounted(() => {
   document.removeEventListener('keydown', handleKeydown)
   document.removeEventListener('click', handleMoreMenuOutsideClick, true)
 })
-
-function onPause() {
-  emit('pause')
-}
-function onResume() {
-  emit('resume')
-}
-function onRetry() {
-  emit('retry')
-}
 
 /** Toggle the more-actions dropdown */
 function toggleMoreMenu() {
@@ -376,57 +281,14 @@ watch(showMoreMenu, (visible) => {
               <div class="stat-label">GID</div>
               <div class="stat-value stat-mono">{{ props.task.gid.slice(0, 12) }}</div>
             </div>
-            <div v-if="peers.length > 0" class="stat-cell">
-              <div class="stat-label">Peers</div>
-              <div class="stat-value">{{ peers.length }}</div>
-            </div>
           </section>
-          <div v-if="peers.length > 0" class="peer-list-section">
-            <div class="peer-list-header">Peer Details</div>
-            <div v-for="(peer, i) in peers.slice(0, 10)" :key="i" class="peer-row">
-              <span class="peer-ip">{{ peer.ip }}:{{ peer.port }}</span>
-              <span class="peer-speed">↓{{ formatPeerSpeed(peer.downloadSpeed) }}</span>
-            </div>
-          </div>
+          <DetailPeerList :gid="props.task?.gid" />
           <div v-if="props.task.errorMessage" class="detail-error-banner">
             {{ props.task.errorMessage }}
           </div>
 
           <!-- ── Zone 3: Progress ring ────────────────────────────── -->
-          <section class="detail-ring" aria-label="Download progress">
-            <svg
-              class="ring-svg"
-              width="120"
-              height="120"
-              viewBox="0 0 120 120"
-              role="progressbar"
-              :aria-valuenow="props.task.progress"
-              aria-valuemin="0"
-              aria-valuemax="100"
-              :aria-valuetext="`${props.task.progress}% complete`"
-            >
-              <!-- background ring -->
-              <circle cx="60" cy="60" r="48" fill="none" stroke="var(--border)" stroke-width="4" />
-              <!-- foreground ring (rotate on the <g> so text stays upright) -->
-              <g transform="rotate(-90 60 60)">
-                <circle
-                  cx="60"
-                  cy="60"
-                  r="48"
-                  fill="none"
-                  :stroke="ringColor"
-                  stroke-width="4"
-                  stroke-linecap="round"
-                  :stroke-dasharray="RING_CIRC"
-                  :stroke-dashoffset="ringDashoffset"
-                />
-              </g>
-              <text x="60" y="60" text-anchor="middle" dominant-baseline="central" class="ring-text">
-                {{ props.task.progress }}%
-              </text>
-            </svg>
-            <p class="ring-caption">{{ ringCaption }}</p>
-          </section>
+          <DetailProgressRing :task="props.task" />
 
           <!-- ── Zone 4: Collapsible sections ──────────────────────── -->
           <section class="detail-sections">
@@ -488,35 +350,13 @@ watch(showMoreMenu, (visible) => {
           </section>
 
           <!-- ── Zone 5: Sticky footer ────────────────────────────── -->
-          <footer class="detail-footer">
-            <button v-if="isPaused" class="footer-btn footer-btn--primary" type="button" @click="onResume">
-              Resume
-            </button>
-            <button
-              v-else-if="props.task.status === 'downloading'"
-              class="footer-btn footer-btn--primary"
-              type="button"
-              @click="onPause"
-            >
-              Pause
-            </button>
-            <button
-              v-if="props.task.status === 'failed'"
-              class="footer-btn footer-btn--ghost"
-              type="button"
-              @click="onRetry"
-            >
-              Retry
-            </button>
-            <button
-              v-if="props.task.status === 'downloading' || props.task.status === 'pending'"
-              class="footer-btn footer-btn--ghost"
-              type="button"
-              @click="emit('priority')"
-            >
-              Priority
-            </button>
-          </footer>
+          <DetailFooter
+            :status="props.task.status"
+            @pause="emit('pause')"
+            @resume="emit('resume')"
+            @retry="emit('retry')"
+            @priority="emit('priority')"
+          />
         </template>
       </div>
     </div>
@@ -824,35 +664,6 @@ watch(showMoreMenu, (visible) => {
   border-bottom: 1px solid var(--border);
 }
 
-/* ── Zone 3: Progress ring ───────────────────────────────────────── */
-.detail-ring {
-  flex: 0 0 auto;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-6) var(--space-5) var(--space-5);
-}
-
-.ring-svg {
-  display: block;
-}
-
-.ring-text {
-  font-family: var(--font-ui);
-  font-size: 26px;
-  font-weight: 600;
-  fill: var(--fg);
-}
-
-.ring-caption {
-  margin: 0;
-  font-family: var(--font-ui);
-  font-size: var(--text-body-sm);
-  color: var(--fg-tertiary);
-  text-align: center;
-}
-
 /* ── Zone 4: Sections (scrollable) ───────────────────────────────── */
 .detail-sections {
   flex: 1 1 auto;
@@ -1012,76 +823,5 @@ watch(showMoreMenu, (visible) => {
   color: var(--fg-secondary);
   word-break: break-all;
   line-height: 1.5;
-}
-
-/* ── Zone 5: Footer ──────────────────────────────────────────────── */
-.detail-footer {
-  flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-3) var(--space-5);
-  border-top: 1px solid var(--border);
-  background: var(--surface);
-}
-
-.footer-btn {
-  flex: 1 1 0;
-  height: 32px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-family: var(--font-ui);
-  font-size: var(--text-body-sm);
-  font-weight: 500;
-  border: 1px solid transparent;
-  border-radius: var(--radius-xs);
-  cursor: pointer;
-  transition:
-    background var(--transition-fast) var(--ease-out),
-    border-color var(--transition-fast) var(--ease-out),
-    color var(--transition-fast) var(--ease-out);
-}
-
-.footer-btn:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 2px;
-  box-shadow: 0 0 0 6px var(--focus-ring-soft);
-}
-
-.footer-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.footer-btn--primary {
-  background: var(--primary);
-  color: #fff;
-}
-
-.footer-btn--primary:not(:disabled):hover {
-  background: var(--primary-hover);
-}
-
-.footer-btn--ghost {
-  background: transparent;
-  color: var(--fg-secondary);
-  border-color: var(--border);
-}
-
-.footer-btn--ghost:not(:disabled):hover {
-  background: var(--surface-hover);
-  color: var(--fg);
-  border-color: var(--border-hover);
-}
-
-.footer-btn--danger {
-  background: transparent;
-  color: var(--error);
-  border-color: var(--error);
-}
-
-.footer-btn--danger:not(:disabled):hover {
-  background: var(--error-muted);
 }
 </style>
