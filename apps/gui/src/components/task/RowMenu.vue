@@ -124,17 +124,31 @@ function run(action: 'pause' | 'resume' | 'retry' | 'delete' | 'openLocation') {
         aria-label="Task actions"
       >
         <!-- Pause / Resume (status-dependent) -->
-        <button v-if="isDownloading()" class="row-menu-item" role="menuitem" type="button" @click="run('pause')">
+        <button
+          v-if="isDownloading()"
+          class="row-menu-item"
+          role="menuitem"
+          type="button"
+          aria-label="Pause task"
+          @click="run('pause')"
+        >
           <NIcon class="row-menu-icon" :component="PauseOutline" :size="14" aria-hidden="true" />
           <span>Pause</span>
         </button>
-        <button v-if="isPaused()" class="row-menu-item" role="menuitem" type="button" @click="run('resume')">
+        <button
+          v-if="isPaused()"
+          class="row-menu-item"
+          role="menuitem"
+          type="button"
+          aria-label="Resume task"
+          @click="run('resume')"
+        >
           <NIcon class="row-menu-icon" :component="PlayOutline" :size="14" aria-hidden="true" />
           <span>Resume</span>
         </button>
 
         <!-- Retry -->
-        <button class="row-menu-item" role="menuitem" type="button" @click="run('retry')">
+        <button class="row-menu-item" role="menuitem" type="button" aria-label="Retry download" @click="run('retry')">
           <NIcon class="row-menu-icon" :component="RefreshOutline" :size="14" aria-hidden="true" />
           <span>Retry</span>
         </button>
@@ -142,7 +156,13 @@ function run(action: 'pause' | 'resume' | 'retry' | 'delete' | 'openLocation') {
         <div class="row-menu-sep" role="separator" />
 
         <!-- Delete (danger) -->
-        <button class="row-menu-item row-menu-item--danger" role="menuitem" type="button" @click="run('delete')">
+        <button
+          class="row-menu-item row-menu-item--danger"
+          role="menuitem"
+          type="button"
+          aria-label="Delete task"
+          @click="run('delete')"
+        >
           <NIcon class="row-menu-icon" :component="TrashOutline" :size="14" aria-hidden="true" />
           <span>Delete</span>
         </button>
@@ -150,7 +170,13 @@ function run(action: 'pause' | 'resume' | 'retry' | 'delete' | 'openLocation') {
         <div class="row-menu-sep" role="separator" />
 
         <!-- Open file location -->
-        <button class="row-menu-item" role="menuitem" type="button" @click="run('openLocation')">
+        <button
+          class="row-menu-item"
+          role="menuitem"
+          type="button"
+          aria-label="Open file location"
+          @click="run('openLocation')"
+        >
           <NIcon class="row-menu-icon" :component="FolderOutline" :size="14" aria-hidden="true" />
           <span>Open file location</span>
         </button>

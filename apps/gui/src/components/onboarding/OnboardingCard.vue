@@ -133,6 +133,7 @@ watch(
                 class="theme-card"
                 role="radio"
                 :aria-checked="selectedTheme === theme"
+                :aria-label="`Select ${theme} theme`"
                 :class="{ 'theme-card--active': selectedTheme === theme }"
                 type="button"
                 @click="selectTheme(theme)"

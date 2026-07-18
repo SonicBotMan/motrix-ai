@@ -65,14 +65,18 @@ const emptyState = computed<EmptyStateCopy>(() => {
     <div class="empty-disconnected">
       <p class="empty-heading">Download engine offline</p>
       <p class="empty-sub">aria2 isn't running. Downloads will be queued locally.</p>
-      <button class="empty-action" type="button" @click="$emit('retryConnect')">Retry connection</button>
+      <button class="empty-action" type="button" aria-label="Retry connection" @click="$emit('retryConnect')">
+        Retry connection
+      </button>
     </div>
   </div>
 
   <div v-else class="empty-state">
     <h3 class="empty-heading">{{ emptyState.heading }}</h3>
     <p class="empty-sub">{{ emptyState.sub }}</p>
-    <button class="empty-action" type="button" @click="$emit('trySample')">Try a sample download</button>
+    <button class="empty-action" type="button" aria-label="Try a sample download" @click="$emit('trySample')">
+      Try a sample download
+    </button>
   </div>
 </template>
 
