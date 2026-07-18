@@ -5,6 +5,7 @@ import { DownloadOutline, CloseOutline, DocumentTextOutline } from '@vicons/ioni
 import type { SearchResult } from '@/composables/useSearch'
 import { formatBytes } from '@/composables/useSearch'
 import type { SubtitleResult } from '@/composables/useSubtitle'
+import { t } from '@/composables/useSettings'
 
 const props = defineProps<{
   visible: boolean
@@ -79,8 +80,10 @@ const formatDownloads = (count: number): string => {
       <!-- Header -->
       <div class="search-header">
         <div class="search-header-left">
-          <h2 class="search-title">Search Results: {{ query }}</h2>
-          <span v-if="!searching && resultCount > 0" class="search-count">{{ resultCount }} resources</span>
+          <h2 class="search-title">{{ t('search.results.title') }} {{ query }}</h2>
+          <span v-if="!searching && resultCount > 0" class="search-count"
+            >{{ resultCount }} {{ t('search.results.resourceCount') }}</span
+          >
         </div>
         <NButton quaternary circle size="small" @click="emit('close')">
           <template #icon
@@ -92,12 +95,12 @@ const formatDownloads = (count: number): string => {
       <!-- Loading State -->
       <div v-if="searching" class="search-loading">
         <NSpin size="medium" />
-        <span class="search-loading-text">Searching...</span>
+        <span class="search-loading-text">{{ t('search.loading') }}</span>
       </div>
 
       <!-- Empty State -->
       <div v-else-if="resultCount === 0" class="search-empty">
-        <NEmpty description="No resources found" />
+        <NEmpty :description="t('search.empty')" />
       </div>
 
       <!-- Results List -->
@@ -142,7 +145,7 @@ const formatDownloads = (count: number): string => {
               <template #icon
                 ><NIcon><DownloadOutline /></NIcon
               ></template>
-              Download
+              {{ t('search.download') }}
             </NButton>
           </div>
         </div>
@@ -152,8 +155,8 @@ const formatDownloads = (count: number): string => {
       <div v-if="subtitleResults && subtitleResults.length > 0" class="subtitle-section">
         <div class="subtitle-header">
           <NIcon :size="14"><DocumentTextOutline /></NIcon>
-          <span>Subtitles ({{ subtitleResults.length }})</span>
-          <NTag v-if="subtitleSearching" size="tiny" round>Searching...</NTag>
+          <span>{{ t('search.subtitles') }} ({{ subtitleResults.length }})</span>
+          <NTag v-if="subtitleSearching" size="tiny" round>{{ t('search.loading') }}</NTag>
         </div>
         <div class="subtitle-list">
           <div v-for="sub in subtitleResults" :key="sub.id" class="subtitle-row" @click="emit('select-subtitle', sub)">
@@ -177,7 +180,7 @@ const formatDownloads = (count: number): string => {
       <!-- Subtitle Loading -->
       <div v-else-if="subtitleSearching" class="subtitle-loading">
         <NSpin size="small" />
-        <span>Searching subtitles...</span>
+        <span>{{ t('search.subtitleLoading') }}</span>
       </div>
     </div>
   </NModal>
