@@ -28,14 +28,17 @@ import TaskTable from '@/components/task/TaskTable.vue'
 import DetailPanel from '@/components/task/DetailPanel.vue'
 import RowMenu from '@/components/task/RowMenu.vue'
 import BottomChat from '@/components/chat/BottomChat.vue'
-import ToastStack, { type Toast } from '@/components/toast/ToastStack.vue'
+import ToastStack from '@/components/toast/ToastStack.vue'
 import OnboardingCard from '@/components/onboarding/OnboardingCard.vue'
 import SearchResultsModal from '@/components/SearchResultsModal.vue'
 import { useTasksStore, type Task } from '@/stores/tasks'
 import { formatSpeed } from '@/shared/utils/format'
 import type { SearchResult } from '@/composables/useSearch'
+import { useToastStore } from '@/stores/toasts'
 
 const tasksStore = useTasksStore()
+const toastStore = useToastStore()
+const { toasts, addToast, dismissToast, generateToastId } = toastStore
 const openCode = useOpenCode()
 const keywordGen = new KeywordGenerator()
 const evaluator = new ResultEvaluator()
@@ -90,7 +93,6 @@ const showDetail = ref(false)
 const showMenu = ref(false)
 const menuTask = ref<Task | null>(null)
 const menuPosition = ref<{ x: number; y: number } | null>(null)
-const toasts = ref<Toast[]>([])
 const showOnboarding = ref(false)
 const keyboardIndex = ref(-1)
 const bottomChatRef = ref<{ focus: () => void } | null>(null)
@@ -134,49 +136,6 @@ const searchResults = ref<SearchResult[]>([])
 const searching = ref(false)
 const searchQuery = ref('')
 const pendingIntent = ref<{ title?: string; year?: number; quality?: string; resource_type?: string } | null>(null)
-
-// ---------------------------------------------------------------------------
-// Toast system (docs/design/handoff/02-components.md §5)
-// ---------------------------------------------------------------------------
-
-const TOAST_LIFETIME = 2000
-const TOAST_STACK_MAX = 4
-const TOAST_EXIT_DELAY = 300
-// (TOAST_THINK_MIN/MAX were removed when the chat input was rewired to call
-//  aria2 directly instead of the local "thinking" simulation.)
-
-let toastCounter = 0
-
-function generateToastId(): string {
-  toastCounter += 1
-  return `toast-${Date.now()}-${toastCounter}`
-}
-
-// (deriveToastType was removed; the addUri/addMagnet paths emit typed
-//  toasts directly based on the actual aria2 response.)
-
-function addToast(toast: Toast): void {
-  toasts.value.push(toast)
-  while (toasts.value.length > TOAST_STACK_MAX) {
-    const oldestDone = toasts.value.findIndex((t) => !t.exiting)
-    if (oldestDone !== -1) {
-      toasts.value.splice(oldestDone, 1)
-    } else {
-      toasts.value.shift()
-    }
-  }
-  setTimeout(() => dismissToast(toast.id), TOAST_LIFETIME)
-}
-
-function dismissToast(id: string): void {
-  const idx = toasts.value.findIndex((t) => t.id === id)
-  if (idx === -1) return
-  toasts.value[idx].exiting = true
-  setTimeout(() => {
-    const i = toasts.value.findIndex((t) => t.id === id)
-    if (i !== -1) toasts.value.splice(i, 1)
-  }, TOAST_EXIT_DELAY)
-}
 
 // ---------------------------------------------------------------------------
 // Chat handlers
