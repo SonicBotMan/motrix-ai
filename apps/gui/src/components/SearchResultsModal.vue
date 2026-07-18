@@ -47,7 +47,7 @@ const sourceColor = (source: string) => {
     case 'btdig':
       return 'var(--warning)'
     case 'mikan':
-      return '#EC4899'
+      return 'var(--error)'
     default:
       return 'var(--fg-tertiary)'
   }
@@ -314,7 +314,7 @@ const formatDownloads = (count: number): string => {
 .result-seeders {
   font-size: 12px;
   font-family: var(--font-mono);
-  color: #10b981;
+  color: var(--accent);
   font-weight: 500;
 }
 
@@ -325,7 +325,7 @@ const formatDownloads = (count: number): string => {
 .result-leechers {
   font-size: 12px;
   font-family: var(--font-mono);
-  color: #ef4444;
+  color: var(--error);
   font-weight: 500;
 }
 
