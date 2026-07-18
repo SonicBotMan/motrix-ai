@@ -19,22 +19,38 @@ const isPaused = computed(() => props.status === 'paused')
 
 <template>
   <footer class="detail-footer">
-    <button v-if="isPaused" class="footer-btn footer-btn--primary" type="button" @click="emit('resume')">Resume</button>
+    <button
+      v-if="isPaused"
+      class="footer-btn footer-btn--primary"
+      type="button"
+      aria-label="Resume task"
+      @click="emit('resume')"
+    >
+      Resume
+    </button>
     <button
       v-else-if="props.status === 'downloading'"
       class="footer-btn footer-btn--primary"
       type="button"
+      aria-label="Pause task"
       @click="emit('pause')"
     >
       Pause
     </button>
-    <button v-if="props.status === 'failed'" class="footer-btn footer-btn--ghost" type="button" @click="emit('retry')">
+    <button
+      v-if="props.status === 'failed'"
+      class="footer-btn footer-btn--ghost"
+      type="button"
+      aria-label="Retry download"
+      @click="emit('retry')"
+    >
       Retry
     </button>
     <button
       v-if="props.status === 'downloading' || props.status === 'pending'"
       class="footer-btn footer-btn--ghost"
       type="button"
+      aria-label="Set priority"
       @click="emit('priority')"
     >
       Priority

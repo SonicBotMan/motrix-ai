@@ -609,8 +609,17 @@ onUnmounted(() => {
       />
       <div v-if="selectedIds.size > 0" class="batch-bar">
         <span class="batch-count">{{ selectedIds.size }} selected</span>
-        <button class="batch-btn" type="button" @click="batchDeleteSelected">Delete</button>
-        <button class="batch-btn batch-btn--ghost" type="button" @click="selectedIds = new Set()">Clear</button>
+        <button class="batch-btn" type="button" aria-label="Delete selected tasks" @click="batchDeleteSelected">
+          Delete
+        </button>
+        <button
+          class="batch-btn batch-btn--ghost"
+          type="button"
+          aria-label="Clear selection"
+          @click="selectedIds = new Set()"
+        >
+          Clear
+        </button>
       </div>
     </main>
 
