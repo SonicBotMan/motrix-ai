@@ -16,15 +16,25 @@
 
 Motrix AI flips the download manager paradigm: instead of manually copying links and
 managing queues, you **tell the AI what you want in natural language**, and it handles
-resource discovery, download scheduling, subtitle matching, and file organization
+resource discovery, download scheduling, subtitle matching, and file organization.
 
 ```
 You: "Download Interstellar 4K with subtitles"
-AI:  Found -> Queued -> Downloaded -> Subtitled -> Organized ✅
+AI:  Found → Queued → Downloaded → Subtitled → Organized ✅
 ```
 
-<!-- Screenshot coming soon -->
-<!-- ![Motrix AI Screenshot](docs/screenshots/main.png) -->
+---
+
+## What's New in v1.4.0
+
+- 🔒 **Security**: TOCTOU race condition fix in file organization
+- 🏗️ **Architecture**: 3 god-components split into focused modules (TaskTable -47%, DetailPanel -24%, TaskFirstView -29%)
+- 🔧 **Reliability**: aria2c auto-restart on crash, queue race fix, config mutation fix
+- ✨ **Features**: aria2 advanced options (cert/tracker/headers), form validation, responsive breakpoints
+- 🎨 **UX**: i18n completion, WCAG accessibility (aria-labels), CLI English output
+- 📐 **Type safety**: eliminated `any` / `eslint-disable` / non-null assertions at trust boundaries
+
+[Full changelog →](CHANGELOG.md)
 
 ---
 
@@ -38,8 +48,9 @@ AI:  Found -> Queued -> Downloaded -> Subtitled -> Organized ✅
 - **Auto subtitle matching** — searches shooter.cn / subhd.tv after download completes
 - **Auto file organization** — renames and categorizes files into Movies / TV / Software folders
 - **Smart scheduling** — adapts to time of day, available disk space, and network conditions
-- **Desktop GUI** — Tauri 2 + Vue 3 + Naive UI, lightweight native install
-- **MCP Server** — 7 tools for AI agent integration (Claude Desktop, Hermes, etc.)
+- **aria2c crash recovery** — daemon auto-restarts after persistent connection failures
+- **Desktop GUI** — Tauri 2 + Vue 3 + Naive UI, lightweight native install (~7 MB)
+- **MCP Server** — tools for AI agent integration (Claude Desktop, etc.)
 - **Cross-platform** — macOS (ARM64/x64), Windows (x64), Linux (x64) — all out-of-the-box
 
 ### AI and Models
@@ -48,19 +59,32 @@ AI:  Found -> Queued -> Downloaded -> Subtitled -> Organized ✅
 - **Multi-source parallel search** — btdig, 1337x, nyaa, mikan with deduplication
 - **Smart ranking** — ResultEvaluator scores results by quality match (20%), size reasonableness (20%), seeders (30%), and title relevance (30%)
 - **Keyword expansion** — KeywordGenerator expands search terms by resource type (movie, TV, anime, software, music)
+- **Two-step MCP download** — search returns candidates; explicit `confirm_download` required before queueing
 
 ### UI and UX
 
 - **Chat-first interface** — natural language input as primary interaction
 - **Task queue** — real-time progress, speed (auto-scaling B/KB/MB/GB/s), ETA (h/m/s format), pause/resume/retry
+- **Task detail panel** — progress ring, peer list with live polling, file selection, timeline
 - **Task search** — live filter tasks by name or source URL
 - **Drag-and-drop** — drop .torrent files onto the window
 - **Batch download** — paste multiple URLs (one per line) in chat input
+- **Delete with files** — remove task and delete downloaded files in one action
+- **Form validation** — inline error messages on all settings fields
+- **Responsive layout** — adapts to narrow window widths (720px minimum)
 - **Dark/Light/System themes** — follows OS preference
 - **i18n** — Chinese, English, Japanese, Korean, French
+- **Accessibility** — WCAG 2.4.4 aria-labels on all buttons, skip-link, reduced-motion support
 - **System tray** — minimize to tray, native notifications
 - **Scheduling UI** — visual time-based speed rules editor
 - **NAS archive UI** — configure automatic rsync to network storage
+
+### Advanced aria2 Options
+
+- **Custom User-Agent** — override the default UA for sites that block it
+- **HTTPS certificate validation** — toggle on/off per use case
+- **BitTorrent trackers** — add custom tracker URLs for better peer discovery
+- **Custom HTTP headers** — set Referer, Cookie, Authorization, etc.
 
 ### Browser Extension
 
@@ -70,13 +94,14 @@ AI:  Found -> Queued -> Downloaded -> Subtitled -> Organized ✅
 
 ### Developer
 
-- **CLI mode** — `motrix-ai ask "下 XX"` from terminal
+- **CLI mode** — `motrix-ai ask "download VS Code latest"` from terminal
 - **MCP Server** — expose download capabilities to AI agents
-- **685 tests** — TypeScript (Vitest) + Rust (cargo test), including 16 E2E integration tests
-- **Structured errors** — typed error hierarchy with cause chaining
+- **702 tests** — TypeScript (Vitest) + Rust (cargo test)
+- **Typed errors** — AppError hierarchy with cause chaining
 - **Structured logging** — level-filtered logger via @motrix-ai/core/browser
 - **Monorepo code sharing** — GUI imports KeywordGenerator + ResultEvaluator + Logger from packages/core
-- **Security hardened** — aria2 RPC secret, HTTP API token auth, path traversal protection, deep link confirmation
+- **Browser-safe defaults** — DEFAULT_CONFIG single source of truth via @motrix-ai/core/browser
+- **Security hardened** — aria2 RPC secret (CSPRNG), HTTP API token auth, path traversal protection (TOCTOU-safe), MCP URL scheme allow-list, deep link confirmation
 - **Cross-platform CI** — ubuntu + macOS + Windows matrix, Clippy clean on all platforms
 
 ---
@@ -85,44 +110,25 @@ AI:  Found -> Queued -> Downloaded -> Subtitled -> Organized ✅
 
 > **No prerequisites.** aria2 download engine is bundled for all platforms — just install and run.
 
-### macOS
+Download the latest release from [GitHub Releases →](https://github.com/SonicBotMan/motrix-ai/releases/latest)
 
-```bash
-# Download .dmg from Releases (Apple Silicon or Intel)
-# Apple Silicon: bundled aria2c works out of the box
-# Intel Macs:    aria2c is bundled as arm64; if it doesn't run, install via
-#                `brew install aria2` and the app will use that automatically
-```
-
-### Windows
-
-```bash
-# Download .exe or .msi from Releases
-# aria2c.exe is bundled — no additional installation required
-```
-
-### Linux
-
-```bash
-# Download from Releases:
-#   .deb for Debian/Ubuntu     sudo dpkg -i motrix-ai_*.deb
-#   .rpm for Fedora/RHEL       sudo rpm -i motrix-ai-*.rpm
-#   .AppImage (universal)      chmod +x motrix-ai_*.AppImage && ./motrix-ai_*.AppImage
-# aria2c is bundled (static musl binary) — works on any x86_64 distro
-```
-
-> Download the latest release from [GitHub Releases](https://github.com/SonicBotMan/motrix-ai/releases)
+| Platform              | File                                  |
+| --------------------- | ------------------------------------- |
+| macOS (Apple Silicon) | `Motrix.AI_*_aarch64.dmg`             |
+| macOS (Intel)         | `Motrix.AI_*_x64.dmg`                 |
+| Windows               | `Motrix.AI_*_x64-setup.exe` or `.msi` |
+| Linux (Debian/Ubuntu) | `Motrix.AI_*_amd64.deb`               |
+| Linux (Fedora/RHEL)   | `Motrix.AI-*_.x86_64.rpm`             |
+| Linux (universal)     | `Motrix.AI_*_amd64.AppImage`          |
 
 ---
 
-## Quick Start
+## Quick Start (Development)
 
 ```bash
-# Clone the repository
 git clone https://github.com/SonicBotMan/motrix-ai.git
 cd motrix-ai
 
-# Install dependencies
 pnpm install
 
 # Development mode
@@ -135,7 +141,7 @@ pnpm build
 pnpm test
 
 # CLI usage
-pnpm cli ask "下 VS Code 最新版"
+pnpm cli ask "download VS Code latest"
 ```
 
 ---
@@ -144,63 +150,63 @@ pnpm cli ask "下 VS Code 最新版"
 
 ```
 motrix-ai/
-├── apps/gui/              # Tauri 2 desktop app (Vue 3 + Naive UI)
-│   ├── src/               # Frontend (components, views, stores, composables)
-│   └── src-tauri/         # Rust backend (commands, tray, error handling)
+├── apps/gui/                  # Tauri 2 desktop app (Vue 3 + Naive UI)
+│   ├── src/
+│   │   ├── components/task/   # TaskTable, TaskRow, DetailPanel, DetailProgressRing, DetailPeerList, DetailFooter
+│   │   ├── components/chat/   # BottomChat
+│   │   ├── components/chrome/ # ChromeBar
+│   │   ├── components/settings/ # DownloadsTab, AiModelTab, AdvancedTab, SubtitlesTab, AppearanceTab
+│   │   ├── composables/       # useAria2, useDownloadPipeline, useSettings, useOpenCode
+│   │   ├── stores/            # useTasksStore, useConfigStore, useToastStore
+│   │   ├── shared/utils/      # task-utils, format
+│   │   └── locales/           # strings.ts (5 languages)
+│   └── src-tauri/             # Rust backend (commands, tray, aria2 lifecycle)
 ├── packages/
-│   ├── core/              # Shared business logic (25 modules)
-│   │   ├── ai/            # Intent parser, keyword generator, result evaluator
-│   │   ├── aria2/         # aria2 RPC client
-│   │   ├── search/        # Search providers (btdig, mikan, duckduckgo)
-│   │   ├── subtitle/      # Subtitle matchers (shooter, subhd)
-│   │   ├── queue/         # Task queue (SQLite persistence)
-│   │   ├── file/          # File organizer, renamer, templates
-│   │   ├── scheduler/     # Time/disk/retry schedulers
-│   │   ├── archive/       # NAS sync (rsync)
-│   │   ├── pipeline/      # Post-processor
-│   │   ├── config/        # Config schema, loader, migrations
-│   │   ├── errors/        # Typed error hierarchy
-│   │   └── logger/        # Structured logging
-│   ├── cli/               # Command-line interface
-│   └── mcp-server/        # MCP server (7 tools)
-├── extensions/browser/    # Chrome/Firefox extension
-├── docs/                  # PRD, architecture, design docs
-└── scripts/               # Version bump, utilities
+│   ├── core/                  # Shared business logic
+│   │   ├── ai/                # IntentParser, KeywordGenerator, ResultEvaluator
+│   │   ├── aria2/             # Aria2Client (JSON-RPC, null-guarded)
+│   │   ├── search/            # Search providers (btdig, mikan, nyaa, duckduckgo)
+│   │   ├── subtitle/          # Subtitle matchers (shooter, subhd)
+│   │   ├── queue/             # QueueManager (polling-based task registration)
+│   │   ├── file/              # FileRenamer, organizer, templates
+│   │   ├── scheduler/         # Time/disk/retry schedulers
+│   │   ├── config/            # defaults.ts (single source), loader, migrations
+│   │   ├── errors/            # AppError hierarchy
+│   │   └── logger/            # Structured logging
+│   ├── cli/                   # Command-line interface
+│   └── mcp-server/            # MCP server (search + confirm_download + 5 more tools)
+├── extensions/browser/        # Chrome/Firefox extension
+├── docs/                      # PRD, architecture, design specs
+└── scripts/                   # Version bump, utilities
 ```
-
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed architecture documentation.
 
 ---
 
 ## Tech Stack
 
-| Layer               | Technology                                   |
-| ------------------- | -------------------------------------------- |
-| **Frontend**        | Vue 3 + Pinia + Naive UI + TypeScript        |
-| **Backend**         | Rust (Tauri 2)                               |
-| **Download Engine** | aria2 (JSON-RPC, bundled)                    |
-| **AI**              | OpenCode SDK (BYOK: Anthropic/OpenAI/Ollama) |
-| **Database**        | SQLite (better-sqlite3)                      |
-| **Build**           | Vite + Cargo + pnpm + Turborepo              |
-| **Tests**           | Vitest + cargo test                          |
-| **CI/CD**           | GitHub Actions (4 platform matrix)           |
+| Layer               | Technology                                     |
+| ------------------- | ---------------------------------------------- |
+| **Frontend**        | Vue 3 + Pinia + Naive UI + TypeScript          |
+| **Backend**         | Rust (Tauri 2)                                 |
+| **Download Engine** | aria2 (JSON-RPC, bundled)                      |
+| **AI**              | OpenCode SDK (BYOK: Anthropic/OpenAI/Ollama)   |
+| **Database**        | SQLite (better-sqlite3)                        |
+| **Build**           | Vite + Cargo + pnpm + Turborepo                |
+| **Tests**           | Vitest + cargo test                            |
+| **CI/CD**           | GitHub Actions (3-platform matrix, SHA-pinned) |
 
 ---
 
 ## Project Status
 
-| Metric            | Value                                        |
-| ----------------- | -------------------------------------------- |
-| **Version**       | 1.2.0                                        |
-| **Tests**         | 685 TS + 16 Rust (49 TS files)               |
-| **E2E Tests**     | 16 integration tests covering critical paths |
-| **Coverage**      | ~48% lines (threshold 40%)                   |
-| **ESLint**        | 0 errors, 0 warnings                         |
-| **Platforms**     | 4 (macOS ARM64/x64, Windows x64, Linux x64)  |
-| **Languages**     | 5 (中/英/日/韩/法)                           |
-| **Core Modules**  | 25                                           |
-| **Composables**   | 10                                           |
-| **Tauri Plugins** | 6                                            |
+| Metric        | Value                                   |
+| ------------- | --------------------------------------- |
+| **Version**   | 1.4.0                                   |
+| **Tests**     | 702 TS (50 files) + Rust unit tests     |
+| **Platforms** | macOS ARM64/x64, Windows x64, Linux x64 |
+| **Languages** | 5 (中/英/日/韩/法)                      |
+| **ESLint**    | 0 errors, 0 warnings                    |
+| **Clippy**    | 0 warnings (all platforms)              |
 
 ---
 
@@ -208,21 +214,21 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed architecture docum
 
 - ✅ **v0.1.0** — PoC (OpenCode SDK validation)
 - ✅ **v0.2.0** — Alpha (cross-platform CI, system tray, notifications)
-- ✅ **v1.0.0** — Stable release (all features, 603 TS + 10 Rust tests, 5 languages)
+- ✅ **v1.0.0** — Stable release (all features, 5 languages)
 - ✅ **v1.1.0** — Multi-platform aria2c, 1337x fix, i18n, config store
-- ✅ **v1.2.0** — Deep audit fixes: AI pipeline connected, GID operations, security hardening, E2E tests, core-browser split, unified task stack, drag-drop, batch, proxy, 3-platform CI
+- ✅ **v1.2.0** — AI pipeline connected, security hardening, E2E tests
+- ✅ **v1.3.0** — Comprehensive bug audit (80+ fixes)
+- ✅ **v1.4.0** — Code quality overhaul, reliability, UX improvements (12 PRs, 42 audit findings addressed)
 
 ### Future
 
-- E2E tests (Playwright)
+- Auto-update (Tauri updater with latest.json)
 - Code signing (macOS/Windows)
-- Homebrew/Scoop auto-update
-- Deep link support (magnet://, ed2k://)
+- Homebrew/Scoop distribution
 - Startup on boot
-- Performance benchmarks
-- Accessibility (ARIA)
 - More search providers
 - More subtitle sources
+- Performance benchmarks
 
 ---
 
@@ -237,26 +243,18 @@ We welcome contributions! Please see:
 ### Quick Start for Contributors
 
 ```bash
-# Fork and clone
 git clone https://github.com/YOUR_USERNAME/motrix-ai.git
 cd motrix-ai
-
-# Install dependencies
 pnpm install
 
-# Create feature branch
 git checkout -b feature/my-feature
 
-# Make changes, run tests
-pnpm test
-pnpm lint
-pnpm typecheck
+# Make changes, verify
+pnpm test && pnpm lint && pnpm typecheck
 
-# Commit with conventional message
 git commit -m "feat: add my feature"
-
-# Push and create PR
 git push origin feature/my-feature
+# Open PR → CI runs on 3 platforms → review → merge
 ```
 
 ---
@@ -271,7 +269,7 @@ MIT License — see [LICENSE](LICENSE) for details.
 
 - [Motrix Next](https://github.com/AnInsomniacy/motrix-next) — Architecture inspiration
 - [Aria2](https://aria2.github.io/) — Download engine
-- [OpenCode](https://github.com/anomalyco/opencode) — AI SDK
+- [OpenCode](https://github.com/anomaly/ai/opencode) — AI SDK
 - [Tauri](https://tauri.app/) — Desktop framework
 - [Vue.js](https://vuejs.org/) — Frontend framework
 - [Naive UI](https://www.naiveui.com/) — UI components
@@ -279,5 +277,5 @@ MIT License — see [LICENSE](LICENSE) for details.
 ---
 
 <div align="center">
-  <sub>Built with love by <a href="https://github.com/SonicBotMan">Orion</a></sub>
+  <sub>Built with care by <a href="https://github.com/SonicBotMan">Orion</a></sub>
 </div>
