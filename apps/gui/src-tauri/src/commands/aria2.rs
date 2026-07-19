@@ -143,29 +143,54 @@ pub async fn start_aria2(app: tauri::AppHandle, rpc_port: Option<u16>) -> Result
     let secret = get_aria2_secret();
 
     let mut cmd = std::process::Command::new(&aria2c_path);
+
+    let conf_path = resource_path.join("resources").join("bin").join("aria2.conf");
+    if conf_path.exists() {
+        cmd.arg(format!("--conf-path={}", conf_path.display()));
+    } else {
+        cmd.args([
+            "--enable-rpc=true",
+            "--rpc-allow-origin-all=true",
+            "--rpc-listen-all=false",
+            "--check-certificate=false",
+            "--continue=true",
+            "--max-connection-per-server=16",
+            "--split=16",
+            "--min-split-size=1M",
+            "--max-concurrent-downloads=5",
+            "--auto-file-renaming=true",
+            "--follow-torrent=true",
+            "--enable-dht=true",
+            "--bt-enable-lpd=true",
+            "--bt-max-peers=100",
+            "--connect-timeout=10",
+            "--timeout=10",
+            "--async-dns=false",
+            "--http-accept-gzip=true",
+            "--disk-cache=64M",
+            "--max-tries=0",
+            "--retry-wait=10",
+        ]);
+    }
+
     cmd.args([
         &format!("--rpc-listen-port={}", port),
-        "--enable-rpc=true",
-        "--rpc-allow-origin-all=true",
-        "--rpc-listen-all=false",
         &format!("--rpc-secret={}", secret),
         "--daemon=false",
-        "--continue=true",
-        "--max-connection-per-server=16",
-        "--split=16",
-        "--min-split-size=1M",
-        "--max-concurrent-downloads=5",
-        "--auto-file-renaming=true",
-        "--follow-torrent=true",
-        "--enable-dht=true",
-        "--bt-enable-lpd=true",
-        "--bt-max-peers=100",
-        "--check-certificate=false",
         &format!("--dir={}", download_dir.display()),
-        &format!("--input-file={}", session_file.display()),
-        &format!("--save-session={}", session_file.display()),
-        "--auto-save-interval=30",
     ]);
+
+    cmd.arg(format!("--save-session={}", session_file.display()));
+    if session_file.exists() {
+        let metadata = std::fs::metadata(&session_file);
+        if let Ok(m) = metadata {
+            if m.len() > 0 {
+                cmd.arg(format!("--input-file={}", session_file.display()));
+            }
+        }
+    }
+
+    cmd.arg("--auto-save-interval=30");
 
     let proxy_args = super::configured_proxy_args();
     for arg in &proxy_args {
