@@ -5,6 +5,7 @@ use std::sync::atomic::{AtomicBool, AtomicU16, Ordering};
 use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 use tauri::command;
+use tauri::Emitter;
 use tauri::Manager;
 
 /// Global store for the aria2c child PID
@@ -22,6 +23,8 @@ pub static ARIA2_RPC_PORT: AtomicU16 = AtomicU16::new(6800);
 /// a single app session. Passed to aria2 via --rpc-secret and included
 /// in every JSON-RPC call as the first param ("token:<secret>").
 static ARIA2_SECRET: OnceLock<String> = OnceLock::new();
+
+static ARIA2_INTENTIONAL_STOP: AtomicBool = AtomicBool::new(false);
 
 /// Return the current session's aria2 RPC secret, generating one if needed.
 pub fn get_aria2_secret() -> &'static str {
@@ -48,6 +51,8 @@ pub fn get_rpc_secret() -> String {
 #[command]
 pub async fn start_aria2(app: tauri::AppHandle, rpc_port: Option<u16>) -> Result<String, String> {
     let port = rpc_port.unwrap_or(6800);
+
+    cleanup_port(port);
 
     if ARIA2_STARTING
         .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
@@ -243,7 +248,9 @@ pub async fn start_aria2(app: tauri::AppHandle, rpc_port: Option<u16>) -> Result
         cmd.creation_flags(CREATE_NO_WINDOW);
     }
 
-    let child = match cmd.spawn() {
+    ARIA2_INTENTIONAL_STOP.store(false, Ordering::SeqCst);
+
+    let mut child = match cmd.spawn() {
         Ok(c) => c,
         Err(e) => {
             ARIA2_STARTING.store(false, Ordering::SeqCst);
@@ -290,6 +297,25 @@ pub async fn start_aria2(app: tauri::AppHandle, rpc_port: Option<u16>) -> Result
         ARIA2_RPC_PORT.store(port, Ordering::SeqCst);
         ARIA2_STARTING.store(false, Ordering::SeqCst);
         log::info!("aria2c started on port {} (PID {})", port, pid);
+
+        let app_handle = app.clone();
+        std::thread::spawn(move || {
+            let _ = child.wait();
+            let was_intentional = ARIA2_INTENTIONAL_STOP.swap(false, Ordering::SeqCst);
+            if let Ok(mut gc) = ARIA2_CHILD.lock() {
+                if *gc == Some(pid) {
+                    *gc = None;
+                }
+            }
+            ARIA2_STARTING.store(false, Ordering::SeqCst);
+            if !was_intentional {
+                log::warn!("aria2c process exited unexpectedly (PID {})", pid);
+                let _ = app_handle.emit("aria2-crashed", serde_json::json!({ "pid": pid }));
+            } else {
+                log::info!("aria2c stopped intentionally (PID {})", pid);
+            }
+        });
+
         Ok(rpc_url)
     } else {
         {
@@ -297,9 +323,7 @@ pub async fn start_aria2(app: tauri::AppHandle, rpc_port: Option<u16>) -> Result
                 .lock()
                 .map_err(|e| format!("Lock error: {}", e))?;
             if let Some(p) = *global_child {
-                let _ = std::process::Command::new("kill")
-                    .args(["-9", &p.to_string()])
-                    .output();
+                let _ = kill_process_by_pid(p);
             }
             *global_child = None;
         }
@@ -327,6 +351,7 @@ pub async fn start_aria2(app: tauri::AppHandle, rpc_port: Option<u16>) -> Result
 /// Stop the bundled aria2c daemon.
 #[command]
 pub async fn stop_aria2() -> Result<String, String> {
+    ARIA2_INTENTIONAL_STOP.store(true, Ordering::SeqCst);
     let port = ARIA2_RPC_PORT.load(Ordering::SeqCst);
     let rpc_url = format!("http://127.0.0.1:{}/jsonrpc", port);
     let pid = {
@@ -391,13 +416,8 @@ pub async fn stop_aria2() -> Result<String, String> {
         }
 
         if !exited {
-            if let Ok(mut child) = ARIA2_CHILD.lock() {
-                *child = pid;
-            }
-            log::warn!("aria2c did not exit gracefully after 5s, sending SIGKILL");
-            let _ = std::process::Command::new("kill")
-                .args(["-9", &p.to_string()])
-                .output();
+            log::warn!("aria2c did not exit gracefully after 5s, force killing");
+            let _ = kill_process_by_pid(p);
         }
 
         Ok(format!("aria2c (PID {}) stopped", p))
@@ -592,6 +612,124 @@ fn bundled_aria2c_name() -> &'static str {
         "motrix-ai-engine-macos"
     } else {
         "motrix-ai-engine-linux"
+    }
+}
+
+fn is_supported_engine_process(comm: &str) -> bool {
+    comm.contains("motrix-ai-engine")
+}
+
+pub fn cleanup_port(port: u16) {
+    #[cfg(unix)]
+    {
+        let port_str = port.to_string();
+        let output = std::process::Command::new("lsof")
+            .args(["-ti", &format!(":{}", port_str)])
+            .stderr(std::process::Stdio::null())
+            .output();
+
+        if let Ok(out) = output {
+            let pids = String::from_utf8_lossy(&out.stdout);
+            let mut killed_any = false;
+            for pid in pids.lines() {
+                let pid = pid.trim();
+                if pid.is_empty() {
+                    continue;
+                }
+                let args_output = std::process::Command::new("ps")
+                    .args(["-p", pid, "-o", "args="])
+                    .stderr(std::process::Stdio::null())
+                    .output();
+                if let Ok(ao) = args_output {
+                    let identity = String::from_utf8_lossy(&ao.stdout).trim().to_string();
+                    if is_supported_engine_process(&identity) {
+                        let _ = std::process::Command::new("kill")
+                            .args(["-9", pid])
+                            .stderr(std::process::Stdio::null())
+                            .status();
+                        killed_any = true;
+                    }
+                }
+            }
+            if killed_any {
+                std::thread::sleep(std::time::Duration::from_millis(300));
+            }
+        }
+    }
+
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt as WinCommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+
+        let output = std::process::Command::new("cmd")
+            .args(["/C", &format!("netstat -ano | findstr :{}", port)])
+            .creation_flags(CREATE_NO_WINDOW)
+            .output();
+
+        if let Ok(out) = output {
+            let text = String::from_utf8_lossy(&out.stdout);
+            let mut killed_any = false;
+            for line in text.lines() {
+                if let Some(pid) = line.split_whitespace().last() {
+                    if pid.parse::<u32>().is_ok() {
+                        let check = std::process::Command::new("cmd")
+                            .args([
+                                "/C",
+                                &format!("tasklist /FI \"PID eq {}\" /NH /FO CSV 2>NUL", pid),
+                            ])
+                            .creation_flags(CREATE_NO_WINDOW)
+                            .output();
+                        let is_supported = check
+                            .map(|o| {
+                                let s = String::from_utf8_lossy(&o.stdout).to_lowercase();
+                                is_supported_engine_process(&s)
+                            })
+                            .unwrap_or(false);
+                        if is_supported {
+                            let _ = std::process::Command::new("taskkill")
+                                .args(["/F", "/PID", pid])
+                                .creation_flags(CREATE_NO_WINDOW)
+                                .status();
+                            killed_any = true;
+                        }
+                    }
+                }
+            }
+            if killed_any {
+                std::thread::sleep(std::time::Duration::from_millis(300));
+            }
+        }
+    }
+}
+
+fn kill_process_by_pid(pid: u32) -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        let status = std::process::Command::new("taskkill")
+            .args(["/PID", &pid.to_string(), "/T", "/F"])
+            .creation_flags(CREATE_NO_WINDOW)
+            .status()
+            .map_err(|e| format!("taskkill failed for PID {pid}: {e}"))?;
+        if status.success() {
+            Ok(())
+        } else {
+            Err(format!("taskkill failed for PID {pid}: {status}"))
+        }
+    }
+    #[cfg(not(windows))]
+    {
+        let status = std::process::Command::new("kill")
+            .args(["-9", &pid.to_string()])
+            .status()
+            .map_err(|e| format!("kill failed for PID {pid}: {e}"))?;
+        if status.success() {
+            Ok(())
+        } else {
+            Err(format!("kill failed for PID {pid}: {status}"))
+        }
     }
 }
 

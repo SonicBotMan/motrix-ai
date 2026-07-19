@@ -22,6 +22,7 @@ watch(
 let unlistenDeepLink: (() => void) | null = null
 let unlistenFileDrop: (() => void) | null = null
 let unlistenHttpApi: (() => void) | null = null
+let unlistenCrash: (() => void) | null = null
 
 const downloadBanner = ref<{ text: string } | null>(null)
 let bannerTimer: ReturnType<typeof setTimeout> | null = null
@@ -98,6 +99,16 @@ onMounted(async () => {
   } catch {
     /* not in Tauri context */
   }
+
+  try {
+    const { listen } = await import('@tauri-apps/api/event')
+    unlistenCrash = await listen('aria2-crashed', () => {
+      console.warn('aria2c crashed — attempting restart')
+      tasksStore.init().catch((e) => console.warn('aria2 restart failed:', e))
+    })
+  } catch {
+    /* not in Tauri context */
+  }
 })
 
 onUnmounted(() => {
@@ -105,6 +116,7 @@ onUnmounted(() => {
   unlistenDeepLink?.()
   unlistenFileDrop?.()
   unlistenHttpApi?.()
+  unlistenCrash?.()
   if (bannerTimer) clearTimeout(bannerTimer)
   tasksStore.dispose().catch((e) => console.warn('aria2 dispose failed:', e))
 })
