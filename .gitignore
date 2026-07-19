@@ -43,3 +43,4 @@ Thumbs.db
 
 # Test coverage (HTML/XML/JSON output)
 coverage/
+.superpowers/

@@ -7,6 +7,61 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-07-18
+
+### Summary
+
+Code quality, reliability, and UX overhaul. 11 PRs addressing 42 audit findings
+across architecture, security, and user experience. Zero breaking changes.
+
+### Security
+
+- **P0-4**: Closed TOCTOU race in `organize_file` — re-canonicalize path before rename/copy to prevent symlink swap attacks.
+- Verified MCP URL scheme allow-list and CI SHA pinning (already fixed, confirmed).
+
+### Added
+
+- aria2 advanced options in Settings: `check-certificate` switch, `bt-tracker` input, custom HTTP headers textarea.
+- Inline form validation on all settings tabs (download dir, API key, model name, RPC URL, base URL, tracker URLs, subtitle dir).
+- Responsive breakpoint at 900px: Source column hidden, cell padding reduced on narrow windows.
+- aria2c auto-restart after reconnection exhaustion — daemon is restarted via `start_aria2` when RPC retry budget is spent.
+- `DetailProgressRing`, `DetailPeerList`, `DetailFooter` components extracted from DetailPanel.
+- `TaskRow` component + `task-utils.ts` extracted from TaskTable.
+- `useDownloadPipeline` composable + `useToastStore` Pinia store extracted from TaskFirstView.
+- `defaults.ts`: browser-safe single source of truth for `DEFAULT_CONFIG` (eliminates GUI/core duplication).
+- 7 TS sanity tests for `DEFAULT_CONFIG` shape and canonical `~/` paths.
+- 6 Rust unit tests for `extract_subdir_name` (platform-aware `Path::file_name()`).
+
+### Changed
+
+- **TaskTable.vue**: 860 → 458 lines (-47%) via TaskRow extraction.
+- **DetailPanel.vue**: 1087 → 827 lines (-24%) via 3 child component extraction.
+- **TaskFirstView.vue**: 1089 → 770 lines (-29%) via composable extraction.
+- `DEFAULT_CONFIG` unified: GUI imports from `@motrix-ai/core/browser` (eliminates 60-line duplication).
+- Subdir fields (`movie_dir` etc.) changed to relative names (`"Movies"`) — fixes literal `~_Downloads_Motrix AI_Movies` directory bug.
+- `IntentParser`: structural `OpencodeClientLike` interface replaces `any` + `eslint-disable`.
+- `Aria2Client.call`: explicit null guard on malformed JSON-RPC responses (was `return data.result as T`).
+- `IntentParser.parse`: structured logger replaces `console.warn`; error detail preserved.
+- `QueueManager.add`: polling retry (5×100ms) replaces blind 200ms sleep.
+- CLI: all Chinese output translated to English.
+- `SearchResultsModal`: 7 hardcoded strings wired to i18n `t()` function (all 5 languages).
+- All icon-only buttons across 6 components: `aria-label` added for WCAG 2.4.4 / 4.1.2 compliance.
+- Dead `@media (max-width: 600px)` breakpoint fixed to 768px (600 < Tauri minWidth=720, never triggered).
+- Hardcoded hex colors in `SearchResultsModal` + `TaskDetailModal` replaced with CSS custom properties.
+
+### Fixed
+
+- **deepClone mutation** (Bugbot-found): `DEFAULT_CONFIG` shared singleton was mutated by `init()`'s `deepMerge` — now wraps with `deepClone`.
+- `IntentParser`: 3 non-null assertions (`!`) replaced with explicit guards + typed error.
+- `IntentParser.parse` catch block: was losing error info; now captures `err` + logs via `createLogger('intent-parser')`.
+- `configured_subdir`: was returning full path verbatim, causing `sanitize_path_component` to mangle `/` into `_`; now extracts basename for legacy full-path values.
+
+### Removed
+
+- `eslint-disable` for `no-explicit-any` in `IntentParser` (eliminated via structural typing).
+- 60-line local `DEFAULT_CONFIG` copy in GUI `config.ts` (replaced by core import).
+- Inline row template in TaskTable (replaced by `<TaskRow>` component).
+
 ## [1.3.0] - 2026-07-13
 
 ### Summary
