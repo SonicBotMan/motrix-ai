@@ -587,11 +587,11 @@ pub async fn add_metalink_file(path: String) -> Result<Vec<String>, String> {
 /// desktop download manager that already weighs 80+ MB.
 fn bundled_aria2c_name() -> &'static str {
     if cfg!(target_os = "windows") {
-        "aria2c.exe"
+        "motrix-ai-engine.exe"
     } else if cfg!(target_os = "macos") {
-        "aria2c-macos"
+        "motrix-ai-engine-macos"
     } else {
-        "aria2c-linux"
+        "motrix-ai-engine-linux"
     }
 }
 
