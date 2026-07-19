@@ -144,9 +144,28 @@ pub async fn start_aria2(app: tauri::AppHandle, rpc_port: Option<u16>) -> Result
 
     let mut cmd = std::process::Command::new(&aria2c_path);
 
-    let conf_path = resource_path.join("resources").join("bin").join("aria2.conf");
+    for key in &[
+        "http_proxy",
+        "https_proxy",
+        "ftp_proxy",
+        "all_proxy",
+        "no_proxy",
+        "HTTP_PROXY",
+        "HTTPS_PROXY",
+        "FTP_PROXY",
+        "ALL_PROXY",
+        "NO_PROXY",
+    ] {
+        cmd.env(key, "");
+    }
+
+    let conf_path = resource_path
+        .join("resources")
+        .join("bin")
+        .join("aria2.conf");
+    let conf_str = dunce::simplified(&conf_path).to_string_lossy().to_string();
     if conf_path.exists() {
-        cmd.arg(format!("--conf-path={}", conf_path.display()));
+        cmd.arg(format!("--conf-path={}", conf_str));
     } else {
         cmd.args([
             "--enable-rpc=true",
@@ -177,15 +196,21 @@ pub async fn start_aria2(app: tauri::AppHandle, rpc_port: Option<u16>) -> Result
         &format!("--rpc-listen-port={}", port),
         &format!("--rpc-secret={}", secret),
         "--daemon=false",
-        &format!("--dir={}", download_dir.display()),
+        &format!(
+            "--dir={}",
+            dunce::simplified(&download_dir).to_string_lossy()
+        ),
     ]);
 
-    cmd.arg(format!("--save-session={}", session_file.display()));
+    let session_str = dunce::simplified(&session_file)
+        .to_string_lossy()
+        .to_string();
+    cmd.arg(format!("--save-session={}", session_str));
     if session_file.exists() {
         let metadata = std::fs::metadata(&session_file);
         if let Ok(m) = metadata {
             if m.len() > 0 {
-                cmd.arg(format!("--input-file={}", session_file.display()));
+                cmd.arg(format!("--input-file={}", session_str));
             }
         }
     }
