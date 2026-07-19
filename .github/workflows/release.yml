@@ -28,7 +28,7 @@ jobs:
     name: Build ${{ matrix.platform }}
     needs: create-release
     permissions:
-      contents: read
+      contents: write
     strategy:
       fail-fast: false
       matrix:
