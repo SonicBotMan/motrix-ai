@@ -175,6 +175,11 @@ const prevStep = () => {
   color: var(--primary);
 }
 
+.logo svg {
+  width: 48px;
+  height: 48px;
+}
+
 h1 {
   font-size: 24px;
   font-weight: 600;
@@ -204,6 +209,8 @@ h1 {
 }
 
 .feature svg {
+  width: 20px;
+  height: 20px;
   color: var(--primary);
   flex-shrink: 0;
 }
@@ -244,6 +251,8 @@ h1 {
 }
 
 .example svg {
+  width: 16px;
+  height: 16px;
   color: var(--primary);
   flex-shrink: 0;
 }
