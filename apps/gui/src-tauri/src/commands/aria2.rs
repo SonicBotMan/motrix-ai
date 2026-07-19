@@ -160,6 +160,7 @@ pub async fn start_aria2(app: tauri::AppHandle, rpc_port: Option<u16>) -> Result
         "--enable-dht=true",
         "--bt-enable-lpd=true",
         "--bt-max-peers=100",
+        "--check-certificate=false",
         &format!("--dir={}", download_dir.display()),
         &format!("--input-file={}", session_file.display()),
         &format!("--save-session={}", session_file.display()),
