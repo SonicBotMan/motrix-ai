@@ -1,48 +1,48 @@
 // search/__tests__/providers.test.ts — Tests for search providers
 
-import { describe, it, expect } from "vitest";
-import { parseBtdigHtml, parseSizeToBytes } from "../btdig.js";
-import { parseMikanRss, parseAnimeTitle } from "../mikan.js";
+import { describe, it, expect } from 'vitest'
+import { parseBtdigHtml, parseSizeToBytes } from '../btdig.js'
+import { parseMikanRss, parseAnimeTitle } from '../mikan.js'
 
 // ============================================================
 // BtdigSearchProvider tests
 // ============================================================
 
-describe("parseSizeToBytes", () => {
-  it("parses GB values", () => {
-    expect(parseSizeToBytes("1.2 GB")).toBe(Math.floor(1.2 * 1024 ** 3));
-  });
+describe('parseSizeToBytes', () => {
+  it('parses GB values', () => {
+    expect(parseSizeToBytes('1.2 GB')).toBe(Math.floor(1.2 * 1024 ** 3))
+  })
 
-  it("parses MB values", () => {
-    expect(parseSizeToBytes("500 MB")).toBe(500 * 1024 ** 2);
-  });
+  it('parses MB values', () => {
+    expect(parseSizeToBytes('500 MB')).toBe(500 * 1024 ** 2)
+  })
 
-  it("parses TB values", () => {
-    expect(parseSizeToBytes("2 TB")).toBe(2 * 1024 ** 4);
-  });
+  it('parses TB values', () => {
+    expect(parseSizeToBytes('2 TB')).toBe(2 * 1024 ** 4)
+  })
 
-  it("parses KB values", () => {
-    expect(parseSizeToBytes("1024 KB")).toBe(1024 * 1024);
-  });
+  it('parses KB values', () => {
+    expect(parseSizeToBytes('1024 KB')).toBe(1024 * 1024)
+  })
 
-  it("parses plain bytes", () => {
-    expect(parseSizeToBytes("1024 B")).toBe(1024);
-  });
+  it('parses plain bytes', () => {
+    expect(parseSizeToBytes('1024 B')).toBe(1024)
+  })
 
-  it("returns 0 for empty string", () => {
-    expect(parseSizeToBytes("")).toBe(0);
-  });
+  it('returns 0 for empty string', () => {
+    expect(parseSizeToBytes('')).toBe(0)
+  })
 
-  it("returns 0 for unparseable input", () => {
-    expect(parseSizeToBytes("unknown")).toBe(0);
-  });
+  it('returns 0 for unparseable input', () => {
+    expect(parseSizeToBytes('unknown')).toBe(0)
+  })
 
-  it("handles case-insensitive units", () => {
-    expect(parseSizeToBytes("1.5 gb")).toBe(Math.floor(1.5 * 1024 ** 3));
-  });
-});
+  it('handles case-insensitive units', () => {
+    expect(parseSizeToBytes('1.5 gb')).toBe(Math.floor(1.5 * 1024 ** 3))
+  })
+})
 
-describe("parseBtdigHtml", () => {
+describe('parseBtdigHtml', () => {
   const sampleHtml = `
 <html>
 <body>
@@ -68,65 +68,65 @@ describe("parseBtdigHtml", () => {
   </div>
 </div>
 </body>
-</html>`;
+</html>`
 
-  it("extracts all results from HTML", () => {
-    const results = parseBtdigHtml(sampleHtml);
-    expect(results).toHaveLength(3);
-  });
+  it('extracts all results from HTML', () => {
+    const results = parseBtdigHtml(sampleHtml)
+    expect(results).toHaveLength(3)
+  })
 
-  it("extracts title correctly", () => {
-    const results = parseBtdigHtml(sampleHtml);
-    expect(results[0].title).toBe("Ubuntu 22.04 Desktop amd64");
-    expect(results[1].title).toBe("Some Movie 1080p BluRay x264");
-  });
+  it('extracts title correctly', () => {
+    const results = parseBtdigHtml(sampleHtml)
+    expect(results[0].title).toBe('Ubuntu 22.04 Desktop amd64')
+    expect(results[1].title).toBe('Some Movie 1080p BluRay x264')
+  })
 
-  it("extracts magnet links correctly", () => {
-    const results = parseBtdigHtml(sampleHtml);
-    expect(results[0].magnet).toBe("magnet:?xt=urn:btih:abc123&dn=Ubuntu+22.04");
-    expect(results[1].magnet).toBe("magnet:?xt=urn:btih:def456&dn=Some+Movie");
-  });
+  it('extracts magnet links correctly', () => {
+    const results = parseBtdigHtml(sampleHtml)
+    expect(results[0].magnet).toBe('magnet:?xt=urn:btih:abc123&dn=Ubuntu+22.04')
+    expect(results[1].magnet).toBe('magnet:?xt=urn:btih:def456&dn=Some+Movie')
+  })
 
-  it("extracts and converts size to bytes", () => {
-    const results = parseBtdigHtml(sampleHtml);
-    expect(results[0].size).toBe(Math.floor(4.7 * 1024 ** 3));
-    expect(results[1].size).toBe(Math.floor(2.1 * 1024 ** 3));
-    expect(results[2].size).toBe(500 * 1024 ** 2);
-  });
+  it('extracts and converts size to bytes', () => {
+    const results = parseBtdigHtml(sampleHtml)
+    expect(results[0].size).toBe(Math.floor(4.7 * 1024 ** 3))
+    expect(results[1].size).toBe(Math.floor(2.1 * 1024 ** 3))
+    expect(results[2].size).toBe(500 * 1024 ** 2)
+  })
 
-  it("sets source to btdig", () => {
-    const results = parseBtdigHtml(sampleHtml);
-    expect(results[0].source).toBe("btdig");
-  });
+  it('sets source to btdig', () => {
+    const results = parseBtdigHtml(sampleHtml)
+    expect(results[0].source).toBe('btdig')
+  })
 
-  it("detects quality from title", () => {
-    const results = parseBtdigHtml(sampleHtml);
-    expect(results[0].quality).toBeUndefined();
-    expect(results[1].quality).toBe("1080p");
-  });
+  it('detects quality from title', () => {
+    const results = parseBtdigHtml(sampleHtml)
+    expect(results[0].quality).toBeUndefined()
+    expect(results[1].quality).toBe('1080p')
+  })
 
-  it("returns empty array for HTML with no results", () => {
-    const results = parseBtdigHtml("<html><body>No results found</body></html>");
-    expect(results).toHaveLength(0);
-  });
+  it('returns empty array for HTML with no results', () => {
+    const results = parseBtdigHtml('<html><body>No results found</body></html>')
+    expect(results).toHaveLength(0)
+  })
 
-  it("handles results without magnet links", () => {
+  it('handles results without magnet links', () => {
     const html = `
     <div class="one_result">
       <div class="torrent_name">No Magnet File</div>
       <span class="torrent_size">100 MB</span>
-    </div>`;
-    const results = parseBtdigHtml(html);
+    </div>`
+    const results = parseBtdigHtml(html)
     // Should be skipped since no magnet link
-    expect(results).toHaveLength(0);
-  });
-});
+    expect(results).toHaveLength(0)
+  })
+})
 
 // ============================================================
 // MikanSearchProvider tests
 // ============================================================
 
-describe("parseMikanRss", () => {
+describe('parseMikanRss', () => {
   const sampleRss = `<?xml version="1.0" encoding="utf-8"?>
 <rss version="2.0">
   <channel>
@@ -147,99 +147,99 @@ describe("parseMikanRss", () => {
       <enclosure url="https://mikanani.me/Download/11111.torrent" length="8589934592" type="application/x-bittorrent" />
     </item>
   </channel>
-</rss>`;
+</rss>`
 
-  it("extracts items from RSS XML", () => {
-    const results = parseMikanRss(sampleRss);
-    expect(results.length).toBeGreaterThanOrEqual(2);
-  });
+  it('extracts items from RSS XML', () => {
+    const results = parseMikanRss(sampleRss)
+    expect(results.length).toBeGreaterThanOrEqual(2)
+  })
 
-  it("extracts titles correctly", () => {
-    const results = parseMikanRss(sampleRss);
-    expect(results[0].title).toBe("[SubGroup] My Anime - 01 [1080p].mkv");
-  });
+  it('extracts titles correctly', () => {
+    const results = parseMikanRss(sampleRss)
+    expect(results[0].title).toBe('[SubGroup] My Anime - 01 [1080p].mkv')
+  })
 
-  it("extracts magnet links", () => {
-    const results = parseMikanRss(sampleRss);
-    expect(results[0].magnet).toBe("magnet:?xt=urn:btih:aaaa1111&dn=My+Anime");
-    expect(results[1].magnet).toBe("magnet:?xt=urn:btih:bbbb2222&dn=Cool+Show");
-  });
+  it('extracts magnet links', () => {
+    const results = parseMikanRss(sampleRss)
+    expect(results[0].magnet).toBe('magnet:?xt=urn:btih:aaaa1111&dn=My+Anime')
+    expect(results[1].magnet).toBe('magnet:?xt=urn:btih:bbbb2222&dn=Cool+Show')
+  })
 
-  it("falls back to enclosure URL when no magnet", () => {
-    const results = parseMikanRss(sampleRss);
-    const noMagnet = results.find((r) => r.title.includes("NoMagnet"));
-    expect(noMagnet).toBeDefined();
-    expect(noMagnet!.magnet).toContain(".torrent");
-  });
+  it('falls back to enclosure URL when no magnet', () => {
+    const results = parseMikanRss(sampleRss)
+    const noMagnet = results.find((r) => r.title.includes('NoMagnet'))
+    expect(noMagnet).toBeDefined()
+    expect(noMagnet!.magnet).toContain('.torrent')
+  })
 
-  it("extracts size from enclosure length", () => {
-    const results = parseMikanRss(sampleRss);
-    expect(results[0].size).toBe(1572864000);
-  });
+  it('extracts size from enclosure length', () => {
+    const results = parseMikanRss(sampleRss)
+    expect(results[0].size).toBe(1572864000)
+  })
 
-  it("sets source to mikan", () => {
-    const results = parseMikanRss(sampleRss);
-    expect(results[0].source).toBe("mikan");
-  });
+  it('sets source to mikan', () => {
+    const results = parseMikanRss(sampleRss)
+    expect(results[0].source).toBe('mikan')
+  })
 
-  it("detects quality from title", () => {
-    const results = parseMikanRss(sampleRss);
-    expect(results[0].quality).toBe("1080p");
-    expect(results[1].quality).toBe("720p");
+  it('detects quality from title', () => {
+    const results = parseMikanRss(sampleRss)
+    expect(results[0].quality).toBe('1080p')
+    expect(results[1].quality).toBe('720p')
 
-    const noMagnet = results.find((r) => r.title.includes("4K"));
-    expect(noMagnet?.quality).toBe("4K");
-  });
+    const noMagnet = results.find((r) => r.title.includes('4K'))
+    expect(noMagnet?.quality).toBe('4K')
+  })
 
-  it("returns empty for empty XML", () => {
-    const results = parseMikanRss("<rss></rss>");
-    expect(results).toHaveLength(0);
-  });
+  it('returns empty for empty XML', () => {
+    const results = parseMikanRss('<rss></rss>')
+    expect(results).toHaveLength(0)
+  })
 
-  it("handles RSS without CDATA sections", () => {
+  it('handles RSS without CDATA sections', () => {
     const rss = `<?xml version="1.0"?>
 <rss><channel>
   <item>
     <title>Plain Title Anime EP01</title>
     <link>magnet:?xt=urn:btih:cccc3333</link>
   </item>
-</channel></rss>`;
-    const results = parseMikanRss(rss);
-    expect(results).toHaveLength(1);
-    expect(results[0].title).toBe("Plain Title Anime EP01");
-    expect(results[0].magnet).toBe("magnet:?xt=urn:btih:cccc3333");
-  });
-});
+</channel></rss>`
+    const results = parseMikanRss(rss)
+    expect(results).toHaveLength(1)
+    expect(results[0].title).toBe('Plain Title Anime EP01')
+    expect(results[0].magnet).toBe('magnet:?xt=urn:btih:cccc3333')
+  })
+})
 
-describe("parseAnimeTitle", () => {
-  it("extracts subgroup from bracket notation", () => {
-    const result = parseAnimeTitle("[SubGroup] My Anime - 01 [1080p].mkv");
-    expect(result.subgroup).toBe("SubGroup");
-  });
+describe('parseAnimeTitle', () => {
+  it('extracts subgroup from bracket notation', () => {
+    const result = parseAnimeTitle('[SubGroup] My Anime - 01 [1080p].mkv')
+    expect(result.subgroup).toBe('SubGroup')
+  })
 
-  it("extracts quality", () => {
-    const result = parseAnimeTitle("[SubGroup] My Anime - 01 [1080p].mkv");
-    expect(result.quality).toBe("1080p");
-  });
+  it('extracts quality', () => {
+    const result = parseAnimeTitle('[SubGroup] My Anime - 01 [1080p].mkv')
+    expect(result.quality).toBe('1080p')
+  })
 
-  it("extracts episode number from EP format", () => {
-    const result = parseAnimeTitle("[SubGroup] My Anime EP01 [1080p].mkv");
-    expect(result.episode).toBe("01");
-  });
+  it('extracts episode number from EP format', () => {
+    const result = parseAnimeTitle('[SubGroup] My Anime EP01 [1080p].mkv')
+    expect(result.episode).toBe('01')
+  })
 
-  it("extracts episode from bracket number format", () => {
-    const result = parseAnimeTitle("[SubGroup] My Anime [01] [1080p].mkv");
-    expect(result.episode).toBe("01");
-  });
+  it('extracts episode from bracket number format', () => {
+    const result = parseAnimeTitle('[SubGroup] My Anime [01] [1080p].mkv')
+    expect(result.episode).toBe('01')
+  })
 
-  it("extracts anime title", () => {
-    const result = parseAnimeTitle("[SubGroup] My Anime EP01 [1080p].mkv");
-    expect(result.animeTitle).toContain("My Anime");
-  });
+  it('extracts anime title', () => {
+    const result = parseAnimeTitle('[SubGroup] My Anime EP01 [1080p].mkv')
+    expect(result.animeTitle).toContain('My Anime')
+  })
 
-  it("handles S01E01 format", () => {
-    const result = parseAnimeTitle("Show.Name.S01E05.1080p.WEB-DL.mkv");
-    expect(result.episode).toBe("05");
-    expect(result.quality).toBe("1080p");
-  });
-});
+  it('handles S01E01 format', () => {
+    const result = parseAnimeTitle('Show.Name.S01E05.1080p.WEB-DL.mkv')
+    expect(result.episode).toBe('05')
+    expect(result.quality).toBe('1080p')
+  })
+})

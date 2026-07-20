@@ -18,7 +18,7 @@ export class AppError extends Error {
 
   constructor(message: string, code: string, cause?: Error) {
     super(message)
-    this.name = "AppError"
+    this.name = 'AppError'
     this.code = code
     this.cause = cause
   }
@@ -41,8 +41,8 @@ export class AppError extends Error {
  */
 export class SearchError extends AppError {
   constructor(message: string, cause?: Error) {
-    super(message, "SEARCH_ERROR", cause)
-    this.name = "SearchError"
+    super(message, 'SEARCH_ERROR', cause)
+    this.name = 'SearchError'
   }
 }
 
@@ -52,8 +52,8 @@ export class SearchError extends AppError {
  */
 export class Aria2Error extends AppError {
   constructor(message: string, cause?: Error) {
-    super(message, "ARIA2_ERROR", cause)
-    this.name = "Aria2Error"
+    super(message, 'ARIA2_ERROR', cause)
+    this.name = 'Aria2Error'
   }
 }
 
@@ -63,8 +63,8 @@ export class Aria2Error extends AppError {
  */
 export class IntentParseError extends AppError {
   constructor(message: string, cause?: Error) {
-    super(message, "INTENT_PARSE_ERROR", cause)
-    this.name = "IntentParseError"
+    super(message, 'INTENT_PARSE_ERROR', cause)
+    this.name = 'IntentParseError'
   }
 }
 
@@ -74,8 +74,8 @@ export class IntentParseError extends AppError {
  */
 export class QueueError extends AppError {
   constructor(message: string, cause?: Error) {
-    super(message, "QUEUE_ERROR", cause)
-    this.name = "QueueError"
+    super(message, 'QUEUE_ERROR', cause)
+    this.name = 'QueueError'
   }
 }
 
@@ -85,8 +85,8 @@ export class QueueError extends AppError {
  */
 export class SubtitleError extends AppError {
   constructor(message: string, cause?: Error) {
-    super(message, "SUBTITLE_ERROR", cause)
-    this.name = "SubtitleError"
+    super(message, 'SUBTITLE_ERROR', cause)
+    this.name = 'SubtitleError'
   }
 }
 
@@ -96,8 +96,8 @@ export class SubtitleError extends AppError {
  */
 export class ConfigError extends AppError {
   constructor(message: string, cause?: Error) {
-    super(message, "CONFIG_ERROR", cause)
-    this.name = "ConfigError"
+    super(message, 'CONFIG_ERROR', cause)
+    this.name = 'ConfigError'
   }
 }
 
@@ -107,7 +107,7 @@ export class ConfigError extends AppError {
  */
 export class ArchiveError extends AppError {
   constructor(message: string, cause?: Error) {
-    super(message, "ARCHIVE_ERROR", cause)
-    this.name = "ArchiveError"
+    super(message, 'ARCHIVE_ERROR', cause)
+    this.name = 'ArchiveError'
   }
 }

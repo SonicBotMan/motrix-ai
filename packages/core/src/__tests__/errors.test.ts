@@ -150,11 +150,7 @@ describe('Error hierarchy completeness', () => {
   })
 
   it('can be caught as AppError', () => {
-    const errors: AppError[] = [
-      new SearchError('a'),
-      new Aria2Error('b'),
-      new ConfigError('c'),
-    ]
+    const errors: AppError[] = [new SearchError('a'), new Aria2Error('b'), new ConfigError('c')]
     for (const e of errors) {
       expect(e instanceof AppError).toBe(true)
       expect(e.message.length).toBeGreaterThan(0)

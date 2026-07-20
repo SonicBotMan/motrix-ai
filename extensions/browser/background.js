@@ -8,7 +8,7 @@ chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
     id: 'motrix-ai-download',
     title: 'Download with Motrix AI',
-    contexts: ['link', 'video', 'audio']
+    contexts: ['link', 'video', 'audio'],
   })
 })
 
@@ -57,7 +57,7 @@ async function sendToMotrixAI(url, title) {
     let response = await fetch('http://127.0.0.1:18900/api/download', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-Motrix-Token': token },
-      body: JSON.stringify({ url, title })
+      body: JSON.stringify({ url, title }),
     })
 
     if (response.status === 403) {
@@ -67,7 +67,7 @@ async function sendToMotrixAI(url, title) {
       response = await fetch('http://127.0.0.1:18900/api/download', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Motrix-Token': token },
-        body: JSON.stringify({ url, title })
+        body: JSON.stringify({ url, title }),
       })
     }
 
@@ -99,7 +99,7 @@ function showNotification(title, body) {
     type: 'basic',
     iconUrl: 'icons/icon128.png',
     title,
-    message: body
+    message: body,
   })
 }
 

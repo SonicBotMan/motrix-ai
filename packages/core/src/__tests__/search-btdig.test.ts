@@ -4,11 +4,7 @@
 // parseSizeToBytes() with different size formats.
 
 import { describe, it, expect } from 'vitest'
-import {
-  parseBtdigHtml,
-  parseSizeToBytes,
-  BtdigSearchProvider,
-} from '../search/btdig.js'
+import { parseBtdigHtml, parseSizeToBytes, BtdigSearchProvider } from '../search/btdig.js'
 
 describe('parseSizeToBytes', () => {
   it('parses GB correctly', () => {

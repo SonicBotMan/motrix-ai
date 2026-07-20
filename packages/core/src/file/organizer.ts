@@ -1,16 +1,16 @@
 // file/organizer.ts — 文件归类与移动
 // 对应 PRD §6.5 文件组织与重命名（归类 + 落盘管线）
 
-import { promises as fs } from "node:fs";
-import path from "node:path";
-import type { ResourceType, DownloadIntent, AppConfig } from "../types.js";
+import { promises as fs } from 'node:fs'
+import path from 'node:path'
+import type { ResourceType, DownloadIntent, AppConfig } from '../types.js'
 
 /** 视频扩展名集合 */
-const VIDEO_EXTS = new Set(["mkv", "mp4", "avi", "ts", "mov"]);
+const VIDEO_EXTS = new Set(['mkv', 'mp4', 'avi', 'ts', 'mov'])
 /** 软件安装包扩展名集合 */
-const SOFTWARE_EXTS = new Set(["exe", "dmg", "deb", "rpm", "appimage"]);
+const SOFTWARE_EXTS = new Set(['exe', 'dmg', 'deb', 'rpm', 'appimage'])
 /** 音频扩展名集合 */
-const MUSIC_EXTS = new Set(["mp3", "flac", "wav"]);
+const MUSIC_EXTS = new Set(['mp3', 'flac', 'wav'])
 
 /**
  * 文件归类与移动管理器。
@@ -20,13 +20,13 @@ const MUSIC_EXTS = new Set(["mp3", "flac", "wav"]);
  */
 export class FileOrganizer {
   /** 默认下载根目录（对应 config.downloads.base_dir） */
-  private baseDir: string;
+  private baseDir: string
 
   /**
    * @param baseDir 默认下载根目录
    */
   constructor(baseDir: string) {
-    this.baseDir = baseDir;
+    this.baseDir = baseDir
   }
 
   /**
@@ -45,15 +45,15 @@ export class FileOrganizer {
    */
   classify(filename: string, intent?: DownloadIntent): ResourceType {
     // 意图优先：AI 解析结果具有权威性
-    if (intent && intent.resource_type && intent.resource_type !== "other") {
-      return intent.resource_type;
+    if (intent && intent.resource_type && intent.resource_type !== 'other') {
+      return intent.resource_type
     }
 
-    const ext = this.extractExt(filename);
-    if (VIDEO_EXTS.has(ext)) return "movie";
-    if (SOFTWARE_EXTS.has(ext)) return "software";
-    if (MUSIC_EXTS.has(ext)) return "music";
-    return "other";
+    const ext = this.extractExt(filename)
+    if (VIDEO_EXTS.has(ext)) return 'movie'
+    if (SOFTWARE_EXTS.has(ext)) return 'software'
+    if (MUSIC_EXTS.has(ext)) return 'music'
+    return 'other'
   }
 
   /**
@@ -69,24 +69,24 @@ export class FileOrganizer {
    *   getTargetDir("movie", config)   // => "/downloads/Movies"
    */
   getTargetDir(resourceType: ResourceType, config: AppConfig): string {
-    const dl = config.downloads;
-    let dir: string;
+    const dl = config.downloads
+    let dir: string
     switch (resourceType) {
-      case "movie":
-      case "tv":
-      case "anime":
-        dir = dl.movie_dir;
-        break;
-      case "software":
-        dir = dl.software_dir;
-        break;
-      case "music":
-      case "other":
+      case 'movie':
+      case 'tv':
+      case 'anime':
+        dir = dl.movie_dir
+        break
+      case 'software':
+        dir = dl.software_dir
+        break
+      case 'music':
+      case 'other':
       default:
-        dir = dl.other_dir;
-        break;
+        dir = dl.other_dir
+        break
     }
-    return path.isAbsolute(dir) ? dir : path.join(dl.base_dir, dir);
+    return path.isAbsolute(dir) ? dir : path.join(dl.base_dir, dir)
   }
 
   /**
@@ -99,11 +99,11 @@ export class FileOrganizer {
    * @returns 移动后的最终路径
    */
   async moveFile(sourcePath: string, targetDir: string, filename: string): Promise<string> {
-    await fs.mkdir(targetDir, { recursive: true });
+    await fs.mkdir(targetDir, { recursive: true })
 
-    const finalPath = await this.resolveConflict(targetDir, filename);
-    await fs.rename(sourcePath, finalPath);
-    return finalPath;
+    const finalPath = await this.resolveConflict(targetDir, filename)
+    await fs.rename(sourcePath, finalPath)
+    return finalPath
   }
 
   /**
@@ -118,23 +118,19 @@ export class FileOrganizer {
    *   await organizer.organize("/tmp/a.mkv", intent, config)
    *   // => "/downloads/Movies/a.mkv"
    */
-  async organize(
-    filePath: string,
-    intent?: DownloadIntent,
-    config?: AppConfig,
-  ): Promise<string> {
-    const filename = path.basename(filePath);
-    const resourceType = this.classify(filename, intent);
+  async organize(filePath: string, intent?: DownloadIntent, config?: AppConfig): Promise<string> {
+    const filename = path.basename(filePath)
+    const resourceType = this.classify(filename, intent)
 
-    let targetDir: string;
+    let targetDir: string
     if (config) {
-      targetDir = this.getTargetDir(resourceType, config);
+      targetDir = this.getTargetDir(resourceType, config)
     } else {
-      targetDir = this.baseDir;
-      await fs.mkdir(targetDir, { recursive: true });
+      targetDir = this.baseDir
+      await fs.mkdir(targetDir, { recursive: true })
     }
 
-    return this.moveFile(filePath, targetDir, filename);
+    return this.moveFile(filePath, targetDir, filename)
   }
 
   /**
@@ -145,32 +141,32 @@ export class FileOrganizer {
    *   resolveConflict("/dir", "a.mkv")  // 若已存在则返回 "/dir/a (2).mkv"
    */
   private async resolveConflict(dir: string, filename: string): Promise<string> {
-    const ext = this.extractExt(filename);
-    const base = ext !== "bin" ? filename.slice(0, -(ext.length + 1)) : filename;
+    const ext = this.extractExt(filename)
+    const base = ext !== 'bin' ? filename.slice(0, -(ext.length + 1)) : filename
 
-    let candidate = path.join(dir, filename);
-    let index = 2;
+    let candidate = path.join(dir, filename)
+    let index = 2
     while (await this.exists(candidate)) {
-      const newName = ext !== "bin" ? `${base} (${index}).${ext}` : `${base} (${index})`;
-      candidate = path.join(dir, newName);
-      index++;
+      const newName = ext !== 'bin' ? `${base} (${index}).${ext}` : `${base} (${index})`
+      candidate = path.join(dir, newName)
+      index++
     }
-    return candidate;
+    return candidate
   }
 
   /** 判断路径是否存在（不抛异常） */
   private async exists(p: string): Promise<boolean> {
     try {
-      await fs.access(p);
-      return true;
+      await fs.access(p)
+      return true
     } catch {
-      return false;
+      return false
     }
   }
 
   /** 提取文件扩展名（不含点），无扩展名时返回 "bin" */
   private extractExt(filename: string): string {
-    const parts = filename.split(".");
-    return parts.length > 1 ? parts.pop()!.toLowerCase() : "bin";
+    const parts = filename.split('.')
+    return parts.length > 1 ? parts.pop()!.toLowerCase() : 'bin'
   }
 }

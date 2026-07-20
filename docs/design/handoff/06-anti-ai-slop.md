@@ -31,6 +31,7 @@ The 22 rules are organized by **anti-pattern category**: copy, color, layout, ty
 **Carve-out:** The em-dash IS used as a placeholder character for "no value" in the ETA field of the task table (e.g., a paused task shows `—` in the ETA cell). This is a data convention, not copy. Acceptable.
 
 **Replacement:** Use one of:
+
 - A period + new sentence: "Watch the queue, then ask for more."
 - A colon: "Task-first desktop download manager: watch the queue, then ask for more."
 - A middle dot `·` (max 1 per line): "Downloading · 84% complete"
@@ -41,7 +42,8 @@ The 22 rules are organized by **anti-pattern category**: copy, color, layout, ty
 ### Rule 3 — No "filler verbs" or empty rhetoric
 
 **Anti-pattern:** Copy that uses verbs without semantic weight:
-- "Empower your workflow with..." 
+
+- "Empower your workflow with..."
 - "Unlock the power of..."
 - "Just tell me what you want"
 - "Get the latest..."
@@ -50,6 +52,7 @@ The 22 rules are organized by **anti-pattern category**: copy, color, layout, ty
 **Why it's bad:** These phrases are noise. They make copy longer without making it more informative. They also signal AI-generated writing.
 
 **Replacement:** Be specific about what the user can do:
+
 - ❌ "Just tell me what you want."
 - ✅ "Type a magnet, URL, or pick one below."
 
@@ -62,6 +65,7 @@ The 22 rules are organized by **anti-pattern category**: copy, color, layout, ty
 ### Rule 4 — No "Feature One / Feature Two" placeholder copy
 
 **Anti-pattern:** Generic placeholder text in features lists:
+
 - "Feature One"
 - "Lightning fast / AI-powered / Private & secure / All formats"
 - "Lorem ipsum"
@@ -69,6 +73,7 @@ The 22 rules are organized by **anti-pattern category**: copy, color, layout, ty
 **Why it's bad:** "Lightning fast" is unfalsifiable. "AI-powered" is a buzzword. "All formats" is unsubstantiated. These read as marketing material that the user has learned to ignore.
 
 **Replacement:** Be specific or be honest about the placeholder:
+
 - ❌ "Lightning fast" → ✅ "Resumes downloads in <2s" (or skip if you don't have a benchmark)
 - ❌ "AI-powered" → ✅ "Natural language commands" (concrete capability)
 - ❌ "Private & secure" → ✅ "No telemetry" (specific commitment)
@@ -79,6 +84,7 @@ The 22 rules are organized by **anti-pattern category**: copy, color, layout, ty
 ### Rule 5 — No invented metrics without sources
 
 **Anti-pattern:** Pulling a number out of thin air:
+
 - "10× faster"
 - "99.9% uptime"
 - "Used by 50,000+ teams"
@@ -86,6 +92,7 @@ The 22 rules are organized by **anti-pattern category**: copy, color, layout, ty
 **Why it's bad:** When the user checks, the number is wrong, and the product loses credibility. LLMs do this reflexively.
 
 **Replacement:** Either cite a real source (a benchmark, a real customer count) or use a different framing:
+
 - ❌ "10× faster than qBittorrent"
 - ✅ "Multi-threaded chunk fetcher" (capability, not false claim)
 
@@ -94,6 +101,7 @@ The prototype's MOCK_TASKS uses plausible-but-clearly-fake numbers (`24.6 MB/s`,
 ### Rule 6 — No chat-first language if product is task-first
 
 **Anti-pattern:** Copy that implies the user is talking to a chatbot:
+
 - "Your AI assistant"
 - "I'm here to help"
 - "Ask me anything"
@@ -102,6 +110,7 @@ The prototype's MOCK_TASKS uses plausible-but-clearly-fake numbers (`24.6 MB/s`,
 **Why it's bad:** The product is task-first, not chat-first. The AI is an input bar, not a conversation partner. Chat-first language telegraphs the wrong product to the user.
 
 **Replacement:** Treat the chat as a tool, not a persona:
+
 - ❌ "Your AI assistant"
 - ✅ "Type a magnet, URL, or command…"
 
@@ -113,6 +122,7 @@ The prototype's MOCK_TASKS uses plausible-but-clearly-fake numbers (`24.6 MB/s`,
 ### Rule 7 — No locale-style strip / location metadata
 
 **Anti-pattern:** A row of locale/copyright/legal text at the bottom of any screen:
+
 - "Made with ♥ in San Francisco"
 - "© 2025 Acme Inc."
 - "🇺🇸 English (US)"
@@ -133,7 +143,7 @@ The prototype's MOCK_TASKS uses plausible-but-clearly-fake numbers (`24.6 MB/s`,
 
 **Replacement:** Solid backgrounds. `--bg` is the answer. If you need visual interest, use a 1px hairline grid, a subtle radial gradient that's barely visible, or nothing at all.
 
-**Carve-out:** A 3px top accent stripe on the onboarding card is a 135deg gradient from primary to accent. This is a *small, intentional* flourish, not a background fill. Acceptable.
+**Carve-out:** A 3px top accent stripe on the onboarding card is a 135deg gradient from primary to accent. This is a _small, intentional_ flourish, not a background fill. Acceptable.
 
 ### Rule 9 — No warm beige / cream / peach / pink / orange-brown page backgrounds
 
@@ -148,28 +158,31 @@ The prototype's MOCK_TASKS uses plausible-but-clearly-fake numbers (`24.6 MB/s`,
 ### Rule 10 — One accent color, used at most twice per screen
 
 **Anti-pattern:** Multiple accent colors competing for attention:
+
 - Blue buttons + green checkmarks + orange warnings + red errors + purple highlights all on one screen
 
 **Why it's bad:** The eye doesn't know where to land. The "decorative flourish" principle fails when there are 4 of them.
 
 **Replacement:** Pick ONE accent (primary blue). Use it for:
+
 - The primary CTA button
 - Active filter tab
 - Selected row indicator
 - Focus ring (or use near-white in dark mode)
 
-Save the OTHER colors for *state* only:
+Save the OTHER colors for _state_ only:
+
 - Green = success status (only on completed tasks)
 - Yellow = warning status (only on paused tasks)
 - Red = error status (only on errored tasks)
 
-State colors should appear *because* something is in that state, not as decoration.
+State colors should appear _because_ something is in that state, not as decoration.
 
 ### Rule 11 — No neon / outer glows on hover
 
 **Anti-pattern:** A button that grows a blue or purple glow on hover (via `box-shadow`).
 
-**Why it's bad:** Glows are decorative noise. They were a 2020 web trend that has aged badly. Modern minimal design uses *darken* or *lift* for hover, not *glow*.
+**Why it's bad:** Glows are decorative noise. They were a 2020 web trend that has aged badly. Modern minimal design uses _darken_ or _lift_ for hover, not _glow_.
 
 **Replacement:** Use `background` color change (one step darker or lighter) or a 1px `translateY(-1px)` for hover. No glow.
 
@@ -186,6 +199,7 @@ State colors should appear *because* something is in that state, not as decorati
 **Why it's bad:** This is the LLM "feature card" cliché. It's a visual bandaid that says "I don't know how to create hierarchy, so let me color a side."
 
 **Replacement:** Use:
+
 - Background color difference (`--surface` vs `--bg-elevated`)
 - 1px borders on all sides
 - Spacing (cards have more padding than the gap between them)
@@ -207,9 +221,9 @@ State colors should appear *because* something is in that state, not as decorati
 
 **Why it's bad:** The heading itself is the heading. An icon next to it is decoration that competes for attention. It also signals "AI made this" because LLMs reflexively add icons.
 
-**Replacement:** Let the heading stand on its own. Icons are reserved for *actions* (buttons, menu items) or *status* (status pills).
+**Replacement:** Let the heading stand on its own. Icons are reserved for _actions_ (buttons, menu items) or _status_ (status pills).
 
-**When an icon IS appropriate next to a heading:** when the heading is a *command* (e.g., "Resume Download" with a play icon). The icon and the verb are a unit.
+**When an icon IS appropriate next to a heading:** when the heading is a _command_ (e.g., "Resume Download" with a play icon). The icon and the verb are a unit.
 
 ### Rule 15 — No fake product UI as hero illustration
 
@@ -217,7 +231,7 @@ State colors should appear *because* something is in that state, not as decorati
 
 **Why it's bad:** This is a "screenshot" of something that doesn't exist. It's visual deception. Users can tell.
 
-**Replacement:** If the product exists, show a real screenshot. If it doesn't, show a real text input that *actually works* (the onboarding card does this — it's a real form, not a fake screenshot).
+**Replacement:** If the product exists, show a real screenshot. If it doesn't, show a real text input that _actually works_ (the onboarding card does this — it's a real form, not a fake screenshot).
 
 **For Motrix AI:** the detail panel screenshot (`references/03-detail-overlay-2026-06-15.png`) is a real Playwright render of the actual product. It can be used as a hero image because it's the truth.
 
@@ -235,13 +249,14 @@ State colors should appear *because* something is in that state, not as decorati
 
 ### Rule 17 — Don't use Inter as a display face
 
-**Anti-pattern:** Using Inter (or Roboto, or Arial) as the *display* typography for headlines, hero text, and section titles.
+**Anti-pattern:** Using Inter (or Roboto, or Arial) as the _display_ typography for headlines, hero text, and section titles.
 
-**Why it's bad:** Inter is designed for *UI* — body, labels, buttons. As a display face, it has no personality. It's the "Helvetica of 2024," which means every default-LLM website uses it.
+**Why it's bad:** Inter is designed for _UI_ — body, labels, buttons. As a display face, it has no personality. It's the "Helvetica of 2024," which means every default-LLM website uses it.
 
-**Replacement:** Use Inter (or system UI) for *body* and pair it with a distinctive display face:
+**Replacement:** Use Inter (or system UI) for _body_ and pair it with a distinctive display face:
+
 - Editorial: Iowan Old Style, Charter, Georgia (serif)
-- Modern minimal: keep Inter for body, use a *specific* display face (e.g., a brand custom or a system mono)
+- Modern minimal: keep Inter for body, use a _specific_ display face (e.g., a brand custom or a system mono)
 - Tech / utility: one family is fine (Inter is acceptable here)
 
 **Carve-out for this prototype:** The current spec uses Inter for both body AND display. This is a known compromise — the prototype is single-file, no font loading, and Inter renders identically across all OSes. If the project graduates to a production app, the display face should be revisited (e.g., a custom wordmark, or a serif like Iowan Old Style for the "Motrix AI" wordmark).
@@ -273,6 +288,7 @@ State colors should appear *because* something is in that state, not as decorati
 ### Rule 20 — Single motion language (spring-out)
 
 **Anti-pattern:** Using 3-4 different easings in one product:
+
 - `ease-in-out` for the modal
 - `linear` for the toast
 - `cubic-bezier(0.68, -0.55, 0.265, 1.55)` for the buttons
@@ -281,6 +297,7 @@ State colors should appear *because* something is in that state, not as decorati
 **Why it's bad:** Each new easing adds cognitive load. The user feels "something is moving" instead of "the UI is alive." Coherence > variety.
 
 **Replacement:** Pick ONE easing family (spring-out) and stick to it. The prototype uses two related curves:
+
 - `--ease-out` (cubic-bezier(0.16, 1, 0.3, 1)) — gentle settle
 - `--ease-default` (cubic-bezier(0.2, 0.8, 0.2, 1)) — sharper spring
 
@@ -293,6 +310,7 @@ Both feel "springy." Both are derived from the same family.
 **Why it's bad:** Some users have vestibular disorders. Continuous motion triggers nausea, dizziness, or migraines. WCAG 2.3.3 requires this.
 
 **Replacement:** Every animation gets a `prefers-reduced-motion: reduce` block that either:
+
 - Strips the animation entirely (`animation: none`)
 - Compresses it to 100ms or less (`transition-duration: 100ms`)
 - Removes the moving part (`display: none` for shimmer pseudo-elements)
@@ -308,6 +326,7 @@ The prototype has a global reduced-motion block that handles 5 specific override
 ### Rule 22 — Lucide-style inline SVG, stroke 2 or 2.5
 
 **Anti-pattern:** Using:
+
 - An icon font (Font Awesome, Material Icons, etc.)
 - An emoji as an icon
 - A raster image (PNG icon) for an inline UI element
@@ -315,14 +334,20 @@ The prototype has a global reduced-motion block that handles 5 specific override
 
 **Why it's bad:** Icon fonts render inconsistently, can have accessibility issues, and require loading a separate file. Emoji are inconsistent across OSes. Raster icons don't scale. Mixed stroke widths look chaotic.
 
-**Replacement:** Inline SVG with consistent stroke-width (`2` or `2.5`). The prototype uses `stroke-width="2"` for most icons and `stroke-width="2.5"` for *important* icons (the type icons in the task table and detail panel header — slightly bolder to draw the eye).
+**Replacement:** Inline SVG with consistent stroke-width (`2` or `2.5`). The prototype uses `stroke-width="2"` for most icons and `stroke-width="2.5"` for _important_ icons (the type icons in the task table and detail panel header — slightly bolder to draw the eye).
 
 **Implementation pattern:**
 
 ```html
-<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-     stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-  <path d="..."/>
+<svg
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="..." />
 </svg>
 ```
 

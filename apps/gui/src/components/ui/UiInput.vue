@@ -61,7 +61,7 @@ const inputId = computed(() => `ui-input-${Math.random().toString(36).slice(2, 9
       :aria-describedby="props.error ? `${inputId}-error` : undefined"
       class="ui-input"
       :class="{ 'ui-input--error': props.error, 'ui-input--disabled': props.disabled }"
-    >
+    />
     <p v-if="props.error" :id="`${inputId}-error`" class="ui-input-error" role="alert">
       {{ props.error }}
     </p>

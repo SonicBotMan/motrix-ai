@@ -4,11 +4,7 @@
 // for metadata extraction.
 
 import { describe, it, expect } from 'vitest'
-import {
-  parseMikanRss,
-  parseAnimeTitle,
-  MikanSearchProvider,
-} from '../search/mikan.js'
+import { parseMikanRss, parseAnimeTitle, MikanSearchProvider } from '../search/mikan.js'
 
 describe('parseMikanRss', () => {
   const sampleXml = `<?xml version="1.0" encoding="UTF-8"?>

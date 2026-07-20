@@ -27,10 +27,12 @@
 **Why this is one task, not three:** The `any` field type, the `this.client!` non-null assertions, and the `res.data!.id as string` double hack are all symptoms of the same root cause — the field is untyped. Removing the `any` makes the `!` assertions type-compile errors, so they MUST be replaced in the same commit. Splitting would leave the file in a non-compiling intermediate state.
 
 **Files:**
+
 - Modify: `packages/core/src/ai/intent-parser.ts` (top imports, class fields, `ensureClient`, `ensureSession`, `parse` call site)
 - Verify-only: `packages/core/src/__tests__/intent-parser.test.ts`, `packages/core/src/__tests__/intent-parser-edge-cases.test.ts` (no edits)
 
 **Interfaces:**
+
 - Consumes: `createOpencodeClient` factory from `@opencode-ai/sdk` (already dynamically imported at runtime)
 - Produces:
   - `IntentParser.client: OpencodeClient | null` (was `any`)
@@ -44,6 +46,7 @@ This task is a pure type-level refactor — no runtime behavior change. The "tes
 In `packages/core/src/ai/intent-parser.ts`, replace lines 1–5 exactly:
 
 Before:
+
 ```typescript
 // ai/intent-parser.ts — 自然语言意图解析
 // 对应 PRD §6.1 NL→结构化意图
@@ -53,6 +56,7 @@ import type { DownloadIntent, Quality, ResourceType } from '../types.js'
 ```
 
 After:
+
 ```typescript
 // ai/intent-parser.ts — 自然语言意图解析
 // 对应 PRD §6.1 NL→结构化意图
@@ -74,6 +78,7 @@ const logger = createLogger('intent-parser')
 In the same file, replace lines 29–33 exactly:
 
 Before:
+
 ```typescript
 export class IntentParser {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- SDK client has complex union types
@@ -83,6 +88,7 @@ export class IntentParser {
 ```
 
 After:
+
 ```typescript
 export class IntentParser {
   private client: OpencodeClient | null = null
@@ -95,6 +101,7 @@ export class IntentParser {
 Replace lines 39–43 exactly:
 
 Before:
+
 ```typescript
   private async ensureClient() {
     if (this.client) return
@@ -104,6 +111,7 @@ Before:
 ```
 
 After:
+
 ```typescript
   private async ensureClient(): Promise<OpencodeClient> {
     if (this.client) return this.client
@@ -118,6 +126,7 @@ After:
 Replace lines 45–51 exactly:
 
 Before:
+
 ```typescript
   private async ensureSession(): Promise<string> {
     if (this.sessionId) return this.sessionId
@@ -129,6 +138,7 @@ Before:
 ```
 
 After:
+
 ```typescript
   private async ensureSession(): Promise<string> {
     if (this.sessionId) return this.sessionId
@@ -150,6 +160,7 @@ After:
 Replace lines 117–121 exactly:
 
 Before:
+
 ```typescript
     try {
       await this.ensureClient()
@@ -159,6 +170,7 @@ Before:
 ```
 
 After:
+
 ```typescript
     try {
       const client = await this.ensureClient()
@@ -176,6 +188,7 @@ cd /home/h523034406/motrix-ai && pnpm --filter @motrix-ai/core typecheck
 **Expected:** PASS with 0 errors.
 
 **If this FAILS** with an error like `Cannot find name 'createOpencodeClient'` or `Module '"@opencode-ai/sdk"' has no exported member 'createOpencodeClient'`:
+
 - Pivot to Approach B from spec §3. Replace the top-of-file block from Step 1 with:
 
 ```typescript
@@ -205,9 +218,11 @@ cd /home/h523034406/motrix-ai && pnpm --filter @motrix-ai/core lint
 **Expected:** PASS with 0 errors, 0 warnings.
 
 Verify directly:
+
 ```bash
 grep -nF "eslint-disable" packages/core/src/ai/intent-parser.ts
 ```
+
 **Expected:** no output.
 
 - [ ] **Step 8: Run all IntentParser tests to verify no behavioral regression**
@@ -241,6 +256,7 @@ Audit: P2-24"
 ```
 
 If you pivoted to Approach B, append to the commit message body:
+
 ```
 [Approach B] SDK does not export createOpencodeClient as a typed value; used
 structural OpencodeClientLike interface instead.
@@ -251,10 +267,12 @@ structural OpencodeClientLike interface instead.
 ### Task 2: Capture errors and use structured logger in IntentParser catch block
 
 **Files:**
+
 - Modify: `packages/core/src/ai/intent-parser.ts` (catch block at end of `parse()`)
 - Modify: `packages/core/src/__tests__/intent-parser-edge-cases.test.ts` (add 1 test inside the existing describe block)
 
 **Interfaces:**
+
 - Consumes: `logger` constant declared in Task 1 Step 1 (module-scoped `createLogger('intent-parser')`)
 - Produces: when `parse()` falls back to heuristic, a structured warn log is emitted containing the underlying error message
 
@@ -265,31 +283,31 @@ This task changes runtime observability — currently a connection failure to Op
 In `packages/core/src/__tests__/intent-parser-edge-cases.test.ts`, locate the existing `describe('IntentParser edge cases — heuristic fallback', () => {` block. Inside it (anywhere before the final closing `})` of that describe), add this test:
 
 ```typescript
-  it('logs the underlying error message when falling back to heuristic', async () => {
-    const { IntentParser } = await import('../ai/intent-parser.js')
-    const { createOpencodeClient } = await import('@opencode-ai/sdk')
-    const parser = new IntentParser()
+it('logs the underlying error message when falling back to heuristic', async () => {
+  const { IntentParser } = await import('../ai/intent-parser.js')
+  const { createOpencodeClient } = await import('@opencode-ai/sdk')
+  const parser = new IntentParser()
 
-    // Force ensureClient to throw a specific, identifiable error
-    vi.mocked(createOpencodeClient).mockImplementation(() => {
-      throw new Error('connection refused')
-    })
-
-    // The repo's logger writes via console.error (see packages/core/src/logger.ts)
-    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-
-    try {
-      await parser.parse('any input')
-
-      expect(consoleErrorSpy).toHaveBeenCalled()
-      const joined = consoleErrorSpy.mock.calls.flat().map(String).join(' ')
-      expect(joined).toContain('intent-parser')
-      expect(joined).toContain('connection refused')
-    } finally {
-      consoleErrorSpy.mockRestore()
-      vi.mocked(createOpencodeClient).mockReset()
-    }
+  // Force ensureClient to throw a specific, identifiable error
+  vi.mocked(createOpencodeClient).mockImplementation(() => {
+    throw new Error('connection refused')
   })
+
+  // The repo's logger writes via console.error (see packages/core/src/logger.ts)
+  const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+  try {
+    await parser.parse('any input')
+
+    expect(consoleErrorSpy).toHaveBeenCalled()
+    const joined = consoleErrorSpy.mock.calls.flat().map(String).join(' ')
+    expect(joined).toContain('intent-parser')
+    expect(joined).toContain('connection refused')
+  } finally {
+    consoleErrorSpy.mockRestore()
+    vi.mocked(createOpencodeClient).mockReset()
+  }
+})
 ```
 
 This follows the existing per-test dynamic-import pattern used by every other test in the file (the top-level `vi.mock('@opencode-ai/sdk', ...)` is hoisted by vitest; the per-test `await import` re-resolves against the mock).
@@ -301,6 +319,7 @@ cd /home/h523034406/motrix-ai && pnpm --filter @motrix-ai/core test -- intent-pa
 ```
 
 **Expected:** FAIL. The new test fails because:
+
 1. Current code uses `console.warn` (not `console.error`), so `consoleErrorSpy` is never called.
 2. Current code does not capture or log the actual error message — only a fixed string.
 
@@ -311,6 +330,7 @@ If the test fails for a DIFFERENT reason (e.g., import error, mock setup error),
 In `packages/core/src/ai/intent-parser.ts`, replace the catch block at the end of `parse()`:
 
 Before:
+
 ```typescript
     } catch {
       console.warn('[intent-parser] OpenCode unavailable, falling back to heuristic')
@@ -320,6 +340,7 @@ Before:
 ```
 
 After:
+
 ```typescript
     } catch (err) {
       const detail = err instanceof Error ? err.message : String(err)
@@ -380,10 +401,12 @@ Audit: P2-25"
 ### Task 3: Guard Aria2Client.call against malformed JSON-RPC responses
 
 **Files:**
+
 - Modify: `packages/core/src/aria2/client.ts` (the `call()` method's tail)
 - Modify: `packages/core/src/__tests__/aria2-client.test.ts` (add 1 test inside the existing `describe('error handling')` block)
 
 **Interfaces:**
+
 - Consumes: `Aria2Error` from `../errors.js` (already imported at line 5 of `client.ts`)
 - Produces: `Aria2Client.call<T>()` throws `Aria2Error` (instead of silently resolving with `undefined as T`) when the JSON-RPC response contains neither `result` nor `error`
 
@@ -394,18 +417,18 @@ This task prevents a JSON-RPC 2.0 protocol violation from silently propagating a
 In `packages/core/src/__tests__/aria2-client.test.ts`, locate the `describe('error handling', () => {` block (around line 155). Add this test inside it, before the closing `})` of that describe:
 
 ```typescript
-    it('throws Aria2Error with "malformed response" when result and error both absent', async () => {
-      // JSON-RPC 2.0 §5.1 violation: response must contain result OR error
-      fetchSpy.mockResolvedValue({
-        ok: true,
-        status: 200,
-        json: async () => ({ jsonrpc: '2.0', id: 'test' }),
-      } as unknown as Response)
+it('throws Aria2Error with "malformed response" when result and error both absent', async () => {
+  // JSON-RPC 2.0 §5.1 violation: response must contain result OR error
+  fetchSpy.mockResolvedValue({
+    ok: true,
+    status: 200,
+    json: async () => ({ jsonrpc: '2.0', id: 'test' }),
+  } as unknown as Response)
 
-      const client = new Aria2Client()
-      await expect(client.tellActive()).rejects.toThrow(Aria2Error)
-      await expect(client.tellActive()).rejects.toThrow(/malformed response/)
-    })
+  const client = new Aria2Client()
+  await expect(client.tellActive()).rejects.toThrow(Aria2Error)
+  await expect(client.tellActive()).rejects.toThrow(/malformed response/)
+})
 ```
 
 `fetchSpy` is set up by the outer `beforeEach` and `mockResolvedValue` applies to all subsequent calls, so calling `tellActive()` twice is fine — both consume the same mock. The pattern matches the existing `'throws Aria2Error on RPC error response'` test in style.
@@ -423,6 +446,7 @@ cd /home/h523034406/motrix-ai && pnpm --filter @motrix-ai/core test -- aria2-cli
 In `packages/core/src/aria2/client.ts`, replace the tail of the `call()` method:
 
 Before:
+
 ```typescript
     const data = (await res.json()) as { result?: T; error?: { code: number; message: string } }
     if (data.error) {
@@ -434,6 +458,7 @@ Before:
 ```
 
 After:
+
 ```typescript
     const data = (await res.json()) as { result?: T; error?: { code: number; message: string } }
     if (data.error) {
@@ -554,6 +579,7 @@ cd /home/h523034406/motrix-ai && git log --oneline main..HEAD
 ```
 
 **Expected:** 4 commits total:
+
 1. `docs(spec): add A1 core type hardening design spec` (already on branch as `c0a1e0e`)
 2. `refactor(core): type IntentParser client, eliminate non-null assertions`
 3. `fix(core): capture and log IntentParser fallback errors via structured logger`
@@ -568,6 +594,7 @@ The branch is locally complete. Maintainer decides whether to push and open a PR
 ## Self-Review (completed during plan authoring)
 
 **1. Spec coverage:**
+
 - Spec §4.1 (Issues 1, 2, 3 — IntentParser typing + non-null assertions) → Task 1 ✓
 - Spec §4.2 (Issue 4 — catch block logger) → Task 2 ✓
 - Spec §4.3 (Issue 5 — Aria2Client null guard) → Task 3 ✓
@@ -578,6 +605,7 @@ The branch is locally complete. Maintainer decides whether to push and open a PR
 **2. Placeholder scan:** No "TBD", "TODO", "implement later", or generic error-handling text. All code blocks contain runnable content. All commands have expected output.
 
 **3. Type consistency:**
+
 - `OpencodeClient` type alias declared in Task 1 Step 1, consumed in Task 1 Steps 2/3 (no cross-task reference — Task 2 and 3 don't touch it)
 - `logger` module-scoped constant declared in Task 1 Step 1, consumed in Task 2 Step 3 — name and prefix (`'intent-parser'`) match
 - `Aria2Error` already imported in `client.ts` line 5; no new imports needed in Task 3

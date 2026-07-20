@@ -1,23 +1,23 @@
 // file/templates.ts — 文件名模板引擎
 // 对应 PRD §6.5 文件组织与重命名（模板渲染）
 
-import type { ResourceType } from "../types.js";
+import type { ResourceType } from '../types.js'
 
 /**
  * 各资源类型的默认重命名模板。
  * 支持的占位变量：{title} {year} {quality} {ext} {season} {episode} {filename} {date}
  */
 export const DEFAULT_TEMPLATES: Record<ResourceType, string> = {
-  movie: "{title} ({year})/{title}.{quality}.{ext}",
-  tv: "{title}/Season {season}/{title} S{season}E{episode}.{ext}",
-  software: "{title}/{filename}",
-  music: "{title}/{filename}",
-  anime: "{title}/{title}.{quality}.{ext}",
-  other: "{filename}",
-};
+  movie: '{title} ({year})/{title}.{quality}.{ext}',
+  tv: '{title}/Season {season}/{title} S{season}E{episode}.{ext}',
+  software: '{title}/{filename}',
+  music: '{title}/{filename}',
+  anime: '{title}/{title}.{quality}.{ext}',
+  other: '{filename}',
+}
 
 /** 文件名中非法字符（Windows / macOS / Linux 通用） */
-const INVALID_CHARS = /[\\/:*?"<>|]/g;
+const INVALID_CHARS = /[\\/:*?"<>|]/g
 
 /**
  * 文件名模板引擎。
@@ -39,19 +39,19 @@ export class TemplateEngine {
    */
   render(template: string, vars: Record<string, string>): string {
     let result = template.replace(/\{(\w+)\}/g, (match, key: string) => {
-      const value = vars[key];
-      return value !== undefined ? value : match;
-    });
+      const value = vars[key]
+      return value !== undefined ? value : match
+    })
 
     // 先按 / 拆分为路径段，再逐段清洗非法文件名字符、去除首尾空白，
     // 最后过滤空段并重新拼接。这样 / 作为路径分隔符不会被误删。
     result = result
-      .split("/")
-      .map((seg) => seg.replace(INVALID_CHARS, "").trim())
+      .split('/')
+      .map((seg) => seg.replace(INVALID_CHARS, '').trim())
       .filter((seg) => seg.length > 0)
-      .join("/");
+      .join('/')
 
-    return result;
+    return result
   }
 
   /**
@@ -61,7 +61,7 @@ export class TemplateEngine {
    * @returns 模板字符串
    */
   getTemplate(resourceType: ResourceType): string {
-    return DEFAULT_TEMPLATES[resourceType];
+    return DEFAULT_TEMPLATES[resourceType]
   }
 
   /**
@@ -76,6 +76,6 @@ export class TemplateEngine {
    *   // => "流浪地球 2 (2023)/流浪地球 2.4K.mkv"
    */
   renderPath(resourceType: ResourceType, vars: Record<string, string>): string {
-    return this.render(this.getTemplate(resourceType), vars);
+    return this.render(this.getTemplate(resourceType), vars)
   }
 }

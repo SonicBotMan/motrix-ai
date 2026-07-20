@@ -25,14 +25,9 @@ rootPkg.version = version
 writeFileSync(join(root, 'package.json'), JSON.stringify(rootPkg, null, 2) + '\n')
 
 /** Update Tauri config */
-const tauriConf = JSON.parse(
-  readFileSync(join(root, 'apps/gui/src-tauri/tauri.conf.json'), 'utf-8'),
-)
+const tauriConf = JSON.parse(readFileSync(join(root, 'apps/gui/src-tauri/tauri.conf.json'), 'utf-8'))
 tauriConf.version = version
-writeFileSync(
-  join(root, 'apps/gui/src-tauri/tauri.conf.json'),
-  JSON.stringify(tauriConf, null, 2) + '\n',
-)
+writeFileSync(join(root, 'apps/gui/src-tauri/tauri.conf.json'), JSON.stringify(tauriConf, null, 2) + '\n')
 
 /** Update Cargo.toml */
 const cargoPath = join(root, 'apps/gui/src-tauri/Cargo.toml')

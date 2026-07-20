@@ -9,16 +9,10 @@ import { SubtitleFinder, type SubtitleSource, type SubtitleResult } from '../sub
 /**
  * Create a mock subtitle source with configurable results and errors.
  */
-function mockSource(
-  name: string,
-  results: SubtitleResult[] = [],
-  shouldFail = false,
-): SubtitleSource {
+function mockSource(name: string, results: SubtitleResult[] = [], shouldFail = false): SubtitleSource {
   return {
     name,
-    search: shouldFail
-      ? vi.fn().mockRejectedValue(new Error(`${name} error`))
-      : vi.fn().mockResolvedValue(results),
+    search: shouldFail ? vi.fn().mockRejectedValue(new Error(`${name} error`)) : vi.fn().mockResolvedValue(results),
   }
 }
 
@@ -37,9 +31,7 @@ describe('subtitle pipeline — search and download', () => {
       source: 'shooter',
     }
 
-    const sources = [
-      mockSource('shooter', [zhResult]),
-    ]
+    const sources = [mockSource('shooter', [zhResult])]
     finder = new SubtitleFinder(sources)
 
     const result = await finder.findBest('Inception.2010.1080p.mkv', ['zh-Hans', 'en'])
@@ -70,10 +62,7 @@ describe('subtitle pipeline — search and download', () => {
   })
 
   it('returns null when all sources return empty', async () => {
-    const sources = [
-      mockSource('shooter', []),
-      mockSource('subhd', []),
-    ]
+    const sources = [mockSource('shooter', []), mockSource('subhd', [])]
     finder = new SubtitleFinder(sources)
 
     const result = await finder.findBest('Unknown.Movie.mkv', ['zh-Hans', 'en'])

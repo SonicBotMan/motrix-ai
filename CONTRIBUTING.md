@@ -48,6 +48,7 @@ motrix-ai/
 ## AI Development Policy
 
 If using AI-assisted development tools:
+
 - Disclose the model/tool used in your PR description
 - Review all AI-generated code before submitting
 - Ensure AI-generated code follows project conventions

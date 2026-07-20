@@ -32,7 +32,11 @@ describe('FileOrganizer edge cases', () => {
       },
       schedule: { enabled: true, rules: [] },
       disk: { enabled: true, thresholds: { low_gb: 5, critical_gb: 2, resume_gb: 20 } },
-      subtitles: { enabled: true, preferred_languages: ['en'], sources: { shooter: true, subhd: true, opensubtitles: false } },
+      subtitles: {
+        enabled: true,
+        preferred_languages: ['en'],
+        sources: { shooter: true, subhd: true, opensubtitles: false },
+      },
       archive: { enabled: false, targets: [] },
     }
   })

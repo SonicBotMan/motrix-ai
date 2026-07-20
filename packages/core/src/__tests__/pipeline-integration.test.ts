@@ -12,10 +12,7 @@ import type { DownloadIntent, SearchResult } from '../types.js'
 /**
  * Build a fake SearchProvider that returns pre-seeded results.
  */
-function mockProvider(
-  name: string,
-  results: SearchResult[],
-): SearchProvider {
+function mockProvider(name: string, results: SearchResult[]): SearchProvider {
   return {
     name,
     search: vi.fn().mockResolvedValue(results),
@@ -47,12 +44,40 @@ describe('pipeline integration — NL → search → queue', () => {
 
     // Step 2: Search across providers
     const results: SearchResult[] = [
-      { title: 'Inception 2010 1080p BluRay', magnet: 'magnet:1', size: 8e9, seeders: 500, leechers: 30, source: 'btdig', quality: '1080p' },
-      { title: 'Inception 2010 720p', magnet: 'magnet:2', size: 4e9, seeders: 200, leechers: 10, source: 'mikan', quality: '720p' },
-      { title: 'Inception 2010 4K UHD', magnet: 'magnet:3', size: 50e9, seeders: 100, leechers: 5, source: 'nyaa', quality: '4K' },
+      {
+        title: 'Inception 2010 1080p BluRay',
+        magnet: 'magnet:1',
+        size: 8e9,
+        seeders: 500,
+        leechers: 30,
+        source: 'btdig',
+        quality: '1080p',
+      },
+      {
+        title: 'Inception 2010 720p',
+        magnet: 'magnet:2',
+        size: 4e9,
+        seeders: 200,
+        leechers: 10,
+        source: 'mikan',
+        quality: '720p',
+      },
+      {
+        title: 'Inception 2010 4K UHD',
+        magnet: 'magnet:3',
+        size: 50e9,
+        seeders: 100,
+        leechers: 5,
+        source: 'nyaa',
+        quality: '4K',
+      },
     ]
 
-    const providers = [mockProvider('btdig', [results[0]]), mockProvider('mikan', [results[1]]), mockProvider('nyaa', [results[2]])]
+    const providers = [
+      mockProvider('btdig', [results[0]]),
+      mockProvider('mikan', [results[1]]),
+      mockProvider('nyaa', [results[2]]),
+    ]
     const merged = await searchAll(providers, intent)
 
     expect(merged.length).toBe(3)
@@ -92,10 +117,22 @@ describe('pipeline integration — NL → search → queue', () => {
     }
 
     const resultA: SearchResult = {
-      title: 'Test File', magnet: 'magnet:dup', size: 1e6, seeders: 10, leechers: 1, source: 'btdig', quality: 'other',
+      title: 'Test File',
+      magnet: 'magnet:dup',
+      size: 1e6,
+      seeders: 10,
+      leechers: 1,
+      source: 'btdig',
+      quality: 'other',
     }
     const resultB: SearchResult = {
-      title: 'Another File', magnet: 'magnet:other', size: 2e6, seeders: 20, leechers: 2, source: 'mikan', quality: 'other',
+      title: 'Another File',
+      magnet: 'magnet:other',
+      size: 2e6,
+      seeders: 20,
+      leechers: 2,
+      source: 'mikan',
+      quality: 'other',
     }
 
     const providers = [mockProvider('p1', [resultA]), mockProvider('p2', [resultB])]
@@ -116,7 +153,13 @@ describe('pipeline integration — NL → search → queue', () => {
     }
 
     const goodResult: SearchResult = {
-      title: 'Good Result', magnet: 'magnet:good', size: 1e6, seeders: 50, leechers: 5, source: 'btdig', quality: 'other',
+      title: 'Good Result',
+      magnet: 'magnet:good',
+      size: 1e6,
+      seeders: 50,
+      leechers: 5,
+      source: 'btdig',
+      quality: 'other',
     }
 
     const failingProvider: SearchProvider = {
@@ -141,9 +184,33 @@ describe('pipeline integration — NL → search → queue', () => {
     }
 
     const results: SearchResult[] = [
-      { title: 'Interstellar 2014 4K HDR', magnet: 'm1', size: 60e9, seeders: 300, leechers: 20, source: 'btdig', quality: '4K' },
-      { title: 'Interstellar 720p low quality', magnet: 'm2', size: 2e9, seeders: 5, leechers: 1, source: 'nyaa', quality: '720p' },
-      { title: 'Random unrelated torrent', magnet: 'm3', size: 1e9, seeders: 1000, leechers: 100, source: 'mikan', quality: 'other' },
+      {
+        title: 'Interstellar 2014 4K HDR',
+        magnet: 'm1',
+        size: 60e9,
+        seeders: 300,
+        leechers: 20,
+        source: 'btdig',
+        quality: '4K',
+      },
+      {
+        title: 'Interstellar 720p low quality',
+        magnet: 'm2',
+        size: 2e9,
+        seeders: 5,
+        leechers: 1,
+        source: 'nyaa',
+        quality: '720p',
+      },
+      {
+        title: 'Random unrelated torrent',
+        magnet: 'm3',
+        size: 1e9,
+        seeders: 1000,
+        leechers: 100,
+        source: 'mikan',
+        quality: 'other',
+      },
     ]
 
     const best = evaluator.pickBest(results, intent)

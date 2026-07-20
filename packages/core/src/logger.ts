@@ -9,7 +9,7 @@
  * - `info`  — general operational messages
  * - `debug` — verbose diagnostic output
  */
-export type LogLevel = "error" | "warn" | "info" | "debug"
+export type LogLevel = 'error' | 'warn' | 'info' | 'debug'
 
 /** Numeric priority for level comparison (lower = more severe) */
 const LEVEL_PRIORITY: Record<LogLevel, number> = {
@@ -33,7 +33,7 @@ export class Logger {
    * @param prefix Short module / component name shown in every log line
    * @param level  Minimum severity to emit (default `"info"`)
    */
-  constructor(prefix: string, level: LogLevel = "info") {
+  constructor(prefix: string, level: LogLevel = 'info') {
     this.prefix = prefix
     this.level = level
   }

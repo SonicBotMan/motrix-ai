@@ -6,7 +6,7 @@ integration to your browser.
 ## Features
 
 - **Context menu** — Right-click any link, video, or audio element and choose
-  *"Download with Motrix AI"*.
+  _"Download with Motrix AI"_.
 - **Auto-detect** — Magnet links, `ed2k://` links, and embedded `<video>`
   sources automatically get a ⬇ Motrix AI button next to them.
 - **Popup** — Click the toolbar icon to paste a URL / magnet / ed2k link and send
@@ -42,12 +42,12 @@ integration to your browser.
 
 The extension communicates with the Motrix AI desktop app via a local HTTP API:
 
-| Setting       | Value                      |
-|---------------|----------------------------|
-| **Host**      | `127.0.0.1`                |
-| **Port**      | `18900`                    |
-| **Endpoint**  | `POST /api/download`       |
-| **Body**      | `{ "url": "...", "title": "..." }` |
+| Setting      | Value                              |
+| ------------ | ---------------------------------- |
+| **Host**     | `127.0.0.1`                        |
+| **Port**     | `18900`                            |
+| **Endpoint** | `POST /api/download`               |
+| **Body**     | `{ "url": "...", "title": "..." }` |
 
 ### How it works
 
@@ -69,7 +69,7 @@ request to aria2 via JSON-RPC on port 6800. This design means:
 3. The default port is **18900**. If you changed it, update the URLs in
    `background.js` and `popup.js`.
 4. Right-click a download link or use the popup — the URL will be sent to the
-  app instantly.
+   app instantly.
 
 ### Configuring the port
 

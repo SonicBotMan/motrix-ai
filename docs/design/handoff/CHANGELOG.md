@@ -2,7 +2,7 @@
 
 Per-round history of design changes. Each entry includes: **Date · Round name · Skill/workflow that drove it · What changed · Why · Files affected · Verification done**.
 
-This file is the audit trail. When you need to understand *why* a design decision was made, find the round below.
+This file is the audit trail. When you need to understand _why_ a design decision was made, find the round below.
 
 ---
 
@@ -162,10 +162,10 @@ This file is the audit trail. When you need to understand *why* a design decisio
 
 ## Visual baseline history
 
-| Date | Round | Screenshots |
-|---|---|---|
-| 2026-06-12 | Round 1 | (no screenshots — text-based review) |
-| 2026-06-14 | Round 2 | (rendered manually, not saved) |
+| Date       | Round   | Screenshots                                                                                                                     |
+| ---------- | ------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-06-12 | Round 1 | (no screenshots — text-based review)                                                                                            |
+| 2026-06-14 | Round 2 | (rendered manually, not saved)                                                                                                  |
 | 2026-06-15 | Round 6 | `01-onboarding-2026-06-15.png` / `02-main-screen-2026-06-15.png` / `03-detail-overlay-2026-06-15.png` (the canonical baselines) |
 
 When a future round changes a screen, re-render and rename. Old PNGs are kept for at least 2 rounds for diff.
@@ -176,15 +176,15 @@ When a future round changes a screen, re-render and rename. Old PNGs are kept fo
 
 These are decisions that were considered and explicitly rejected in some round. Documenting them prevents re-litigation.
 
-| Considered | Rejected | Why |
-|---|---|---|
-| Card with left blue border accent | ❌ | Anti-AI-slop (Rule 12) |
-| Decorative blob in background | ❌ | Anti-AI-slop (Rule 13) |
-| "Trusted by 500+ teams" logo wall | ❌ | Anti-AI-slop (Rule 16); we don't have real customers |
-| Inter as display face | ⚠️ partial | Acknowledged compromise in `01-design-system.md` §2.2 |
-| Emoji icons | ❌ | Anti-AI-slop (Rule 1) |
-| Chat-first main view | ❌ | Locked as task-first in Round 1 |
-| Sidebar AI chat | ❌ | Toast stack is the reply surface (Round 1) |
-| Real-time download progress via polling | ⚠️ deferred | v0.2 task (SSE/WebSocket) |
-| Internationalization beyond English | ⚠️ deferred | Separate epic |
-| Dark mode only (no light mode) | ❌ | Light mode is in the prototype via `data-theme="light"`, even though dark is default |
+| Considered                              | Rejected    | Why                                                                                  |
+| --------------------------------------- | ----------- | ------------------------------------------------------------------------------------ |
+| Card with left blue border accent       | ❌          | Anti-AI-slop (Rule 12)                                                               |
+| Decorative blob in background           | ❌          | Anti-AI-slop (Rule 13)                                                               |
+| "Trusted by 500+ teams" logo wall       | ❌          | Anti-AI-slop (Rule 16); we don't have real customers                                 |
+| Inter as display face                   | ⚠️ partial  | Acknowledged compromise in `01-design-system.md` §2.2                                |
+| Emoji icons                             | ❌          | Anti-AI-slop (Rule 1)                                                                |
+| Chat-first main view                    | ❌          | Locked as task-first in Round 1                                                      |
+| Sidebar AI chat                         | ❌          | Toast stack is the reply surface (Round 1)                                           |
+| Real-time download progress via polling | ⚠️ deferred | v0.2 task (SSE/WebSocket)                                                            |
+| Internationalization beyond English     | ⚠️ deferred | Separate epic                                                                        |
+| Dark mode only (no light mode)          | ❌          | Light mode is in the prototype via `data-theme="light"`, even though dark is default |

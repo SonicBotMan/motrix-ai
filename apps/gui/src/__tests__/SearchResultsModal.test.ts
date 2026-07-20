@@ -28,9 +28,15 @@ const localStorageMock = (() => {
   let store: Record<string, string> = {}
   return {
     getItem: () => null,
-    setItem: (k: string, v: string) => { store[k] = v },
-    removeItem: (k: string) => { delete store[k] },
-    clear: () => { store = {} },
+    setItem: (k: string, v: string) => {
+      store[k] = v
+    },
+    removeItem: (k: string) => {
+      delete store[k]
+    },
+    clear: () => {
+      store = {}
+    },
   }
 })()
 vi.stubGlobal('localStorage', localStorageMock)
@@ -44,10 +50,14 @@ describe('SearchResultsModal logic', () => {
   describe('qualityColor', () => {
     function qualityColor(q?: string): string {
       switch (q) {
-        case '4K': return '#A855F7'
-        case '1080p': return '#3B82F6'
-        case '720p': return '#10B981'
-        default: return '#6B7280'
+        case '4K':
+          return '#A855F7'
+        case '1080p':
+          return '#3B82F6'
+        case '720p':
+          return '#10B981'
+        default:
+          return '#6B7280'
       }
     }
 
@@ -86,9 +96,12 @@ describe('SearchResultsModal logic', () => {
   describe('sourceColor', () => {
     function sourceColor(source: string): string {
       switch (source) {
-        case 'btdig': return '#F59E0B'
-        case 'mikan': return '#EC4899'
-        default: return '#6B7280'
+        case 'btdig':
+          return '#F59E0B'
+        case 'mikan':
+          return '#EC4899'
+        default:
+          return '#6B7280'
       }
     }
 

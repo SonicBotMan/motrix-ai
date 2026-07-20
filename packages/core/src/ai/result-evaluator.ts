@@ -2,11 +2,11 @@
 // Evaluates SearchResult[] against a DownloadIntent and returns them
 // sorted by a weighted quality / popularity / size heuristic.
 
-import type { SearchResult, DownloadIntent, ResourceType, Quality } from "../types.js";
+import type { SearchResult, DownloadIntent, ResourceType, Quality } from '../types.js'
 
 /** Byte size constants */
-const GB = 1024 ** 3;
-const MB = 1024 ** 2;
+const GB = 1024 ** 3
+const MB = 1024 ** 2
 
 /** Expected size ranges per resource type: [minBytes, maxBytes] */
 const SIZE_RANGES: Record<ResourceType, [number, number]> = {
@@ -16,25 +16,25 @@ const SIZE_RANGES: Record<ResourceType, [number, number]> = {
   music: [10 * MB, 2 * GB],
   anime: [200 * MB, 60 * GB],
   other: [0, Infinity],
-};
+}
 
 /** Scoring weights — must sum to 1.0 */
-const WEIGHT_SEEDERS = 0.3;
-const WEIGHT_SIZE = 0.2;
-const WEIGHT_QUALITY = 0.2;
-const WEIGHT_RELEVANCE = 0.3;
+const WEIGHT_SEEDERS = 0.3
+const WEIGHT_SIZE = 0.2
+const WEIGHT_QUALITY = 0.2
+const WEIGHT_RELEVANCE = 0.3
 
 /** Quality proximity pairs for "close match" scoring */
 const CLOSE_QUALITY_PAIRS: ReadonlyArray<[Quality, Quality]> = [
-  ["4K", "1080p"],
-  ["1080p", "720p"],
-  ["4K", "720p"],
-];
+  ['4K', '1080p'],
+  ['1080p', '720p'],
+  ['4K', '720p'],
+]
 
 /** Internal scored result for sorting */
 interface ScoredResult {
-  result: SearchResult;
-  score: number;
+  result: SearchResult
+  score: number
 }
 
 /**
@@ -61,38 +61,38 @@ export class ResultEvaluator {
    * @returns Results sorted best-first
    */
   evaluate(results: SearchResult[], intent: DownloadIntent): SearchResult[] {
-    if (results.length === 0) return [];
+    if (results.length === 0) return []
 
     // Filter out results that are way too large (>100GB for non-movie) or
     // have 0 seeders and are large (>10GB) — these are almost certainly useless
     const filtered = results.filter((r) => {
-      if (r.size > 100 * GB && intent.resource_type !== "movie") return false;
-      if (r.seeders === 0 && r.size > 10 * GB) return false;
-      return true;
-    });
+      if (r.size > 100 * GB && intent.resource_type !== 'movie') return false
+      if (r.seeders === 0 && r.size > 10 * GB) return false
+      return true
+    })
 
-    if (filtered.length === 0) return [];
+    if (filtered.length === 0) return []
 
-    const maxSeeders = Math.max(...filtered.map((r) => r.seeders), 1);
+    const maxSeeders = Math.max(...filtered.map((r) => r.seeders), 1)
 
     const scored: ScoredResult[] = filtered.map((result) => {
-      const seedersScore = this.scoreSeeders(result.seeders, maxSeeders);
-      const sizeScore = this.scoreSize(result.size, intent.resource_type);
-      const qualityScore = this.scoreQuality(result.quality, intent.quality);
-      const relevanceScore = this.scoreRelevance(result.title, intent);
+      const seedersScore = this.scoreSeeders(result.seeders, maxSeeders)
+      const sizeScore = this.scoreSize(result.size, intent.resource_type)
+      const qualityScore = this.scoreQuality(result.quality, intent.quality)
+      const relevanceScore = this.scoreRelevance(result.title, intent)
 
       const score =
         WEIGHT_SEEDERS * seedersScore +
         WEIGHT_SIZE * sizeScore +
         WEIGHT_QUALITY * qualityScore +
-        WEIGHT_RELEVANCE * relevanceScore;
+        WEIGHT_RELEVANCE * relevanceScore
 
-      return { result, score };
-    });
+      return { result, score }
+    })
 
-    scored.sort((a, b) => b.score - a.score);
+    scored.sort((a, b) => b.score - a.score)
 
-    return scored.map((s) => s.result);
+    return scored.map((s) => s.result)
   }
 
   /**
@@ -103,8 +103,8 @@ export class ResultEvaluator {
    * @returns The highest-scoring result, or null
    */
   pickBest(results: SearchResult[], intent: DownloadIntent): SearchResult | null {
-    const sorted = this.evaluate(results, intent);
-    return sorted.length > 0 ? sorted[0] : null;
+    const sorted = this.evaluate(results, intent)
+    return sorted.length > 0 ? sorted[0] : null
   }
 
   /**
@@ -112,8 +112,8 @@ export class ResultEvaluator {
    * Linear normalisation against the highest seeder count in the set.
    */
   private scoreSeeders(seeders: number, maxSeeders: number): number {
-    if (maxSeeders <= 0) return 0;
-    return Math.min(seeders / maxSeeders, 1);
+    if (maxSeeders <= 0) return 0
+    return Math.min(seeders / maxSeeders, 1)
   }
 
   /**
@@ -124,22 +124,22 @@ export class ResultEvaluator {
    * - **0.0** if size is far outside the expected range
    */
   private scoreSize(size: number, resourceType: ResourceType): number {
-    const [minBytes, maxBytes] = SIZE_RANGES[resourceType];
+    const [minBytes, maxBytes] = SIZE_RANGES[resourceType]
 
     // "other" type — no constraints, neutral score
-    if (minBytes === 0 && maxBytes === Infinity) return 0.5;
+    if (minBytes === 0 && maxBytes === Infinity) return 0.5
 
     // Unknown size — neutral
-    if (size <= 0) return 0.5;
+    if (size <= 0) return 0.5
 
     // Within expected range
-    if (size >= minBytes && size <= maxBytes) return 1;
+    if (size >= minBytes && size <= maxBytes) return 1
 
     // Within 2× of range boundary — partial credit
-    if (size >= minBytes / 2 && size <= maxBytes * 2) return 0.5;
+    if (size >= minBytes / 2 && size <= maxBytes * 2) return 0.5
 
     // Far outside expected range
-    return 0;
+    return 0
   }
 
   /**
@@ -153,31 +153,25 @@ export class ResultEvaluator {
    * @param resultQuality - Quality detected from the result title
    * @param intentQuality - Quality requested by the user (may be undefined / "other")
    */
-  private scoreQuality(
-    resultQuality: Quality | undefined,
-    intentQuality: Quality | undefined,
-  ): number {
+  private scoreQuality(resultQuality: Quality | undefined, intentQuality: Quality | undefined): number {
     // No user preference — neutral score
-    if (!intentQuality || intentQuality === "other") return 0.5;
+    if (!intentQuality || intentQuality === 'other') return 0.5
 
     // Result quality unknown — partial credit (we can't verify mismatch)
-    if (!resultQuality || resultQuality === "other") return 0.5;
+    if (!resultQuality || resultQuality === 'other') return 0.5
 
     // Exact match: raw +3 → normalised to 1.0
-    if (resultQuality === intentQuality) return 1;
+    if (resultQuality === intentQuality) return 1
 
     // Close match: raw +1 → normalised to ~0.33
     for (const [q1, q2] of CLOSE_QUALITY_PAIRS) {
-      if (
-        (intentQuality === q1 && resultQuality === q2) ||
-        (intentQuality === q2 && resultQuality === q1)
-      ) {
-        return 1 / 3;
+      if ((intentQuality === q1 && resultQuality === q2) || (intentQuality === q2 && resultQuality === q1)) {
+        return 1 / 3
       }
     }
 
     // No match
-    return 0;
+    return 0
   }
 
   /**
@@ -193,23 +187,23 @@ export class ResultEvaluator {
    * @returns Normalised relevance score between 0 and 1
    */
   private scoreRelevance(resultTitle: string, intent: DownloadIntent): number {
-    const titleLower = resultTitle.toLowerCase();
-    const keywords = intent.search_keywords.map((k) => k.toLowerCase());
+    const titleLower = resultTitle.toLowerCase()
+    const keywords = intent.search_keywords.map((k) => k.toLowerCase())
 
-    let matchCount = 0;
+    let matchCount = 0
     for (const keyword of keywords) {
       if (titleLower.includes(keyword)) {
-        matchCount++;
+        matchCount++
       }
     }
 
     // Bonus for main title match
-    const mainTitle = intent.title.toLowerCase();
+    const mainTitle = intent.title.toLowerCase()
     if (mainTitle && titleLower.includes(mainTitle)) {
-      matchCount += 2;
+      matchCount += 2
     }
 
     // Normalise to 0-1
-    return Math.min(matchCount / (keywords.length + 2), 1);
+    return Math.min(matchCount / (keywords.length + 2), 1)
   }
 }

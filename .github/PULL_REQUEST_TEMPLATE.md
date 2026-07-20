@@ -25,5 +25,6 @@ Brief description of changes.
 ## AI Disclosure
 
 If AI tools were used:
+
 - Model/tool: ___
 - Level of involvement: ___

@@ -15,25 +15,25 @@ The post-v1.3.0 audit (`AUDIT-REPORT.md`) flagged 5 low-risk code-quality items 
 
 ### Findings already resolved (no action required)
 
-| Audit # | Originally flagged | Current state |
-|---|---|---|
-| P1-2 | `QueueView.vue` 1159 lines of dead code | ✅ File deleted. Only a historical comment reference remains in `apps/gui/src/composables/useAria2.ts:16`. |
-| P2-7 | Duplicate design tokens in `main.css` vs `tokens.css` | ✅ `main.css:2` now declares `tokens.css` as the single source of truth; no duplicate token definitions remain. |
+| Audit # | Originally flagged                                    | Current state                                                                                                   |
+| ------- | ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| P1-2    | `QueueView.vue` 1159 lines of dead code               | ✅ File deleted. Only a historical comment reference remains in `apps/gui/src/composables/useAria2.ts:16`.      |
+| P2-7    | Duplicate design tokens in `main.css` vs `tokens.css` | ✅ `main.css:2` now declares `tokens.css` as the single source of truth; no duplicate token definitions remain. |
 
 ### Findings still open (in scope)
 
-| # | File:line | Issue | Audit # |
-|---|---|---|---|
-| 1 | `packages/core/src/ai/intent-parser.ts:30-31` | `private client: any = null` with `// eslint-disable-next-line @typescript-eslint/no-explicit-any` | P2-24 |
-| 2 | `packages/core/src/ai/intent-parser.ts:48, 121` | `this.client!.session.create()` and `this.client!.session.prompt(...)` use non-null assertion (`!`) on a nullable field | Derived from P2-24 |
-| 3 | `packages/core/src/ai/intent-parser.ts:49` | `res.data!.id as string` — non-null assertion **plus** `as string` cast (id may be `string \| number`) | Derived from P2-24 |
-| 4 | `packages/core/src/ai/intent-parser.ts:165-169` | `catch {` does not bind the error object; uses `console.warn` instead of the structured `createLogger` mandated by repo `AGENTS.md` | P2-25 |
-| 5 | `packages/core/src/aria2/client.ts:62` | `return data.result as T` — when aria2 returns a malformed response (neither `result` nor `error`), this silently returns `undefined as T` to every caller | P2-26 |
+| #   | File:line                                       | Issue                                                                                                                                                      | Audit #            |
+| --- | ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
+| 1   | `packages/core/src/ai/intent-parser.ts:30-31`   | `private client: any = null` with `// eslint-disable-next-line @typescript-eslint/no-explicit-any`                                                         | P2-24              |
+| 2   | `packages/core/src/ai/intent-parser.ts:48, 121` | `this.client!.session.create()` and `this.client!.session.prompt(...)` use non-null assertion (`!`) on a nullable field                                    | Derived from P2-24 |
+| 3   | `packages/core/src/ai/intent-parser.ts:49`      | `res.data!.id as string` — non-null assertion **plus** `as string` cast (id may be `string \| number`)                                                     | Derived from P2-24 |
+| 4   | `packages/core/src/ai/intent-parser.ts:165-169` | `catch {` does not bind the error object; uses `console.warn` instead of the structured `createLogger` mandated by repo `AGENTS.md`                        | P2-25              |
+| 5   | `packages/core/src/aria2/client.ts:62`          | `return data.result as T` — when aria2 returns a malformed response (neither `result` nor `error`), this silently returns `undefined as T` to every caller | P2-26              |
 
 ### Why this matters
 
 - **Issue 1–3** defeat TypeScript's strict mode at the most critical trust boundary (untrusted external service response). The `eslint-disable` is also a linting regression the repo explicitly wants gone.
-- **Issue 4** violates two explicit constraints in `AGENTS.md`: *"Use logger from `packages/core/src/logger.ts`"* and *"Never leave catch blocks empty"*. The current `catch {` loses the error object entirely — when OpenCode fails, the actual root cause (network? auth? malformed response?) is unobservable.
+- **Issue 4** violates two explicit constraints in `AGENTS.md`: _"Use logger from `packages/core/src/logger.ts`"_ and _"Never leave catch blocks empty"_. The current `catch {` loses the error object entirely — when OpenCode fails, the actual root cause (network? auth? malformed response?) is unobservable.
 - **Issue 5** lets a protocol violation propagate as `undefined` through the call chain. Callers like `tellStatus()` would then try to read `.gid` on `undefined` and throw an opaque `TypeError` far from the actual root cause.
 
 ---
@@ -177,6 +177,7 @@ export class IntentParser {
 ```
 
 Key changes:
+
 1. `any` field → properly typed `OpencodeClient | null`. `eslint-disable` line removed.
 2. `ensureClient()` now returns the client, so callers get a non-null reference through the type system (no more `this.client!`).
 3. `ensureSession()` uses optional chaining `res.data?.id` instead of `res.data!.id`.
@@ -233,6 +234,7 @@ async parse(input: string): Promise<DownloadIntent> {
 The `logger` constant is module-scoped (declared at the top, alongside the new `OpencodeClient` type alias, per §4.1).
 
 This satisfies both `AGENTS.md` constraints:
+
 - ✅ Uses `createLogger` from `packages/core/src/logger.ts`
 - ✅ Catch block is not empty (captures `err`, surfaces it via structured log)
 
@@ -280,11 +282,11 @@ No other lines in `client.ts` are touched.
 
 ### Existing tests — must remain green
 
-| File | Tests | Why unaffected |
-|---|---|---|
-| `packages/core/src/__tests__/intent-parser.test.ts` | 15 | All exercise the heuristic fallback path. The mocked SDK throws, the new `catch (err)` block captures it, fallback fires — identical behavior. |
-| `packages/core/src/__tests__/intent-parser-edge-cases.test.ts` | 13 | Same path. The existing `vi.mock('@opencode-ai/sdk', () => ({ createOpencodeClient: vi.fn() }))` returns `undefined`, which means `this.client` is assigned `undefined`; the new `ensureClient()` still returns it (no runtime guard inside `ensureClient` itself — TypeScript narrows at the call site via the `const client = await this.ensureClient()` pattern, but at runtime an `undefined` value still flows through and throws at `client.session.create()`). The outer `catch` then handles it as before. |
-| `packages/core/src/__tests__/aria2-client.test.ts` | 20+ | All existing mocks return a `result` field. The new `undefined` guard is not triggered. |
+| File                                                           | Tests | Why unaffected                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| -------------------------------------------------------------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `packages/core/src/__tests__/intent-parser.test.ts`            | 15    | All exercise the heuristic fallback path. The mocked SDK throws, the new `catch (err)` block captures it, fallback fires — identical behavior.                                                                                                                                                                                                                                                                                                                                                                     |
+| `packages/core/src/__tests__/intent-parser-edge-cases.test.ts` | 13    | Same path. The existing `vi.mock('@opencode-ai/sdk', () => ({ createOpencodeClient: vi.fn() }))` returns `undefined`, which means `this.client` is assigned `undefined`; the new `ensureClient()` still returns it (no runtime guard inside `ensureClient` itself — TypeScript narrows at the call site via the `const client = await this.ensureClient()` pattern, but at runtime an `undefined` value still flows through and throws at `client.session.create()`). The outer `catch` then handles it as before. |
+| `packages/core/src/__tests__/aria2-client.test.ts`             | 20+   | All existing mocks return a `result` field. The new `undefined` guard is not triggered.                                                                                                                                                                                                                                                                                                                                                                                                                            |
 
 ### New tests — exactly 2
 
@@ -326,7 +328,7 @@ it('throws Aria2Error when response has neither result nor error', async () => {
   fetchSpy.mockResolvedValue({
     ok: true,
     status: 200,
-    json: async () => ({ jsonrpc: '2.0', id: 'test' }),  // no result, no error
+    json: async () => ({ jsonrpc: '2.0', id: 'test' }), // no result, no error
   } as unknown as Response)
 
   const client = new Aria2Client()
@@ -343,13 +345,13 @@ it('throws Aria2Error when response has neither result nor error', async () => {
 
 All must pass before PR is mergeable. No exceptions.
 
-| Check | Command | Expected |
-|---|---|---|
-| TypeScript strict | `pnpm --filter @motrix-ai/core typecheck` | 0 errors. Critically: **no `eslint-disable` for `no-explicit-any` remains in `intent-parser.ts`**. |
-| Unit tests | `pnpm --filter @motrix-ai/core test` | All green. Count: 685 existing + 2 new = 687. |
-| ESLint | `pnpm --filter @motrix-ai/core lint` | 0 errors, 0 warnings. The previously-disabled `no-explicit-any` line is gone. |
-| Workspace-wide | `pnpm typecheck && pnpm test && pnpm lint` (repo root) | All green. Confirms no caller of IntentParser or Aria2Client breaks due to type changes. |
-| Rust | `cargo test` (in `apps/gui/src-tauri/`) | Not run **locally** — no Rust changes in this PR. (CI still runs Rust tests as part of the matrix; they will be green because nothing in `apps/gui/src-tauri/` is touched.) |
+| Check             | Command                                                | Expected                                                                                                                                                                    |
+| ----------------- | ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| TypeScript strict | `pnpm --filter @motrix-ai/core typecheck`              | 0 errors. Critically: **no `eslint-disable` for `no-explicit-any` remains in `intent-parser.ts`**.                                                                          |
+| Unit tests        | `pnpm --filter @motrix-ai/core test`                   | All green. Count: 685 existing + 2 new = 687.                                                                                                                               |
+| ESLint            | `pnpm --filter @motrix-ai/core lint`                   | 0 errors, 0 warnings. The previously-disabled `no-explicit-any` line is gone.                                                                                               |
+| Workspace-wide    | `pnpm typecheck && pnpm test && pnpm lint` (repo root) | All green. Confirms no caller of IntentParser or Aria2Client breaks due to type changes.                                                                                    |
+| Rust              | `cargo test` (in `apps/gui/src-tauri/`)                | Not run **locally** — no Rust changes in this PR. (CI still runs Rust tests as part of the matrix; they will be green because nothing in `apps/gui/src-tauri/` is touched.) |
 
 ### Manual spot check (optional but recommended)
 
@@ -367,13 +369,13 @@ Both targeted test runs must be green.
 
 **Single PR**, 5 commits with conventional-message prefixes. Each commit is independently reviewable and revertible.
 
-| # | Commit message | Files touched |
-|---|---|---|
-| 1 | `refactor(core): type IntentParser client via ReturnType<typeof createOpencodeClient>` | `intent-parser.ts` |
-| 2 | `refactor(core): replace non-null assertions in IntentParser with explicit guards` | `intent-parser.ts` |
-| 3 | `fix(core): use structured logger in IntentParser catch, preserve error info` | `intent-parser.ts` |
-| 4 | `fix(core): guard Aria2Client.call against malformed RPC responses` | `client.ts` |
-| 5 | `test(core): cover IntentParser logger call + Aria2Client null-result path` | `intent-parser-edge-cases.test.ts`, `aria2-client.test.ts` |
+| #   | Commit message                                                                         | Files touched                                              |
+| --- | -------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| 1   | `refactor(core): type IntentParser client via ReturnType<typeof createOpencodeClient>` | `intent-parser.ts`                                         |
+| 2   | `refactor(core): replace non-null assertions in IntentParser with explicit guards`     | `intent-parser.ts`                                         |
+| 3   | `fix(core): use structured logger in IntentParser catch, preserve error info`          | `intent-parser.ts`                                         |
+| 4   | `fix(core): guard Aria2Client.call against malformed RPC responses`                    | `client.ts`                                                |
+| 5   | `test(core): cover IntentParser logger call + Aria2Client null-result path`            | `intent-parser-edge-cases.test.ts`, `aria2-client.test.ts` |
 
 **Branch name:** `refactor/a1-core-type-hardening`
 
@@ -383,12 +385,12 @@ Both targeted test runs must be green.
 
 ## 8. Risks & Rollback
 
-| Risk | Likelihood | Impact | Mitigation |
-|---|---|---|---|
-| `@opencode-ai/sdk` does not export `createOpencodeClient` as a typed named export (Approach A fails) | Low | Blocked implementation | Fall back to Approach B (structural interface). Commit message documents the pivot. Decision made within first implementation step. |
-| 28 existing IntentParser tests go red after type change | Low | Blocked PR | Type changes are confined to `ensureClient` / `ensureSession` internals. Heuristic path (used by tests) does not touch these except via the outer try/catch, which preserves fallback behavior. If red: investigate test mock assumptions, fix forward. |
-| New `data.result === undefined` guard triggers on a real-world malformed aria2 response nobody noticed before | Very low | Surfaced latent bug | This is a *good* outcome. Investigate the aria2 instance producing the malformed response; the new `Aria2Error` includes the method name for diagnosis. |
-| Logger output format changes break a log-parsing consumer | Very low | Observability regression | The repo has no log-parsing consumer (logs go to stderr only, per `logger.ts` docstring). |
+| Risk                                                                                                          | Likelihood | Impact                   | Mitigation                                                                                                                                                                                                                                              |
+| ------------------------------------------------------------------------------------------------------------- | ---------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@opencode-ai/sdk` does not export `createOpencodeClient` as a typed named export (Approach A fails)          | Low        | Blocked implementation   | Fall back to Approach B (structural interface). Commit message documents the pivot. Decision made within first implementation step.                                                                                                                     |
+| 28 existing IntentParser tests go red after type change                                                       | Low        | Blocked PR               | Type changes are confined to `ensureClient` / `ensureSession` internals. Heuristic path (used by tests) does not touch these except via the outer try/catch, which preserves fallback behavior. If red: investigate test mock assumptions, fix forward. |
+| New `data.result === undefined` guard triggers on a real-world malformed aria2 response nobody noticed before | Very low   | Surfaced latent bug      | This is a _good_ outcome. Investigate the aria2 instance producing the malformed response; the new `Aria2Error` includes the method name for diagnosis.                                                                                                 |
+| Logger output format changes break a log-parsing consumer                                                     | Very low   | Observability regression | The repo has no log-parsing consumer (logs go to stderr only, per `logger.ts` docstring).                                                                                                                                                               |
 
 **Rollback:** Single PR → single `git revert`. No migration, no data changes.
 

@@ -7,6 +7,7 @@ Motrix AI does not collect any personal data. All data stays on your local machi
 ## AI Processing
 
 When using AI features:
+
 - **OpenCode (Free)**: Your queries are sent to OpenCode's servers for processing. No data is stored.
 - **Anthropic/OpenAI**: If you configure your own API key, queries are sent to the respective provider. See their privacy policies.
 - **Ollama (Local)**: All processing happens locally. No data leaves your machine.

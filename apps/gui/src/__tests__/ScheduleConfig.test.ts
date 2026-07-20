@@ -28,9 +28,15 @@ const localStorageMock = (() => {
   let store: Record<string, string> = {}
   return {
     getItem: () => null,
-    setItem: (k: string, v: string) => { store[k] = v },
-    removeItem: (k: string) => { delete store[k] },
-    clear: () => { store = {} },
+    setItem: (k: string, v: string) => {
+      store[k] = v
+    },
+    removeItem: (k: string) => {
+      delete store[k]
+    },
+    clear: () => {
+      store = {}
+    },
   }
 })()
 vi.stubGlobal('localStorage', localStorageMock)
@@ -69,8 +75,22 @@ describe('ScheduleConfig logic', () => {
     it('default rules have three time slots', () => {
       const rules = [
         { name: '深夜全速', time_start: '23:00', time_end: '07:00', speed_limit: 0, max_concurrent: 5, enabled: true },
-        { name: '白天让路', time_start: '07:00', time_end: '18:00', speed_limit: 5000000, max_concurrent: 2, enabled: true },
-        { name: '晚间适度', time_start: '18:00', time_end: '23:00', speed_limit: 10000000, max_concurrent: 3, enabled: true },
+        {
+          name: '白天让路',
+          time_start: '07:00',
+          time_end: '18:00',
+          speed_limit: 5000000,
+          max_concurrent: 2,
+          enabled: true,
+        },
+        {
+          name: '晚间适度',
+          time_start: '18:00',
+          time_end: '23:00',
+          speed_limit: 10000000,
+          max_concurrent: 3,
+          enabled: true,
+        },
       ]
       expect(rules).toHaveLength(3)
     })
@@ -85,7 +105,14 @@ describe('ScheduleConfig logic', () => {
 
     it('daytime rule has limited speed', () => {
       const rules = [
-        { name: '白天让路', time_start: '07:00', time_end: '18:00', speed_limit: 5000000, max_concurrent: 2, enabled: true },
+        {
+          name: '白天让路',
+          time_start: '07:00',
+          time_end: '18:00',
+          speed_limit: 5000000,
+          max_concurrent: 2,
+          enabled: true,
+        },
       ]
       expect(rules[0].speed_limit).toBe(5_000_000)
       expect(rules[0].max_concurrent).toBe(2)

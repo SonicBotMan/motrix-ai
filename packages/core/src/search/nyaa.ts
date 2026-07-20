@@ -1,15 +1,15 @@
 // search/nyaa.ts — Nyaa.si torrent search provider
 // Scrapes the nyaa.si HTML search results table (sorted by seeders) for magnet links
 
-import type { SearchResult, DownloadIntent, Quality } from "../types.js"
-import type { SearchProvider } from "./provider.js"
-import { createLogger } from "../logger.js"
+import type { SearchResult, DownloadIntent, Quality } from '../types.js'
+import type { SearchProvider } from './provider.js'
+import { createLogger } from '../logger.js'
 
-const logger = createLogger("search:nyaa")
+const logger = createLogger('search:nyaa')
 
 /** Default browser User-Agent for scraping requests */
 const DEFAULT_UA =
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36'
 
 /**
  * Parse the nyaa.si results HTML table into {@link SearchResult} entries.
@@ -39,7 +39,7 @@ export function parseNyaaHtml(html: string): SearchResult[] {
       // Magnet link
       const magnetMatch = row.match(/href="(magnet:\?[^"]+)"/)
       if (!magnetMatch) continue
-      const magnet = magnetMatch[1].replace(/&amp;/g, "&")
+      const magnet = magnetMatch[1].replace(/&amp;/g, '&')
 
       // Size — nyaa shows e.g. "1.4 GiB"
       const sizeMatch = row.match(/<td class="text-center">([\d.]+\s*[KMG]iB)\s*<\/td>/i)
@@ -56,7 +56,7 @@ export function parseNyaaHtml(html: string): SearchResult[] {
         size,
         seeders,
         leechers,
-        source: "nyaa",
+        source: 'nyaa',
         quality: detectQuality(title),
       })
     } catch {
@@ -70,9 +70,9 @@ export function parseNyaaHtml(html: string): SearchResult[] {
 /** Detect video quality from a title string */
 function detectQuality(title: string): Quality | undefined {
   const lower = title.toLowerCase()
-  if (/2160p|4k|uhd/.test(lower)) return "4K"
-  if (/1080[pi]/.test(lower)) return "1080p"
-  if (/720[pi]/.test(lower)) return "720p"
+  if (/2160p|4k|uhd/.test(lower)) return '4K'
+  if (/1080[pi]/.test(lower)) return '1080p'
+  if (/720[pi]/.test(lower)) return '720p'
   return undefined
 }
 
@@ -99,7 +99,7 @@ export function parseNyaaSize(sizeStr: string): number {
  * and parses the resulting HTML table for magnet links.
  */
 export class NyaaSearchProvider implements SearchProvider {
-  readonly name = "nyaa"
+  readonly name = 'nyaa'
   private readonly userAgent: string
 
   constructor(userAgent?: string) {
@@ -108,7 +108,7 @@ export class NyaaSearchProvider implements SearchProvider {
 
   /** @inheritdoc */
   async search(keywords: string[], _intent: DownloadIntent): Promise<SearchResult[]> {
-    const query = keywords.join(" ")
+    const query = keywords.join(' ')
     if (!query) return []
 
     const url = `https://nyaa.si/?f=0&c=0_0&q=${encodeURIComponent(query)}&s=seeders&o=desc`
@@ -118,9 +118,9 @@ export class NyaaSearchProvider implements SearchProvider {
     try {
       const response = await fetch(url, {
         headers: {
-          "User-Agent": this.userAgent,
-          Accept: "text/html,application/xhtml+xml",
-          "Accept-Language": "en-US,en;q=0.9",
+          'User-Agent': this.userAgent,
+          Accept: 'text/html,application/xhtml+xml',
+          'Accept-Language': 'en-US,en;q=0.9',
         },
         signal: AbortSignal.timeout(15_000),
       })

@@ -4,11 +4,7 @@
 // parseNyaaSize() for various size formats.
 
 import { describe, it, expect } from 'vitest'
-import {
-  parseNyaaHtml,
-  parseNyaaSize,
-  NyaaSearchProvider,
-} from '../search/nyaa.js'
+import { parseNyaaHtml, parseNyaaSize, NyaaSearchProvider } from '../search/nyaa.js'
 
 describe('parseNyaaSize', () => {
   it('parses GiB correctly', () => {

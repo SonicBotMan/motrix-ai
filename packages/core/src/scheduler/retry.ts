@@ -1,11 +1,11 @@
 // scheduler/retry.ts — 失败任务自动重试调度
 // 对应 PRD §6.3.3 自动重试
 
-import type { Task } from "../types.js"
-import { Aria2Client } from "../aria2/client.js"
+import type { Task } from '../types.js'
+import { Aria2Client } from '../aria2/client.js'
 
 /** 错误分类，用于决定重试策略 */
-export type ErrorClassification = "retry" | "no-peers" | "disk-full" | "fatal"
+export type ErrorClassification = 'retry' | 'no-peers' | 'disk-full' | 'fatal'
 
 /** RetryScheduler 构造选项 */
 export interface RetrySchedulerOptions {
@@ -67,7 +67,7 @@ export class RetryScheduler {
 
         updated.push({
           ...task,
-          status: "pending",
+          status: 'pending',
           retry_count: task.retry_count + 1,
           aria2_gid: newGid,
           error: undefined,
@@ -93,16 +93,16 @@ export class RetryScheduler {
   classifyError(error: string): ErrorClassification {
     const lower = error.toLowerCase()
 
-    if (lower.includes("403") || lower.includes("404")) {
-      return "retry" // 换源
+    if (lower.includes('403') || lower.includes('404')) {
+      return 'retry' // 换源
     }
-    if (lower.includes("no peers") || lower.includes("no seeders")) {
-      return "no-peers" // 换 Tracker
+    if (lower.includes('no peers') || lower.includes('no seeders')) {
+      return 'no-peers' // 换 Tracker
     }
-    if (lower.includes("disk") || lower.includes("space")) {
-      return "disk-full"
+    if (lower.includes('disk') || lower.includes('space')) {
+      return 'disk-full'
     }
-    return "retry"
+    return 'retry'
   }
 
   /**
@@ -117,11 +117,11 @@ export class RetryScheduler {
    * @returns 是否应重试
    */
   shouldRetry(task: Task): boolean {
-    if (task.status !== "failed") return false
+    if (task.status !== 'failed') return false
     if (task.retry_count >= this.maxRetries) return false
 
-    const errorType = task.error ? this.classifyError(task.error) : "retry"
-    if (errorType === "fatal") return false
+    const errorType = task.error ? this.classifyError(task.error) : 'retry'
+    if (errorType === 'fatal') return false
 
     return true
   }

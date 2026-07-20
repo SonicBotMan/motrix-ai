@@ -29,7 +29,7 @@ document.getElementById('download').addEventListener('click', async () => {
     let response = await fetch('http://127.0.0.1:18900/api/download', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-Motrix-Token': token },
-      body: JSON.stringify({ url, title: '' })
+      body: JSON.stringify({ url, title: '' }),
     })
 
     if (response.status === 403) {
@@ -39,7 +39,7 @@ document.getElementById('download').addEventListener('click', async () => {
       response = await fetch('http://127.0.0.1:18900/api/download', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Motrix-Token': token },
-        body: JSON.stringify({ url, title: '' })
+        body: JSON.stringify({ url, title: '' }),
       })
     }
 
@@ -67,11 +67,7 @@ document.getElementById('download').addEventListener('click', async () => {
 chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
   if (tabs[0] && tabs[0].url) {
     const url = tabs[0].url
-    if (
-      url.startsWith('magnet:') ||
-      url.startsWith('ed2k://') ||
-      url.match(/\.(torrent|mp4|mkv|avi|zip|rar)$/i)
-    ) {
+    if (url.startsWith('magnet:') || url.startsWith('ed2k://') || url.match(/\.(torrent|mp4|mkv|avi|zip|rar)$/i)) {
       document.getElementById('url').value = url
     }
   }

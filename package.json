@@ -1,6 +1,6 @@
 {
   "name": "motrix-ai",
-  "version": "1.5.6",
+  "version": "1.6.0",
   "private": true,
   "type": "module",
   "description": "AI-native download manager — describe what you want, AI handles the rest",
@@ -23,7 +23,10 @@
     "test:coverage": "vitest run --coverage",
     "lint": "eslint . --ext .ts,.vue",
     "format": "prettier --write \"src/**/*.{ts,vue,json,md}\"",
+    "format:check": "prettier --check .",
     "typecheck": "turbo run typecheck",
+    "vue-tsc": "vue-tsc --noEmit",
+    "release": "bash scripts/release.sh",
     "clean": "turbo run clean",
     "bump": "node scripts/bump-version.mjs",
     "prepare": "husky"

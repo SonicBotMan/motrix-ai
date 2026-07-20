@@ -32,9 +32,15 @@ const localStorageMock = (() => {
   let store: Record<string, string> = {}
   return {
     getItem: () => null,
-    setItem: (k: string, v: string) => { store[k] = v },
-    removeItem: (k: string) => { delete store[k] },
-    clear: () => { store = {} },
+    setItem: (k: string, v: string) => {
+      store[k] = v
+    },
+    removeItem: (k: string) => {
+      delete store[k]
+    },
+    clear: () => {
+      store = {}
+    },
   }
 })()
 vi.stubGlobal('localStorage', localStorageMock)
@@ -48,12 +54,18 @@ describe('TaskDetailModal logic', () => {
   describe('getStatusColor', () => {
     function getStatusColor(status: string): string {
       switch (status) {
-        case 'downloading': return '#3B82F6'
-        case 'completed': return '#10B981'
-        case 'paused': return '#F59E0B'
-        case 'pending': return '#94A3B8'
-        case 'failed': return '#EF4444'
-        default: return '#3B82F6'
+        case 'downloading':
+          return '#3B82F6'
+        case 'completed':
+          return '#10B981'
+        case 'paused':
+          return '#F59E0B'
+        case 'pending':
+          return '#94A3B8'
+        case 'failed':
+          return '#EF4444'
+        default:
+          return '#3B82F6'
       }
     }
 

@@ -64,9 +64,7 @@ describe('ArchiveSync', () => {
     })
 
     it('returns null when no matching target', async () => {
-      const sync = new ArchiveSync(makeConfig(true, [
-        { ...movieTarget, match: { resource_type: 'movie' } },
-      ]))
+      const sync = new ArchiveSync(makeConfig(true, [{ ...movieTarget, match: { resource_type: 'movie' } }]))
       const result = await sync.syncFile('/downloads/app.exe', 'software')
       expect(result).toBeNull()
     })
@@ -114,9 +112,7 @@ describe('ArchiveSync', () => {
 
     it('continues on individual file failure', async () => {
       const { exec } = await import('node:child_process')
-      vi.mocked(exec).mockImplementationOnce(((
-        _cmd: string, _opts: unknown, cb: unknown,
-      ) => {
+      vi.mocked(exec).mockImplementationOnce(((_cmd: string, _opts: unknown, cb: unknown) => {
         if (typeof cb === 'function') cb(new Error('rsync failed'), null, '')
         return undefined
       }) as never)
@@ -136,9 +132,7 @@ describe('ArchiveSync', () => {
 
     it('returns false on connection failure', async () => {
       const { exec } = await import('node:child_process')
-      vi.mocked(exec).mockImplementationOnce(((
-        _cmd: string, _opts: unknown, cb: unknown,
-      ) => {
+      vi.mocked(exec).mockImplementationOnce(((_cmd: string, _opts: unknown, cb: unknown) => {
         if (typeof cb === 'function') cb(new Error('connection refused'), null, '')
         return undefined
       }) as never)

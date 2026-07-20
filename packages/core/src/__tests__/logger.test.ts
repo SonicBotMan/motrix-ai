@@ -75,10 +75,7 @@ describe('Logger', () => {
       const logger = new Logger('mod', 'debug')
       const obj = { key: 'value' }
       logger.info('msg', obj)
-      expect(errorSpy).toHaveBeenCalledWith(
-        expect.any(String),
-        obj,
-      )
+      expect(errorSpy).toHaveBeenCalledWith(expect.any(String), obj)
     })
   })
 

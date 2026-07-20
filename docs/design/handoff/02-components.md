@@ -18,24 +18,24 @@ Visual reference: see `references/02-main-screen-2026-06-15.png` for the chrome 
 +----+--------------------------------+------------+------+
 ```
 
-| Zone | Element | What it shows |
-|---|---|---|
-| left | `.chrome-dots` | 3 macOS-style window dots (red, yellow, green) — purely decorative on web, but signals "this is a desktop app window" |
-| left | `.chrome-logo` | "Motrix" in primary blue + " AI" in fg, Inter 14px 600. Clickable, `title="Back to downloads"`, `onclick="goHome()"` |
-| center | (empty) | Intentionally empty. Wordmark sits in `chrome-left`, the title context sits in the panel header below. |
-| right | `.chrome-theme-toggle` | 28×28 button. Sun icon (light theme active) or moon icon (dark theme active). `title="Toggle theme"`. |
-| right | `.chrome-settings` | 28×28 button. Gear icon. `title="Settings"`. Opens `#screen-settings`. |
+| Zone   | Element                | What it shows                                                                                                         |
+| ------ | ---------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| left   | `.chrome-dots`         | 3 macOS-style window dots (red, yellow, green) — purely decorative on web, but signals "this is a desktop app window" |
+| left   | `.chrome-logo`         | "Motrix" in primary blue + " AI" in fg, Inter 14px 600. Clickable, `title="Back to downloads"`, `onclick="goHome()"`  |
+| center | (empty)                | Intentionally empty. Wordmark sits in `chrome-left`, the title context sits in the panel header below.                |
+| right  | `.chrome-theme-toggle` | 28×28 button. Sun icon (light theme active) or moon icon (dark theme active). `title="Toggle theme"`.                 |
+| right  | `.chrome-settings`     | 28×28 button. Gear icon. `title="Settings"`. Opens `#screen-settings`.                                                |
 
 ### States
 
-| State | What changes |
-|---|---|
-| Default | All buttons in `--fg-tertiary` (visible but quiet) |
-| Hover (button) | Color → `--fg` |
+| State                  | What changes                                                       |
+| ---------------------- | ------------------------------------------------------------------ |
+| Default                | All buttons in `--fg-tertiary` (visible but quiet)                 |
+| Hover (button)         | Color → `--fg`                                                     |
 | Focus-visible (button) | Near-white 2px outline + 6px halo (see `01-design-system.md` §1.3) |
-| Theme toggled | Right theme button's icon swaps (sun ↔ moon) |
-| Settings open | `.chrome-settings` gets `aria-current="page"`, icon stays same |
-| Disabled | (not applicable in current design) |
+| Theme toggled          | Right theme button's icon swaps (sun ↔ moon)                       |
+| Settings open          | `.chrome-settings` gets `aria-current="page"`, icon stays same     |
+| Disabled               | (not applicable in current design)                                 |
 
 ### Behavior
 
@@ -72,24 +72,24 @@ Total height: 96 px. Two rows × 48 px each.
 
 #### Input row
 
-| Element | Action | Result |
-|---|---|---|
-| `.chatInput` | User types | `toggleSendDisabled()` runs on each `input` event |
-| `.chatInput` | User presses Enter | If `.chatSend` is enabled → `sendMessage()` |
-| `.chatInput` | Empty value | `.chatSend` gets `:disabled` state, opacity 0.5, `pointer-events: none` |
-| `.chatAttach` | Click | `showChatToast("Attach a magnet or URL", { type: 'info' })` (placeholder; real attach in v0.2) |
+| Element       | Action             | Result                                                                                         |
+| ------------- | ------------------ | ---------------------------------------------------------------------------------------------- |
+| `.chatInput`  | User types         | `toggleSendDisabled()` runs on each `input` event                                              |
+| `.chatInput`  | User presses Enter | If `.chatSend` is enabled → `sendMessage()`                                                    |
+| `.chatInput`  | Empty value        | `.chatSend` gets `:disabled` state, opacity 0.5, `pointer-events: none`                        |
+| `.chatAttach` | Click              | `showChatToast("Attach a magnet or URL", { type: 'info' })` (placeholder; real attach in v0.2) |
 
 #### Chip row
 
 5 chips, each has an inline `<kbd>⌘N</kbd>` hint on the right.
 
-| Index | Label | ⌘ | Action |
-|---|---|---|---|
-| 0 | "Download Ubuntu 24.04 LTS ISO" | ⌘1 | `sendQuickMessage(0)` |
-| 1 | "What is downloading?" | ⌘2 | `sendQuickMessage(1)` |
-| 2 | "Pause all" | ⌘3 | `sendQuickMessage(2)` |
-| 3 | "Show completed" | ⌘4 | `sendQuickMessage(3)` |
-| 4 | "Add magnet URL" | ⌘5 | `sendQuickMessage(4)` |
+| Index | Label                           | ⌘   | Action                |
+| ----- | ------------------------------- | --- | --------------------- |
+| 0     | "Download Ubuntu 24.04 LTS ISO" | ⌘1  | `sendQuickMessage(0)` |
+| 1     | "What is downloading?"          | ⌘2  | `sendQuickMessage(1)` |
+| 2     | "Pause all"                     | ⌘3  | `sendQuickMessage(2)` |
+| 3     | "Show completed"                | ⌘4  | `sendQuickMessage(3)` |
+| 4     | "Add magnet URL"                | ⌘5  | `sendQuickMessage(4)` |
 
 Pressing ⌘1-5 anywhere on main (when not typing) triggers the corresponding chip.
 
@@ -109,6 +109,7 @@ Pressing ⌘1-5 anywhere on main (when not typing) triggers the corresponding ch
 ```
 
 **Type derivation rules** (keyword routing):
+
 - input contains `cancel` / `remove` / `delete` → `error`
 - input contains `error` / `fail` / `hash` → `error`
 - input contains `pause` / `stop` / `wait` → `info`
@@ -116,18 +117,18 @@ Pressing ⌘1-5 anywhere on main (when not typing) triggers the corresponding ch
 
 ### States
 
-| Element | State | Visual |
-|---|---|---|
-| `.chatInput` | Default | border `--border`, bg `--surface` |
-| `.chatInput` | Focus-within | border `--primary`, ring halo |
-| `.chatInput` | Sending | (no change; state is on send button) |
-| `.chatSend` | Default | primary blue fill, arrow icon |
-| `.chatSend` | Hover | bg `--primary-hover` |
-| `.chatSend` | Disabled (empty input) | opacity 0.5, `pointer-events: none` |
-| `.chatSend` | Sending | bg `--primary-muted`, spinner + "Sending…" label |
-| `.chatChip` | Default | border `--border`, fg `--fg-secondary` |
-| `.chatChip` | Hover | border `--fg`, bg `--surface-hover` |
-| `.chatChip` | Active (pressed) | transform: scale(0.97) |
+| Element      | State                  | Visual                                           |
+| ------------ | ---------------------- | ------------------------------------------------ |
+| `.chatInput` | Default                | border `--border`, bg `--surface`                |
+| `.chatInput` | Focus-within           | border `--primary`, ring halo                    |
+| `.chatInput` | Sending                | (no change; state is on send button)             |
+| `.chatSend`  | Default                | primary blue fill, arrow icon                    |
+| `.chatSend`  | Hover                  | bg `--primary-hover`                             |
+| `.chatSend`  | Disabled (empty input) | opacity 0.5, `pointer-events: none`              |
+| `.chatSend`  | Sending                | bg `--primary-muted`, spinner + "Sending…" label |
+| `.chatChip`  | Default                | border `--border`, fg `--fg-secondary`           |
+| `.chatChip`  | Hover                  | border `--fg`, bg `--surface-hover`              |
+| `.chatChip`  | Active (pressed)       | transform: scale(0.97)                           |
 
 ### Accessibility
 
@@ -141,7 +142,7 @@ Pressing ⌘1-5 anywhere on main (when not typing) triggers the corresponding ch
 
 - ❌ Auto-focusing the input on page load (the user wants to see the task table first)
 - ❌ Adding more than 5 chips (cognitive overload; use overflow menu if more needed)
-- ❌ Replacing chips with autocomplete dropdown (the chip *is* the example — its value is showing users what to type)
+- ❌ Replacing chips with autocomplete dropdown (the chip _is_ the example — its value is showing users what to type)
 - ❌ Using a different color for active vs hovered chip (states should be subtle, not loud)
 
 ---
@@ -152,16 +153,16 @@ Pressing ⌘1-5 anywhere on main (when not typing) triggers the corresponding ch
 
 ### Column spec
 
-| # | Header | Width | Content | Truncation | Font |
-|---|---|---|---|---|---|
-| 1 | NAME | 26% | `task.name` | ellipsis at 1 line | Inter |
-| 2 | SOURCE | 18% | `formatSource(task.source)` | ellipsis at 1 line | Inter |
-| 3 | STATUS | 8% | Status pill (see below) | (no truncation) | Inter 12px 500 UPPERCASE |
-| 4 | PROGRESS | 18% | Progress bar + percentage | bar fills, % is right-aligned | Inter (text) + colored fill |
-| 5 | SPEED | 8% | `task.speed` (or `·` if not downloading) | nowrap | JetBrains Mono |
-| 6 | SIZE | 10% | `task.size` / `task.total` | nowrap | JetBrains Mono |
-| 7 | ETA | 7% | `task.eta` (or `—` if not applicable) | nowrap | JetBrains Mono |
-| 8 | (no header) | 5% | `.task-row-menu` (··· button) | (always) | n/a |
+| #   | Header      | Width | Content                                  | Truncation                    | Font                        |
+| --- | ----------- | ----- | ---------------------------------------- | ----------------------------- | --------------------------- |
+| 1   | NAME        | 26%   | `task.name`                              | ellipsis at 1 line            | Inter                       |
+| 2   | SOURCE      | 18%   | `formatSource(task.source)`              | ellipsis at 1 line            | Inter                       |
+| 3   | STATUS      | 8%    | Status pill (see below)                  | (no truncation)               | Inter 12px 500 UPPERCASE    |
+| 4   | PROGRESS    | 18%   | Progress bar + percentage                | bar fills, % is right-aligned | Inter (text) + colored fill |
+| 5   | SPEED       | 8%    | `task.speed` (or `·` if not downloading) | nowrap                        | JetBrains Mono              |
+| 6   | SIZE        | 10%   | `task.size` / `task.total`               | nowrap                        | JetBrains Mono              |
+| 7   | ETA         | 7%    | `task.eta` (or `—` if not applicable)    | nowrap                        | JetBrains Mono              |
+| 8   | (no header) | 5%    | `.task-row-menu` (··· button)            | (always)                      | n/a                         |
 
 Total: 100% of the available table width. **Column 8 has no visible header** — Linear/Vercel convention; hover-only actions don't get explicit column names.
 
@@ -170,7 +171,8 @@ Total: 100% of the available table width. **Column 8 has no visible header** —
 ```html
 <tr data-task-id="N" style="--row-i: N">
   <td class="col-name">
-    <svg class="task-type-icon" />  <!-- lucide icon for task.type -->
+    <svg class="task-type-icon" />
+    <!-- lucide icon for task.type -->
     <span class="task-name-text">{name}</span>
   </td>
   <td class="col-source">{formatSource(source)}</td>
@@ -188,31 +190,29 @@ Total: 100% of the available table width. **Column 8 has no visible header** —
   <td class="col-eta">{eta}</td>
   <td class="col-actions">
     <button class="task-row-menu" onclick="toggleRowMenu(event, '{id}')">⋯</button>
-    <div class="task-row-dropdown" id="rowMenu-{id}">
-      ... menu items (see §6) ...
-    </div>
+    <div class="task-row-dropdown" id="rowMenu-{id}">... menu items (see §6) ...</div>
   </td>
 </tr>
 ```
 
 ### Status pill
 
-| `task.status` | Pill label | Pill class | Pill color | Progress fill color |
-|---|---|---|---|---|
-| `downloading` | DOWNLOADING | `downloading` | bg `--primary-muted`, fg `--primary` | `--primary` (with shimmer) |
-| `paused` | PAUSED | `paused` | bg `--warning-muted`, fg `--warning` | `--warning` (no shimmer) |
-| `completed` | COMPLETED | `completed` | bg `--accent-muted`, fg `--accent` | `--accent` (no shimmer, no animation) |
-| `error` | FAILED | `error` | bg `--error-muted`, fg `--error` | `--error` (no fill, red bar at 0% if progress < 100) |
+| `task.status` | Pill label  | Pill class    | Pill color                           | Progress fill color                                  |
+| ------------- | ----------- | ------------- | ------------------------------------ | ---------------------------------------------------- |
+| `downloading` | DOWNLOADING | `downloading` | bg `--primary-muted`, fg `--primary` | `--primary` (with shimmer)                           |
+| `paused`      | PAUSED      | `paused`      | bg `--warning-muted`, fg `--warning` | `--warning` (no shimmer)                             |
+| `completed`   | COMPLETED   | `completed`   | bg `--accent-muted`, fg `--accent`   | `--accent` (no shimmer, no animation)                |
+| `error`       | FAILED      | `error`       | bg `--error-muted`, fg `--error`     | `--error` (no fill, red bar at 0% if progress < 100) |
 
 ### States
 
-| Row state | Trigger | Visual |
-|---|---|---|
-| Default | — | bg transparent, border-bottom `--border` |
-| Hover | mouse over | bg `--primary-subtle` |
-| Selected | `selectedRowIndex === i` | bg `--primary-muted`, inset 2px left border `--primary` |
-| Row flash | Just clicked | bg `--primary-muted`, scale 1.005 (180ms then back) |
-| ··· menu open | `.task-row-menu.open` | (menu open below, see §6) |
+| Row state     | Trigger                  | Visual                                                  |
+| ------------- | ------------------------ | ------------------------------------------------------- |
+| Default       | —                        | bg transparent, border-bottom `--border`                |
+| Hover         | mouse over               | bg `--primary-subtle`                                   |
+| Selected      | `selectedRowIndex === i` | bg `--primary-muted`, inset 2px left border `--primary` |
+| Row flash     | Just clicked             | bg `--primary-muted`, scale 1.005 (180ms then back)     |
+| ··· menu open | `.task-row-menu.open`    | (menu open below, see §6)                               |
 
 ### Density rule
 
@@ -225,12 +225,12 @@ Total: 100% of the available table width. **Column 8 has no visible header** —
 
 4 tabs, equal width, all on a single row. Currently active tab gets `--surface-elevated` bg + `--fg` text. Each tab has `aria-current="page"` when active.
 
-| Tab | Filter value | What it shows |
-|---|---|---|
-| All | `all` | Every task (default) |
-| Active | `active` | status `downloading` OR `paused` |
-| Paused | `paused` | status `paused` only |
-| Completed | `completed` | status `completed` only |
+| Tab       | Filter value | What it shows                    |
+| --------- | ------------ | -------------------------------- |
+| All       | `all`        | Every task (default)             |
+| Active    | `active`     | status `downloading` OR `paused` |
+| Paused    | `paused`     | status `paused` only             |
+| Completed | `completed`  | status `completed` only          |
 
 **`aria-current`:** all 4 tabs render with `aria-current="false"` initially; on click, `aria-current="page"` is set on the clicked tab and removed from siblings.
 
@@ -238,12 +238,12 @@ Total: 100% of the available table width. **Column 8 has no visible header** —
 
 When the filtered list is empty, show a different message based on which filter is active:
 
-| Filter active | Heading | Sub-copy | CTA |
-|---|---|---|---|
-| `all` | "No downloads yet" | "Add a magnet link, HTTP URL, or YouTube link to get started." | "Try a sample task" → `completeOnboarding('Download Ubuntu 24.04')` |
-| `active` | "Nothing downloading" | "All your downloads are paused or completed." | (no CTA) |
-| `paused` | "No paused downloads" | "Pause a download to see it here." | (no CTA) |
-| `completed` | "Nothing completed yet" | "Downloads appear here once they finish." | (no CTA) |
+| Filter active | Heading                 | Sub-copy                                                       | CTA                                                                 |
+| ------------- | ----------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------- |
+| `all`         | "No downloads yet"      | "Add a magnet link, HTTP URL, or YouTube link to get started." | "Try a sample task" → `completeOnboarding('Download Ubuntu 24.04')` |
+| `active`      | "Nothing downloading"   | "All your downloads are paused or completed."                  | (no CTA)                                                            |
+| `paused`      | "No paused downloads"   | "Pause a download to see it here."                             | (no CTA)                                                            |
+| `completed`   | "Nothing completed yet" | "Downloads appear here once they finish."                      | (no CTA)                                                            |
 
 ### Keyboard navigation
 
@@ -303,36 +303,36 @@ When the filtered list is empty, show a different message based on which filter 
 
 ### Sizing
 
-| Property | Value |
-|---|---|
-| Panel width | 720 px |
-| Panel height | `min(88vh, 760px)` |
-| Centered | `align-items: center; justify-content: center` on `#screen-detail` |
-| Header height | 64 px |
-| Stat strip height | 80 px |
-| Ring area | 120×120 SVG + caption |
-| Sections | Flexible, `flex: 1`, `overflow-y: auto`, `padding-bottom: 48px` |
-| Footer height | 65 px |
+| Property          | Value                                                              |
+| ----------------- | ------------------------------------------------------------------ |
+| Panel width       | 720 px                                                             |
+| Panel height      | `min(88vh, 760px)`                                                 |
+| Centered          | `align-items: center; justify-content: center` on `#screen-detail` |
+| Header height     | 64 px                                                              |
+| Stat strip height | 80 px                                                              |
+| Ring area         | 120×120 SVG + caption                                              |
+| Sections          | Flexible, `flex: 1`, `overflow-y: auto`, `padding-bottom: 48px`    |
+| Footer height     | 65 px                                                              |
 
 ### Open/close motion
 
-| Action | Trigger | Effect |
-|---|---|---|
-| Open | Row click → `openDetail(id)` | Row flash 180ms → `modalScaleIn` 400ms on panel |
-| Close | Esc, click backdrop, click `×` | `modalScaleOut` 220ms on panel → `showView('main')` |
+| Action | Trigger                        | Effect                                              |
+| ------ | ------------------------------ | --------------------------------------------------- |
+| Open   | Row click → `openDetail(id)`   | Row flash 180ms → `modalScaleIn` 400ms on panel     |
+| Close  | Esc, click backdrop, click `×` | `modalScaleOut` 220ms on panel → `showView('main')` |
 
 **Don't** try to animate the row "expanding into" the modal — it's a separate scale, not a FLIP transition. The 180ms row flash is the bridge.
 
 ### Header
 
-| Zone | Element | Content |
-|---|---|---|
-| left | `.detail-icon` | 40×40 rounded square, bg `--primary-muted`, fg `--primary`, type-specific lucide icon |
-| left | `.detail-name` | `task.name`, Inter 17px 600, nowrap + ellipsis at 1 line |
-| left | `.detail-sub` | "{size} · {type} · {source}", Inter 12px, `--fg-tertiary` |
-| right | `.detail-status-chip` | Same status pill as in the row, but slightly larger |
-| right | `.detail-more-menu` | 32×32 button (···), opens the more menu (§7) |
-| right | `.detail-close` | 32×32 button (×), `title="Close (Esc)"` |
+| Zone  | Element               | Content                                                                               |
+| ----- | --------------------- | ------------------------------------------------------------------------------------- |
+| left  | `.detail-icon`        | 40×40 rounded square, bg `--primary-muted`, fg `--primary`, type-specific lucide icon |
+| left  | `.detail-name`        | `task.name`, Inter 17px 600, nowrap + ellipsis at 1 line                              |
+| left  | `.detail-sub`         | "{size} · {type} · {source}", Inter 12px, `--fg-tertiary`                             |
+| right | `.detail-status-chip` | Same status pill as in the row, but slightly larger                                   |
+| right | `.detail-more-menu`   | 32×32 button (···), opens the more menu (§7)                                          |
+| right | `.detail-close`       | 32×32 button (×), `title="Close (Esc)"`                                               |
 
 The header has `border-bottom: 1px solid var(--border)` and `padding: 16px 24px`.
 
@@ -343,26 +343,26 @@ The header has `border-bottom: 1px solid var(--border)` and `padding: 16px 24px`
 - **Top:** uppercase label, Inter 11px 500, `--fg-tertiary`, 8px bottom margin
 - **Bottom:** big number, Inter 24px 600, JetBrains Mono, `--fg`
 
-| Column | Label | Value |
-|---|---|---|
+| Column     | Label        | Value                               |
+| ---------- | ------------ | ----------------------------------- |
 | Downloaded | "DOWNLOADED" | `{task.size} / {task.total}` (mono) |
-| Speed | "SPEED" | `{task.speed}` (mono) |
-| ETA | "ETA" | `{task.eta}` (mono) |
-| Seeders | "SEEDERS" | `{task.seeders}` (mono) |
+| Speed      | "SPEED"      | `{task.speed}` (mono)               |
+| ETA        | "ETA"        | `{task.eta}` (mono)                 |
+| Seeders    | "SEEDERS"    | `{task.seeders}` (mono)             |
 
 The strip has `padding: 16px 24px` and `border-bottom: 1px solid var(--border)`.
 
 ### Progress ring (centered, SVG)
 
-| Property | Value |
-|---|---|
-| SVG size | 120×120 |
-| Center | (60, 60) |
-| Background ring | r=48, stroke `--border`, stroke-width 4, no fill |
-| Foreground ring | r=48, stroke `--primary` (downloading) / `--warning` (paused) / `--accent` (completed) / `--error` (error), stroke-width 4, stroke-linecap round |
-| Foreground transform | `<g transform="rotate(-90 60 60)">` so it starts at 12 o'clock |
-| Text | "84%" at (60, 60) `text-anchor="middle" dominant-baseline="central"`, Inter 26px 600, `--fg` |
-| Caption | "Downloading · 38s remaining", Inter 13px, `--fg-tertiary`, 8px below the ring |
+| Property             | Value                                                                                                                                            |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| SVG size             | 120×120                                                                                                                                          |
+| Center               | (60, 60)                                                                                                                                         |
+| Background ring      | r=48, stroke `--border`, stroke-width 4, no fill                                                                                                 |
+| Foreground ring      | r=48, stroke `--primary` (downloading) / `--warning` (paused) / `--accent` (completed) / `--error` (error), stroke-width 4, stroke-linecap round |
+| Foreground transform | `<g transform="rotate(-90 60 60)">` so it starts at 12 o'clock                                                                                   |
+| Text                 | "84%" at (60, 60) `text-anchor="middle" dominant-baseline="central"`, Inter 26px 600, `--fg`                                                     |
+| Caption              | "Downloading · 38s remaining", Inter 13px, `--fg-tertiary`, 8px below the ring                                                                   |
 
 **Important:** the rotation must be on a `<g>` wrapper, not the SVG itself. Rotating the SVG would also rotate the text, making it sideways. This is a real bug from Round 4 — do not undo this fix.
 
@@ -370,11 +370,11 @@ The strip has `padding: 16px 24px` and `border-bottom: 1px solid var(--border)`.
 
 3 `<details>` elements, all with `<summary>` that shows: section title, count, chevron. The chevron is an SVG that rotates 180° on `[open]`.
 
-| Section | Default state | Count source |
-|---|---|---|
-| Files | **open** (1) | `task.files.length` |
-| Activity | **open** (5) | `task.timeline.length` |
-| Source info | **closed** | (no count) |
+| Section     | Default state | Count source           |
+| ----------- | ------------- | ---------------------- |
+| Files       | **open** (1)  | `task.files.length`    |
+| Activity    | **open** (5)  | `task.timeline.length` |
+| Source info | **closed**    | (no count)             |
 
 **File rows:** left has a 14×14 checkbox (square, no border when checked), middle has the file name (mono, ellipsis), right has the file size (mono, nowrap).
 
@@ -382,23 +382,23 @@ The strip has `padding: 16px 24px` and `border-bottom: 1px solid var(--border)`.
 
 The Source info section, when opened, shows a 2-column key-value grid:
 
-| Key | Value |
-|---|---|
-| Source | `formatSource(task.source)` |
-| Added | (current time at task creation, formatted HH:MM) |
-| Save path | `~/Downloads/Motrix/{task.name}` |
-| Info hash | (40-char hex, ellipsis if not real) |
+| Key       | Value                                            |
+| --------- | ------------------------------------------------ |
+| Source    | `formatSource(task.source)`                      |
+| Added     | (current time at task creation, formatted HH:MM) |
+| Save path | `~/Downloads/Motrix/{task.name}`                 |
+| Info hash | (40-char hex, ellipsis if not real)              |
 
 ### Footer (sticky)
 
 3 main buttons + 1 dropdown:
 
-| Button | Class | Action | Visual |
-|---|---|---|---|
-| Resume | `btn btn-primary` | `handleAction('resume')` | Filled primary blue |
-| Pause | `btn btn-ghost` | `handleAction('pause')` | Outline only |
-| Cancel | `btn btn-danger` (red border, red text, red hover bg) | `handleAction('cancel')` | Outline red |
-| ⋯ Priority ▾ | `btn btn-ghost detail-more-trigger` | Opens `.detail-more-menu` | Outline only |
+| Button       | Class                                                 | Action                    | Visual              |
+| ------------ | ----------------------------------------------------- | ------------------------- | ------------------- |
+| Resume       | `btn btn-primary`                                     | `handleAction('resume')`  | Filled primary blue |
+| Pause        | `btn btn-ghost`                                       | `handleAction('pause')`   | Outline only        |
+| Cancel       | `btn btn-danger` (red border, red text, red hover bg) | `handleAction('cancel')`  | Outline red         |
+| ⋯ Priority ▾ | `btn btn-ghost detail-more-trigger`                   | Opens `.detail-more-menu` | Outline only        |
 
 All 4 buttons are 32 px tall, the 3 main ones are `flex: 1` (equal width), the 4th is `flex: 0` with auto width.
 
@@ -429,13 +429,14 @@ All 4 buttons are 32 px tall, the 3 main ones are `flex: 1` (equal width), the 4
 ```css
 #chatToastStack {
   position: absolute;
-  bottom: 100px;   /* above the 96px bottom-chat */
-  left: 0; right: 0;
+  bottom: 100px; /* above the 96px bottom-chat */
+  left: 0;
+  right: 0;
   display: flex;
-  flex-direction: column-reverse;  /* newest on top of stack, oldest at bottom (which is closest to input) */
+  flex-direction: column-reverse; /* newest on top of stack, oldest at bottom (which is closest to input) */
   align-items: center;
   gap: 8px;
-  pointer-events: none;  /* container itself is non-interactive */
+  pointer-events: none; /* container itself is non-interactive */
   z-index: 200;
 }
 ```
@@ -456,11 +457,11 @@ Width: 380 px. Height: auto, ~64-80 px depending on body length.
 
 ### Toast type → visual
 
-| Type | Left accent strip | Avatar bg | Avatar icon (Lucide) | "Done" status label |
-|---|---|---|---|---|
-| `info` (default) | `--primary` | `--primary-muted` | info-circle | "Done" |
-| `success` | `--accent` | `--accent-muted` | check-circle | "Completed" |
-| `error` | `--error` | `--error-muted` | alert-triangle | "Failed" |
+| Type             | Left accent strip | Avatar bg         | Avatar icon (Lucide) | "Done" status label |
+| ---------------- | ----------------- | ----------------- | -------------------- | ------------------- |
+| `info` (default) | `--primary`       | `--primary-muted` | info-circle          | "Done"              |
+| `success`        | `--accent`        | `--accent-muted`  | check-circle         | "Completed"         |
+| `error`          | `--error`         | `--error-muted`   | alert-triangle       | "Failed"            |
 
 ### Toast lifecycle
 
@@ -468,12 +469,12 @@ Width: 380 px. Height: auto, ~64-80 px depending on body length.
 thinking: 700-1100ms  →  done: 2000ms (TOAST_LIFETIME)  →  dismiss 300ms fade
 ```
 
-| Phase | Duration | Visual |
-|---|---|---|
-| Enter | 220ms | fade-in + translateY(8px) → 0 |
-| Thinking | 700-1100ms | avatar dot pulses (1s infinite), status label "Thinking…" |
-| Done | 2000ms (or until manually dismissed) | status label changes to "Done" / "Completed" / "Failed", avatar icon swaps from info → check / alert, dot stops pulsing |
-| Exit | 300ms | fade-out + translateY(0) → -8px |
+| Phase    | Duration                             | Visual                                                                                                                  |
+| -------- | ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| Enter    | 220ms                                | fade-in + translateY(8px) → 0                                                                                           |
+| Thinking | 700-1100ms                           | avatar dot pulses (1s infinite), status label "Thinking…"                                                               |
+| Done     | 2000ms (or until manually dismissed) | status label changes to "Done" / "Completed" / "Failed", avatar icon swaps from info → check / alert, dot stops pulsing |
+| Exit     | 300ms                                | fade-out + translateY(0) → -8px                                                                                         |
 
 ### Stack cap
 
@@ -511,18 +512,17 @@ thinking: 700-1100ms  →  done: 2000ms (TOAST_LIFETIME)  →  dismiss 300ms fad
 ### Trigger
 
 ```html
-<button class="task-row-menu" title="Row actions"
-        onclick="event.stopPropagation();toggleRowMenu(event, '{task.id}')">
+<button class="task-row-menu" title="Row actions" onclick="event.stopPropagation();toggleRowMenu(event, '{task.id}')">
   ⋯
 </button>
 ```
 
-| State | Visual |
-|---|---|
-| Default | opacity 0.7, color `--fg-muted` |
-| Hover (row or button) | opacity 1, color `--fg` |
-| Open | bg `--surface-hover`, color `--fg` |
-| Focus-visible | 2px outline + halo (same as other buttons) |
+| State                 | Visual                                     |
+| --------------------- | ------------------------------------------ |
+| Default               | opacity 0.7, color `--fg-muted`            |
+| Hover (row or button) | opacity 1, color `--fg`                    |
+| Open                  | bg `--surface-hover`, color `--fg`         |
+| Focus-visible         | 2px outline + halo (same as other buttons) |
 
 ### Dropdown
 
@@ -540,29 +540,29 @@ thinking: 700-1100ms  →  done: 2000ms (TOAST_LIFETIME)  →  dismiss 300ms fad
 
 ### Menu items (4-6, status-dependent)
 
-| Item | Shown when | Action | Toast type |
-|---|---|---|---|
-| Resume | `status === 'paused'` | sets `status='downloading'`, `speed='12.4 MB/s'` | success |
-| Pause | `status === 'downloading'` | sets `status='paused'`, `speed='0 B/s'` | info |
-| Retry | `status === 'error'` | sets `status='downloading'`, `speed='8.7 MB/s'`, `progress=12` | info |
-| (separator) | — | — | — |
-| Copy link | always | (placeholder — clipboard API in v0.2) | info |
-| Reveal in folder | always | (placeholder — Finder/Explorer call in v0.2) | info |
-| (separator) | — | — | — |
-| Remove | always | splices from `MOCK_TASKS`, re-renders | error |
+| Item             | Shown when                 | Action                                                         | Toast type |
+| ---------------- | -------------------------- | -------------------------------------------------------------- | ---------- |
+| Resume           | `status === 'paused'`      | sets `status='downloading'`, `speed='12.4 MB/s'`               | success    |
+| Pause            | `status === 'downloading'` | sets `status='paused'`, `speed='0 B/s'`                        | info       |
+| Retry            | `status === 'error'`       | sets `status='downloading'`, `speed='8.7 MB/s'`, `progress=12` | info       |
+| (separator)      | —                          | —                                                              | —          |
+| Copy link        | always                     | (placeholder — clipboard API in v0.2)                          | info       |
+| Reveal in folder | always                     | (placeholder — Finder/Explorer call in v0.2)                   | info       |
+| (separator)      | —                          | —                                                              | —          |
+| Remove           | always                     | splices from `MOCK_TASKS`, re-renders                          | error      |
 
 ### Dropdown visual
 
-| Property | Value |
-|---|---|
-| Width | 168 px (min) |
-| Padding | 4 px |
-| Background | `--surface-elevated` |
-| Border | 1 px `--border` |
-| Border-radius | `--radius-md` (12 px) |
-| Shadow | `--shadow-lg` |
-| Position | absolute, right-aligned to the ··· trigger |
-| Animation | 140 ms fade + 8px → 0 translateY |
+| Property      | Value                                      |
+| ------------- | ------------------------------------------ |
+| Width         | 168 px (min)                               |
+| Padding       | 4 px                                       |
+| Background    | `--surface-elevated`                       |
+| Border        | 1 px `--border`                            |
+| Border-radius | `--radius-md` (12 px)                      |
+| Shadow        | `--shadow-lg`                              |
+| Position      | absolute, right-aligned to the ··· trigger |
+| Animation     | 140 ms fade + 8px → 0 translateY           |
 
 ### Behavior
 
@@ -600,19 +600,19 @@ Same as row menu, but 32×32 and inside the detail header.
 
 Same width and shape as row menu, but **different items** (since these are detail-level actions):
 
-| Item | Action | Toast type |
-|---|---|---|
-| Priority | `handleAction('priority')` | info |
-| Copy link | `handleAction('copy-link')` | success |
-| Reveal in folder | `handleAction('reveal')` | success |
-| Remove from queue | `handleAction('remove')` | error |
+| Item              | Action                      | Toast type |
+| ----------------- | --------------------------- | ---------- |
+| Priority          | `handleAction('priority')`  | info       |
+| Copy link         | `handleAction('copy-link')` | success    |
+| Reveal in folder  | `handleAction('reveal')`    | success    |
+| Remove from queue | `handleAction('remove')`    | error      |
 
 ### Behavior
 
 - Click the ··· in detail header → opens the dropdown below
 - Click outside → closes
 - Click an item → runs the action, closes the dropdown, shows toast
-- **Note:** the "Resume / Pause / Cancel" buttons in the footer are *not* inside this menu — they are the primary actions and live in the footer for direct access. The more menu holds secondary actions.
+- **Note:** the "Resume / Pause / Cancel" buttons in the footer are _not_ inside this menu — they are the primary actions and live in the footer for direct access. The more menu holds secondary actions.
 
 ### Accessibility
 
@@ -655,11 +655,11 @@ Same width and shape as row menu, but **different items** (since these are detai
 
 ### Steps
 
-| Step | Title | Sub | Bullets | Primary CTA |
-|---|---|---|---|---|
-| 0 (intro) | "Motrix AI" | "Task-first desktop download manager. Watch the queue, then ask for more." | "Natural language commands" / "No telemetry" / "Torrents, HTTP, YouTube" | "Get Started →" |
-| 1 (theme) | "Pick a theme" | "Dark by default, light for daylight, system to follow your OS." | (3 theme cards: Dark / Light / System) | "Continue" |
-| 2 (sample) | "Try a command" | "Type a magnet, URL, or pick one below." | (3 quick-action chips) | "Open Motrix" |
+| Step       | Title           | Sub                                                                        | Bullets                                                                  | Primary CTA     |
+| ---------- | --------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------ | --------------- |
+| 0 (intro)  | "Motrix AI"     | "Task-first desktop download manager. Watch the queue, then ask for more." | "Natural language commands" / "No telemetry" / "Torrents, HTTP, YouTube" | "Get Started →" |
+| 1 (theme)  | "Pick a theme"  | "Dark by default, light for daylight, system to follow your OS."           | (3 theme cards: Dark / Light / System)                                   | "Continue"      |
+| 2 (sample) | "Try a command" | "Type a magnet, URL, or pick one below."                                   | (3 quick-action chips)                                                   | "Open Motrix"   |
 
 ### Theme cards (step 1)
 
@@ -667,7 +667,8 @@ Same width and shape as row menu, but **different items** (since these are detai
 
 ```html
 <button class="theme-card" onclick="selectThemeCard(this, 'dark')">
-  <div class="theme-card-preview theme-preview-dark">A</div>  <!-- mini preview, dark bg + "A" -->
+  <div class="theme-card-preview theme-preview-dark">A</div>
+  <!-- mini preview, dark bg + "A" -->
   <div class="theme-card-label">Dark</div>
 </button>
 ```
@@ -686,19 +687,20 @@ Selected card gets `aria-checked="true"`, `--primary-muted` bg, and a 2px primar
 
 ### Card visual
 
-| Property | Value |
-|---|---|
-| Width | 480 px |
-| Height | 600 px (variable) |
-| Padding | 48 px |
-| Border-radius | `--radius-md` (12 px) |
-| Background | `--surface` |
-| Top accent stripe | 3 px, linear-gradient(135deg, `--primary`, `--accent`) |
-| Animation on step advance | `fadeSlideUp` 250ms |
+| Property                  | Value                                                  |
+| ------------------------- | ------------------------------------------------------ |
+| Width                     | 480 px                                                 |
+| Height                    | 600 px (variable)                                      |
+| Padding                   | 48 px                                                  |
+| Border-radius             | `--radius-md` (12 px)                                  |
+| Background                | `--surface`                                            |
+| Top accent stripe         | 3 px, linear-gradient(135deg, `--primary`, `--accent`) |
+| Animation on step advance | `fadeSlideUp` 250ms                                    |
 
 ### Step transition
 
 `nextOnboardingStep()`:
+
 1. Set current step's `display: none`
 2. Increment index, cap at 2
 3. Set new step's `display: block`, trigger `fadeSlideUp`
@@ -707,6 +709,7 @@ Selected card gets `aria-checked="true"`, `--primary-muted` bg, and a 2px primar
 ### Completion
 
 `completeOnboarding(cmd)`:
+
 1. Mark onboarding complete in `localStorage` (key: `motrix:onboarded`)
 2. If `cmd` provided, call `sendQuickMessage(cmd)` (so the user sees AI activity immediately)
 3. `showView('main')` with `modalScaleIn` 400ms

@@ -2,12 +2,7 @@
 // High-level download management built on top of useAria2
 
 import { ref, computed } from 'vue'
-import {
-  useAria2,
-  type Aria2Status,
-  type TaskStatus,
-  type ConnectionEventType,
-} from './useAria2'
+import { useAria2, type Aria2Status, type TaskStatus, type ConnectionEventType } from './useAria2'
 
 // ---- Types ----
 
@@ -51,23 +46,40 @@ export interface ExportedDownload {
 // ---- Category detection ----
 
 const VIDEO_EXTS = new Set([
-  'mkv', 'mp4', 'avi', 'wmv', 'flv', 'mov', 'webm', 'm4v', 'ts', 'mpg', 'mpeg', 'rm', 'rmvb', '3gp',
+  'mkv',
+  'mp4',
+  'avi',
+  'wmv',
+  'flv',
+  'mov',
+  'webm',
+  'm4v',
+  'ts',
+  'mpg',
+  'mpeg',
+  'rm',
+  'rmvb',
+  '3gp',
 ])
-const AUDIO_EXTS = new Set([
-  'mp3', 'flac', 'wav', 'aac', 'ogg', 'm4a', 'wma', 'opus', 'ape', 'alac', 'aiff',
-])
+const AUDIO_EXTS = new Set(['mp3', 'flac', 'wav', 'aac', 'ogg', 'm4a', 'wma', 'opus', 'ape', 'alac', 'aiff'])
 const DOC_EXTS = new Set([
-  'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'rtf', 'odt', 'epub', 'mobi', 'cbz',
+  'pdf',
+  'doc',
+  'docx',
+  'xls',
+  'xlsx',
+  'ppt',
+  'pptx',
+  'txt',
+  'rtf',
+  'odt',
+  'epub',
+  'mobi',
+  'cbz',
 ])
-const SOFTWARE_EXTS = new Set([
-  'dmg', 'pkg', 'app', 'exe', 'msi', 'deb', 'rpm', 'AppImage', 'snap',
-])
-const ARCHIVE_EXTS = new Set([
-  'zip', 'rar', '7z', 'tar', 'gz', 'bz2', 'xz', 'zst', 'lz4', 'iso',
-])
-const IMAGE_EXTS = new Set([
-  'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg', 'ico', 'tiff', 'avif', 'heic',
-])
+const SOFTWARE_EXTS = new Set(['dmg', 'pkg', 'app', 'exe', 'msi', 'deb', 'rpm', 'AppImage', 'snap'])
+const ARCHIVE_EXTS = new Set(['zip', 'rar', '7z', 'tar', 'gz', 'bz2', 'xz', 'zst', 'lz4', 'iso'])
+const IMAGE_EXTS = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg', 'ico', 'tiff', 'avif', 'heic'])
 
 const EXT_CATEGORY_MAP = new Map<string, DownloadCategory>()
 for (const ext of VIDEO_EXTS) EXT_CATEGORY_MAP.set(ext, 'video')
@@ -86,11 +98,16 @@ function guessCategoryFromUri(uri: string): DownloadCategory {
     const pathname = url.pathname
     const dotIdx = pathname.lastIndexOf('.')
     if (dotIdx >= 0) {
-      const ext = pathname.slice(dotIdx + 1).toLowerCase().split('?')[0]
+      const ext = pathname
+        .slice(dotIdx + 1)
+        .toLowerCase()
+        .split('?')[0]
       const cat = EXT_CATEGORY_MAP.get(ext)
       if (cat) return cat
     }
-  } catch (_) { /* not a valid URL */ }
+  } catch (_) {
+    /* not a valid URL */
+  }
 
   return 'other'
 }
@@ -112,7 +129,9 @@ function getFileName(status: Aria2Status): string {
       const pathname = new URL(firstUri).pathname
       const base = pathname.split('/').pop()
       if (base) return decodeURIComponent(base)
-    } catch (_) { /* not a valid URL */ }
+    } catch (_) {
+      /* not a valid URL */
+    }
   }
   return `download-${status.gid.slice(0, 8)}`
 }
@@ -145,25 +164,17 @@ export function useAria2Manager() {
 
   // ---- Computed task views ----
 
-  const downloads = computed<DownloadItem[]>(() =>
-    aria2.tasks.value.map(mapToDownloadItem)
-  )
+  const downloads = computed<DownloadItem[]>(() => aria2.tasks.value.map(mapToDownloadItem))
 
-  const activeDownloads = computed(() =>
-    downloads.value.filter(d => d.status === 'active')
-  )
+  const activeDownloads = computed(() => downloads.value.filter((d) => d.status === 'active'))
 
   const waitingDownloads = computed(() =>
-    downloads.value.filter(d => d.status === 'waiting' || d.status === 'paused')
+    downloads.value.filter((d) => d.status === 'waiting' || d.status === 'paused'),
   )
 
-  const completedDownloads = computed(() =>
-    downloads.value.filter(d => d.status === 'complete')
-  )
+  const completedDownloads = computed(() => downloads.value.filter((d) => d.status === 'complete'))
 
-  const failedDownloads = computed(() =>
-    downloads.value.filter(d => d.status === 'error' || d.status === 'removed')
-  )
+  const failedDownloads = computed(() => downloads.value.filter((d) => d.status === 'error' || d.status === 'removed'))
 
   // ---- Helpers ----
 
@@ -171,7 +182,7 @@ export function useAria2Manager() {
     const total = Number(status.totalLength) || 0
     const completed = Number(status.completedLength) || 0
     const name = getFileName(status)
-    const uris = (status.files?.[0]?.uris || []).map(u => u.uri)
+    const uris = (status.files?.[0]?.uris || []).map((u) => u.uri)
     const isBT = !!status.bittorrent
 
     return {
@@ -218,9 +229,7 @@ export function useAria2Manager() {
   }
 
   const addBatchDownloads = async (items: Array<{ uri: string; options?: AddDownloadOptions }>) => {
-    const results = await Promise.allSettled(
-      items.map(item => addDownload(item.uri, item.options ?? {}))
-    )
+    const results = await Promise.allSettled(items.map((item) => addDownload(item.uri, item.options ?? {})))
     const gids: string[] = []
     const errors: Array<{ uri: string; error: string }> = []
 
@@ -280,7 +289,7 @@ export function useAria2Manager() {
   }
 
   const moveDownloadToBottom = async (gid: string) => {
-    const total = aria2.tasks.value.filter(t => t.status === 'waiting').length
+    const total = aria2.tasks.value.filter((t) => t.status === 'waiting').length
     return aria2.moveToBottom(gid, total)
   }
 
@@ -327,10 +336,10 @@ export function useAria2Manager() {
 
   const importDownloads = async (items: ExportedDownload[]) => {
     return addBatchDownloads(
-      items.map(item => ({
+      items.map((item) => ({
         uri: item.uri,
         options: { ...item.options, category: item.category },
-      }))
+      })),
     )
   }
 
@@ -352,13 +361,13 @@ export function useAria2Manager() {
   }
 
   const getHistoryByCategory = (category: DownloadCategory): ExportedDownload[] => {
-    return history.value.filter(h => h.category === category)
+    return history.value.filter((h) => h.category === category)
   }
 
   // ---- Convenience: get downloads by category ----
 
   const getDownloadsByCategory = (category: DownloadCategory): DownloadItem[] => {
-    return downloads.value.filter(d => d.category === category)
+    return downloads.value.filter((d) => d.category === category)
   }
 
   // ---- Event forwarding ----
@@ -419,9 +428,17 @@ export function useAria2Manager() {
     onConnectionChange,
 
     // Pass-through reactive state for convenience
-    get connected() { return aria2.connected },
-    get connecting() { return aria2.connecting },
-    get aria2Running() { return aria2.aria2Running },
-    get globalStat() { return aria2.globalStat },
+    get connected() {
+      return aria2.connected
+    },
+    get connecting() {
+      return aria2.connecting
+    },
+    get aria2Running() {
+      return aria2.aria2Running
+    },
+    get globalStat() {
+      return aria2.globalStat
+    },
   }
 }

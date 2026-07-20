@@ -115,9 +115,7 @@ describe('KeywordGenerator edge cases', () => {
       }
       const keywords = gen.generate(intent)
       // Should not add 4K/2160p/1080p/720p since quality is "other"
-      const qualityKeywords = keywords.filter((k) =>
-        /2160p|1080p|720p|FHD|UHD/.test(k),
-      )
+      const qualityKeywords = keywords.filter((k) => /2160p|1080p|720p|FHD|UHD/.test(k))
       // Only present if added by type-specific modifiers, which they shouldn't for quality=other
       // Just verify no explicit quality terms are injected
       expect(qualityKeywords.filter((k) => k.includes('1080p'))).toHaveLength(0)

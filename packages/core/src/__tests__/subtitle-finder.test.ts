@@ -19,9 +19,7 @@ function makeResult(language: string, filename: string, source: string) {
 
 describe('SubtitleFinder', () => {
   it('returns the first result from the first matching source', async () => {
-    const source = mockSource('mock', [
-      makeResult('zh-Hans', 'movie.zh.srt', 'mock'),
-    ])
+    const source = mockSource('mock', [makeResult('zh-Hans', 'movie.zh.srt', 'mock')])
     const finder = new SubtitleFinder([source])
     const result = await finder.findBest('Movie.2023.1080p.mkv')
     expect(result).not.toBeNull()
@@ -31,9 +29,7 @@ describe('SubtitleFinder', () => {
 
   it('tries next source when first returns empty', async () => {
     const emptySource = mockSource('empty', [])
-    const goodSource = mockSource('good', [
-      makeResult('en', 'movie.en.srt', 'good'),
-    ])
+    const goodSource = mockSource('good', [makeResult('en', 'movie.en.srt', 'good')])
     const finder = new SubtitleFinder([emptySource, goodSource])
     const result = await finder.findBest('Movie.mkv')
     expect(result).not.toBeNull()
@@ -54,9 +50,7 @@ describe('SubtitleFinder', () => {
         throw new Error('network error')
       },
     }
-    const goodSource = mockSource('good', [
-      makeResult('zh-Hans', 'sub.srt', 'good'),
-    ])
+    const goodSource = mockSource('good', [makeResult('zh-Hans', 'sub.srt', 'good')])
     const finder = new SubtitleFinder([errorSource, goodSource])
     const result = await finder.findBest('Movie.mkv')
     expect(result).not.toBeNull()
