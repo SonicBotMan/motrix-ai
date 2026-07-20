@@ -29,9 +29,8 @@ static ARIA2_INTENTIONAL_STOP: AtomicBool = AtomicBool::new(false);
 /// Return the current session's aria2 RPC secret, generating one if needed.
 pub fn get_aria2_secret() -> &'static str {
     ARIA2_SECRET.get_or_init(|| {
-        use rand::RngCore;
         let mut bytes = [0u8; 32];
-        rand::thread_rng().fill_bytes(&mut bytes);
+        let _ = getrandom::getrandom(&mut bytes);
         hex_encode(&bytes)
     })
 }
@@ -741,11 +740,11 @@ mod tests {
     fn bundled_binary_name_matches_target_os() {
         let name = bundled_aria2c_name();
         if cfg!(target_os = "windows") {
-            assert_eq!(name, "aria2c.exe");
+            assert_eq!(name, "motrix-ai-engine.exe");
         } else if cfg!(target_os = "macos") {
-            assert_eq!(name, "aria2c-macos");
+            assert_eq!(name, "motrix-ai-engine-macos");
         } else {
-            assert_eq!(name, "aria2c-linux");
+            assert_eq!(name, "motrix-ai-engine-linux");
         }
     }
 
@@ -753,5 +752,264 @@ mod tests {
     fn bundled_binary_name_is_static_str() {
         let name: &'static str = bundled_aria2c_name();
         assert!(!name.is_empty());
+    }
+
+    #[test]
+    fn is_supported_engine_process_matches_our_binary() {
+        assert!(is_supported_engine_process("motrix-ai-engine"));
+        assert!(is_supported_engine_process("motrix-ai-engine.exe"));
+        assert!(is_supported_engine_process(
+            "/usr/bin/motrix-ai-engine-linux --conf-path=..."
+        ));
+        assert!(!is_supported_engine_process("aria2c"));
+        assert!(!is_supported_engine_process("nginx"));
+        assert!(!is_supported_engine_process(""));
+    }
+
+    // ── Integration tests ──────────────────────────────────────────────
+
+    use std::path::PathBuf;
+
+    fn find_bundled_binary() -> Option<PathBuf> {
+        let name = bundled_aria2c_name();
+        let candidates = [
+            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("resources/bin")
+                .join(name),
+            PathBuf::from("resources/bin").join(name),
+        ];
+        candidates.into_iter().find(|p| p.exists())
+    }
+
+    fn find_conf_file() -> Option<PathBuf> {
+        let candidates = [
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("resources/bin/aria2.conf"),
+            PathBuf::from("resources/bin/aria2.conf"),
+        ];
+        candidates.into_iter().find(|p| p.exists())
+    }
+
+    fn wait_for_rpc(port: u16, secret: &str, timeout_ms: u64) -> bool {
+        let url = format!("http://127.0.0.1:{}/jsonrpc", port);
+        let body = format!(
+            r#"{{"jsonrpc":"2.0","id":"health","method":"aria2.getVersion","params":["token:{}"]}}"#,
+            secret
+        );
+        let deadline = std::time::Instant::now() + std::time::Duration::from_millis(timeout_ms);
+        while std::time::Instant::now() < deadline {
+            if let Ok(resp) = reqwest::blocking::Client::new()
+                .post(&url)
+                .header("Content-Type", "application/json")
+                .body(body.clone())
+                .timeout(std::time::Duration::from_secs(2))
+                .send()
+            {
+                if resp.status().is_success() {
+                    return true;
+                }
+            }
+            std::thread::sleep(std::time::Duration::from_millis(200));
+        }
+        false
+    }
+
+    fn rpc_call(
+        port: u16,
+        secret: &str,
+        method: &str,
+        params: serde_json::Value,
+    ) -> serde_json::Value {
+        let url = format!("http://127.0.0.1:{}/jsonrpc", port);
+        let full_params = if params.is_array() {
+            let mut arr = serde_json::json!([format!("token:{}", secret)]);
+            if let Some(p) = params.as_array() {
+                arr.as_array_mut().unwrap().extend(p.iter().cloned());
+            }
+            arr
+        } else {
+            serde_json::json!([format!("token:{}", secret), params])
+        };
+        let body = serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": "test",
+            "method": method,
+            "params": full_params
+        });
+        let resp = reqwest::blocking::Client::new()
+            .post(&url)
+            .header("Content-Type", "application/json")
+            .json(&body)
+            .timeout(std::time::Duration::from_secs(10))
+            .send()
+            .unwrap_or_else(|e| panic!("RPC {} failed: {}", method, e));
+        let result: serde_json::Value = resp.json().unwrap();
+        assert!(
+            result.get("error").is_none(),
+            "RPC {} returned error: {:?}",
+            method,
+            result.get("error")
+        );
+        result["result"].clone()
+    }
+
+    struct Aria2Instance {
+        child: std::process::Child,
+        port: u16,
+        secret: String,
+        dir: tempfile::TempDir,
+    }
+
+    impl Aria2Instance {
+        fn start() -> Option<Self> {
+            let binary = find_bundled_binary()?;
+            let conf = find_conf_file();
+            let dir = tempfile::tempdir().unwrap();
+            let port: u16 = 16800;
+            let secret = "testsecret_integration".to_string();
+
+            cleanup_port(port);
+
+            let mut cmd = std::process::Command::new(&binary);
+            cmd.stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null());
+
+            if let Some(ref conf_path) = conf {
+                cmd.arg(format!(
+                    "--conf-path={}",
+                    dunce::simplified(conf_path).display()
+                ));
+            } else {
+                cmd.args([
+                    "--enable-rpc=true",
+                    "--rpc-allow-origin-all=true",
+                    "--rpc-listen-all=false",
+                    "--check-certificate=false",
+                ]);
+            }
+
+            cmd.args([
+                format!("--rpc-listen-port={}", port),
+                format!("--rpc-secret={}", secret),
+                "--daemon=false".to_string(),
+                format!("--dir={}", dir.path().display()),
+            ]);
+
+            #[cfg(unix)]
+            {
+                use std::os::unix::process::CommandExt;
+                unsafe {
+                    cmd.pre_exec(|| {
+                        libc::setsid();
+                        Ok(())
+                    });
+                }
+            }
+
+            #[cfg(windows)]
+            {
+                use std::os::windows::process::CommandExt;
+                const CREATE_NO_WINDOW: u32 = 0x08000000;
+                cmd.creation_flags(CREATE_NO_WINDOW);
+            }
+
+            let mut child = cmd.spawn().ok()?;
+
+            if !wait_for_rpc(port, &secret, 10_000) {
+                let _ = child.kill();
+                return None;
+            }
+
+            Some(Self {
+                child,
+                port,
+                secret,
+                dir,
+            })
+        }
+
+        fn rpc(&self, method: &str, params: serde_json::Value) -> serde_json::Value {
+            rpc_call(self.port, &self.secret, method, params)
+        }
+    }
+
+    impl Drop for Aria2Instance {
+        fn drop(&mut self) {
+            let _ = self.rpc("aria2.shutdown", serde_json::json!([]));
+            std::thread::sleep(std::time::Duration::from_millis(500));
+            let _ = self.child.kill();
+            cleanup_port(self.port);
+        }
+    }
+
+    #[test]
+    fn integration_engine_starts_and_responds() {
+        let aria2 = match Aria2Instance::start() {
+            Some(a) => a,
+            None => {
+                eprintln!("SKIP: bundled binary not found");
+                return;
+            }
+        };
+        let version = aria2.rpc("aria2.getVersion", serde_json::json!([]));
+        assert!(
+            version["version"].is_string(),
+            "getVersion returned: {:?}",
+            version
+        );
+        let ver = version["version"].as_str().unwrap();
+        assert!(!ver.is_empty(), "version string is empty");
+        eprintln!("aria2c version: {}", ver);
+    }
+
+    #[test]
+    fn integration_download_https_file() {
+        let aria2 = match Aria2Instance::start() {
+            Some(a) => a,
+            None => {
+                eprintln!("SKIP: bundled binary not found");
+                return;
+            }
+        };
+
+        let url = "https://proof.ovh.net/files/1Kb.dat";
+        let gid = aria2.rpc("aria2.addUri", serde_json::json!([[url]]));
+        assert!(gid.is_string(), "addUri returned: {:?}", gid);
+        let gid_str = gid.as_str().unwrap();
+
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+        let mut final_status = "error".to_string();
+        while std::time::Instant::now() < deadline {
+            let status = aria2.rpc(
+                "aria2.tellStatus",
+                serde_json::json!([gid_str, ["status", "totalLength", "completedLength"]]),
+            );
+            final_status = status["status"].as_str().unwrap_or("error").to_string();
+            if final_status == "complete" || final_status == "error" {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(500));
+        }
+
+        assert_eq!(final_status, "complete", "download did not complete in 30s");
+        eprintln!("download {} completed", url);
+    }
+
+    #[test]
+    fn integration_global_stat_works() {
+        let aria2 = match Aria2Instance::start() {
+            Some(a) => a,
+            None => {
+                eprintln!("SKIP: bundled binary not found");
+                return;
+            }
+        };
+        let stat = aria2.rpc("aria2.getGlobalStat", serde_json::json!([]));
+        assert!(
+            stat["downloadSpeed"].is_string(),
+            "getGlobalStat returned: {:?}",
+            stat
+        );
+        assert!(stat["numActive"].is_string());
+        eprintln!("global stat: {:?}", stat);
     }
 }
