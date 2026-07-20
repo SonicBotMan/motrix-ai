@@ -2,4 +2,7 @@ dist
 node_modules
 target
 pnpm-lock.yaml
+Cargo.lock
 *.d.ts
+eslint.config.js
+docs/design-preview.html
