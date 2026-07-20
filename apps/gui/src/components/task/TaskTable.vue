@@ -37,6 +37,7 @@ interface Props {
   keyboardIndex?: number
   connecting?: boolean
   connected?: boolean
+  errorMessage?: string
   selectedIds?: Set<number>
 }
 
@@ -44,6 +45,7 @@ const props = withDefaults(defineProps<Props>(), {
   keyboardIndex: -1,
   connecting: false,
   connected: false,
+  errorMessage: '',
   selectedIds: () => new Set<number>(),
 })
 
@@ -231,6 +233,7 @@ function handleMenuToggle(taskId: number, event: MouseEvent): void {
       v-else
       :connecting="connecting"
       :connected="connected"
+      :error-message="errorMessage"
       :active-filter="activeFilter"
       @retry-connect="emit('retryConnect')"
       @try-sample="emit('trySample')"

@@ -133,6 +133,7 @@ pub fn run() {
             commands::aria2::stop_aria2,
             commands::aria2::check_aria2_binary,
             commands::aria2::get_rpc_secret,
+            commands::aria2::get_aria2_log,
             commands::aria2::pause_all,
             commands::aria2::unpause_all,
             commands::aria2::add_torrent_file,

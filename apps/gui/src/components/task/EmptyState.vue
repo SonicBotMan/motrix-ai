@@ -5,6 +5,7 @@ const props = defineProps<{
   connecting: boolean
   connected: boolean
   activeFilter: string
+  errorMessage?: string
 }>()
 
 defineEmits<{
@@ -65,6 +66,7 @@ const emptyState = computed<EmptyStateCopy>(() => {
     <div class="empty-disconnected">
       <p class="empty-heading">Download engine offline</p>
       <p class="empty-sub">aria2 isn't running. Downloads will be queued locally.</p>
+      <p v-if="errorMessage" class="empty-error">{{ errorMessage }}</p>
       <button class="empty-action" type="button" aria-label="Retry connection" @click="$emit('retryConnect')">
         Retry connection
       </button>
@@ -143,6 +145,18 @@ const emptyState = computed<EmptyStateCopy>(() => {
 
 .empty-action:hover {
   opacity: 0.9;
+}
+
+.empty-error {
+  font-size: 12px;
+  color: var(--error, #ef4444);
+  background: var(--error-muted, rgba(239, 68, 68, 0.12));
+  border-radius: var(--radius-sm, 8px);
+  padding: 8px 12px;
+  margin-bottom: 16px;
+  max-width: 400px;
+  word-break: break-word;
+  font-family: var(--font-mono, monospace);
 }
 
 @media (prefers-reduced-motion: reduce) {

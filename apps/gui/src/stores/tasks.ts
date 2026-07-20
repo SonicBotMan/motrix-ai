@@ -478,6 +478,7 @@ export const useTasksStore = defineStore('tasks', () => {
     completedCount,
     aria2Connected: aria2.connected,
     aria2Connecting: aria2.connecting,
+    aria2ConnectionError: aria2.connectionError,
     aria2Running: aria2.aria2Running,
     globalStat: aria2.globalStat,
     onConnectionChange: aria2.onConnectionChange,

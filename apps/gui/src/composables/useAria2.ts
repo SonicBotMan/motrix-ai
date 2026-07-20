@@ -120,6 +120,7 @@ const baseDelayMsRef: Ref<number> = ref(DEFAULT_BASE_DELAY_MS)
 
 const connected: Ref<boolean> = ref(false)
 const connecting: Ref<boolean> = ref(false)
+const connectionError: Ref<string> = ref('')
 const aria2Running: Ref<boolean> = ref(false)
 const globalStat: Ref<Aria2GlobalStat | null> = ref(null)
 const tasks: Ref<Aria2Status[]> = ref([])
@@ -481,6 +482,7 @@ async function start(): Promise<void> {
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     logger.warn('Bundled aria2c failed:', msg)
+    connectionError.value = `aria2c start failed: ${msg}`
     emitConnection('error', `aria2c start failed: ${msg}. Bundled aria2c is required.`)
   }
 
@@ -524,6 +526,7 @@ export function useAria2(opts: Aria2Options = {}) {
   return {
     connected,
     connecting,
+    connectionError,
     aria2Running,
     globalStat,
     tasks,

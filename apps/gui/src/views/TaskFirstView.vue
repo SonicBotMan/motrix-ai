@@ -598,6 +598,7 @@ onUnmounted(() => {
         :keyboard-index="keyboardIndex"
         :connecting="tasksStore.aria2Connecting"
         :connected="tasksStore.aria2Connected"
+        :error-message="tasksStore.aria2ConnectionError"
         :selected-ids="selectedIds"
         @update:filter="activeFilter = $event"
         @toggle-menu="toggleRowMenu"

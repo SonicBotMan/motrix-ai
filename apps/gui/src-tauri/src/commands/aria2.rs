@@ -458,6 +458,28 @@ pub async fn check_aria2_binary(app: tauri::AppHandle) -> Result<serde_json::Val
     }))
 }
 
+#[command]
+pub async fn get_aria2_log() -> Result<String, String> {
+    let home = dirs::home_dir().ok_or("Cannot find home directory")?;
+    let log_path = home.join(".motrix-ai").join("aria2.log");
+    tokio::task::spawn_blocking(move || {
+        if !log_path.exists() {
+            return Ok("No aria2.log file found".to_string());
+        }
+        let content =
+            std::fs::read_to_string(&log_path).map_err(|e| format!("Failed to read log: {}", e))?;
+        let lines: Vec<&str> = content.lines().collect();
+        let start = if lines.len() > 50 {
+            lines.len() - 50
+        } else {
+            0
+        };
+        Ok(lines[start..].join("\n"))
+    })
+    .await
+    .map_err(|e| format!("Log join error: {}", e))?
+}
+
 /// Helper: forward a JSON-RPC call to the local aria2 daemon.
 async fn aria2_rpc(method: &str, params: serde_json::Value) -> Result<serde_json::Value, String> {
     // Prepend the aria2 RPC secret token. When aria2 starts with --rpc-secret,
