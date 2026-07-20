@@ -1,6 +1,6 @@
 [package]
 name = "app"
-version = "1.5.0"
+version = "1.5.1"
 description = "Motrix AI - AI-native download manager"
 authors = ["you"]
 license = "MIT"
@@ -47,3 +47,6 @@ chrono = { version = "0.4", features = ["serde"] }
 
 rand = "0.8"
 dunce = "1"
+
+[dev-dependencies]
+tempfile = "3"
