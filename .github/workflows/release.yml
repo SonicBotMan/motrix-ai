@@ -102,9 +102,22 @@ jobs:
           release_id: ${{ needs.create-release.outputs.release_id }}
           files: artifacts/*.pkg.tar.zst
 
+  verify-artifacts:
+    name: Verify Artifacts (anti-mislabel gate)
+    needs: [create-release, build-tauri, build-arch-pkg]
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install 7zip (dmg inspection)
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq 7zip 2>/dev/null || sudo apt-get install -y -qq p7zip-full || true
+      - name: Verify all release assets
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash scripts/verify-artifacts.sh "${{ needs.create-release.outputs.release_id }}" ./artifacts
+
   publish-release:
     name: Publish Release
-    needs: [create-release, build-tauri, build-arch-pkg]
+    needs: [create-release, build-tauri, build-arch-pkg, verify-artifacts]
     runs-on: ubuntu-latest
     permissions:
       contents: write
