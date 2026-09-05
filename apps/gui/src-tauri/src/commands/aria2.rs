@@ -89,25 +89,13 @@ pub async fn start_aria2(app: tauri::AppHandle, rpc_port: Option<u16>) -> Result
         }
     }
 
-    // Find bundled aria2c binary — name depends on the host platform.
-    // All three platform binaries are bundled via tauri.conf.json's
-    // resources glob so a single install works out-of-the-box.
+    // Resolve the engine binary: bundled copy first, then the system aria2c
+    // from PATH (e.g. `pacman -S aria2` on Arch), then a helpful error.
     let resource_path = app
         .path()
         .resource_dir()
         .map_err(|e| format!("Resource dir error: {}", e))?;
-    let binary_name = bundled_aria2c_name();
-    let aria2c_path = resource_path
-        .join("resources")
-        .join("bin")
-        .join(binary_name);
-
-    if !aria2c_path.exists() {
-        return Err(format!(
-            "Bundled aria2c not found at: {}",
-            aria2c_path.display()
-        ));
-    }
+    let aria2c_path = resolve_engine_binary(&resource_path)?;
 
     // Prepare directories, session file, and log handle on a blocking thread.
     // These are all sync std::fs operations; running them inline would block
@@ -640,6 +628,65 @@ fn is_supported_engine_process(comm: &str) -> bool {
     comm.contains("motrix-ai-engine")
 }
 
+/// Platform name of a bare `aria2c` executable on PATH.
+fn system_aria2c_name() -> &'static str {
+    if cfg!(target_os = "windows") {
+        "aria2c.exe"
+    } else {
+        "aria2c"
+    }
+}
+
+/// Find the first executable named `name` inside the given PATH variable.
+/// Pure string scan (no env mutation) so it is unit-testable.
+/// Accepts both ':' (unix) and ';' (windows) separators.
+fn find_in_path(path_var: &str, name: &str) -> Option<std::path::PathBuf> {
+    for dir in path_var.split([':', ';']) {
+        if dir.is_empty() {
+            continue;
+        }
+        let cand = std::path::Path::new(dir).join(name);
+        if cand.is_file() {
+            return Some(cand);
+        }
+    }
+    None
+}
+
+/// Resolve the engine binary to launch, in order of preference:
+///   1. Bundled binary (resources/bin/<platform-name>) — out-of-the-box.
+///   2. System `aria2c` from PATH — e.g. Arch users with `pacman -S aria2`.
+///   3. Otherwise a detailed error with per-distro install guidance.
+fn resolve_engine_binary(resource_dir: &std::path::Path) -> Result<std::path::PathBuf, String> {
+    let bundled = resource_dir
+        .join("resources")
+        .join("bin")
+        .join(bundled_aria2c_name());
+    if bundled.is_file() {
+        return Ok(bundled);
+    }
+
+    let name = system_aria2c_name();
+    if let Ok(path_var) = std::env::var("PATH") {
+        if let Some(sys) = find_in_path(&path_var, name) {
+            log::info!(
+                "Bundled engine not found ({}), using system {}",
+                bundled.display(),
+                sys.display()
+            );
+            return Ok(sys);
+        }
+    }
+
+    Err(format!(
+        "Download engine not found. Bundled binary missing at {} and no {} on PATH. \
+         Install it with your package manager, e.g. `pacman -S aria2` (Arch) or `apt install aria2` (Debian/Ubuntu), \
+         or reinstall the app bundle.",
+        bundled.display(),
+        name
+    ))
+}
+
 pub fn cleanup_port(port: u16) {
     #[cfg(unix)]
     {
@@ -786,6 +833,72 @@ mod tests {
         assert!(!is_supported_engine_process("aria2c"));
         assert!(!is_supported_engine_process("nginx"));
         assert!(!is_supported_engine_process(""));
+    }
+
+    #[test]
+    fn find_in_path_locates_executable() {
+        let dir = tempfile::tempdir().unwrap();
+        let fake = dir.path().join("aria2c");
+        std::fs::write(&fake, b"#!/bin/sh\n").unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&fake, std::fs::Permissions::from_mode(0o755)).unwrap();
+        }
+        let found = find_in_path(&dir.path().to_string_lossy(), "aria2c").unwrap();
+        assert_eq!(found, fake);
+        assert!(find_in_path("/nonexistent-dir-xyz", "aria2c").is_none());
+        // colon-separated list, second entry wins
+        let found2 = find_in_path(
+            &format!("/nonexistent-dir-xyz:{}", dir.path().to_string_lossy()),
+            "aria2c",
+        )
+        .unwrap();
+        assert_eq!(found2, fake);
+    }
+
+    #[test]
+    fn resolve_engine_binary_prefers_bundled_over_path() {
+        let dir = tempfile::tempdir().unwrap();
+        let bundled = dir.path().join("resources/bin").join(bundled_aria2c_name());
+        std::fs::create_dir_all(bundled.parent().unwrap()).unwrap();
+        std::fs::write(&bundled, b"engine").unwrap();
+        let got = resolve_engine_binary(dir.path()).unwrap();
+        assert_eq!(got, bundled);
+    }
+
+    #[test]
+    fn resolve_engine_binary_falls_back_to_path() {
+        let dir = tempfile::tempdir().unwrap();
+        // no resources/bin inside -> bundled missing
+        let sys_dir = tempfile::tempdir().unwrap();
+        let fake = sys_dir.path().join("aria2c");
+        std::fs::write(&fake, b"#!/bin/sh\n").unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&fake, std::fs::Permissions::from_mode(0o755)).unwrap();
+        }
+        // Point PATH at the fake dir only (restore afterwards).
+        let old = std::env::var("PATH").unwrap_or_default();
+        std::env::set_var("PATH", sys_dir.path());
+        let result = resolve_engine_binary(dir.path());
+        std::env::set_var("PATH", old);
+        assert_eq!(result.unwrap(), fake);
+    }
+
+    #[test]
+    fn resolve_engine_binary_errors_with_install_hint_when_missing() {
+        let dir = tempfile::tempdir().unwrap();
+        let old = std::env::var("PATH").unwrap_or_default();
+        std::env::set_var("PATH", "/nonexistent-dir-xyz");
+        let err = resolve_engine_binary(dir.path()).unwrap_err();
+        std::env::set_var("PATH", old);
+        assert!(err.contains("aria2"), "error should mention aria2: {err}");
+        assert!(
+            err.contains("pacman") || err.contains("apt"),
+            "error should contain install guidance: {err}"
+        );
     }
 
     // ── Integration tests ──────────────────────────────────────────────
