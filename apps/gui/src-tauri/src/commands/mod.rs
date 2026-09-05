@@ -70,14 +70,68 @@ pub async fn send_notification(
     Ok(())
 }
 
-/// Build a shared HTTP client with timeout and User-Agent
+/// Proxy URL from user config (network.https_proxy preferred, then http_proxy).
+/// Used by all app-level outbound requests (search / LLM / subtitles).
+pub(crate) fn configured_proxy_url() -> Option<String> {
+    let home = dirs::home_dir()?;
+    let content = std::fs::read_to_string(home.join(".motrix-ai").join("config.json")).ok()?;
+    let json: serde_json::Value = serde_json::from_str(&content).ok()?;
+    let net = json.get("network")?;
+    for key in ["https_proxy", "http_proxy"] {
+        if let Some(v) = net
+            .get(key)
+            .and_then(|v| v.as_str())
+            .filter(|v| !v.is_empty())
+        {
+            return Some(v.to_string());
+        }
+    }
+    None
+}
+
+/// Build a shared HTTP client with timeout, User-Agent, and the user-configured
+/// proxy (network.https_proxy / http_proxy) applied to search/LLM/subtitle traffic.
 pub(crate) fn build_http_client() -> Result<reqwest::Client, String> {
-    reqwest::Client::builder()
+    let mut builder = reqwest::Client::builder()
         .timeout(Duration::from_secs(30))
         .connect_timeout(Duration::from_secs(10))
-        .user_agent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36")
+        .user_agent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36");
+    if let Some(url) = configured_proxy_url() {
+        let proxy =
+            reqwest::Proxy::all(&url).map_err(|e| format!("Invalid proxy URL '{}': {}", url, e))?;
+        builder = builder.proxy(proxy);
+        log::info!("HTTP client using proxy {}", url);
+    }
+    builder
         .build()
         .map_err(|e| format!("Client build failed: {}", e))
+}
+
+/// Test proxy connectivity: fetch a known endpoint through the configured
+/// client (proxy included) and report latency/status.
+#[tauri::command]
+pub async fn test_proxy() -> Result<serde_json::Value, String> {
+    let client = build_http_client()?;
+    let proxy_in_use = configured_proxy_url().is_some();
+    let start = std::time::Instant::now();
+    match client
+        .get("https://mikanani.me/")
+        .timeout(Duration::from_secs(10))
+        .send()
+        .await
+    {
+        Ok(resp) => Ok(serde_json::json!({
+            "ok": resp.status().is_success(),
+            "status": resp.status().as_u16(),
+            "ms": start.elapsed().as_millis() as u64,
+            "proxy_configured": proxy_in_use,
+        })),
+        Err(e) => Ok(serde_json::json!({
+            "ok": false,
+            "error": e.to_string(),
+            "proxy_configured": proxy_in_use,
+        })),
+    }
 }
 
 /// Read the user-configured download directory from config.json.

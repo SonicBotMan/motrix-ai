@@ -29,27 +29,34 @@ export function useOpenCode() {
   const connected = ref(true)
   const parsing = ref(false)
 
-  /** True when a non-default provider has been selected in config.ai. */
-  const llmConfigured = computed(() => store.config.ai.provider !== 'opencode')
+  /** True when a real LLM backend (not heuristic-only) has been selected. */
+  const llmConfigured = computed(() => {
+    const p = store.config.ai.provider
+    return p !== 'none' && p !== 'opencode' && !!(store.config.ai.api_key || p === 'ollama')
+  })
 
   const statusLabel = computed(() => (llmConfigured.value ? 'LLM Connected' : 'Heuristic Mode'))
 
   /**
    * Map the current config.ai selection to the OpenAI-compatible endpoint
    * shape consumed by the Rust parse_nl_intent command. Returns null when
-   * the user has not configured a non-default provider.
+   * the user has not configured a usable LLM provider.
    */
   function getLLMConfig(): LLMConfig | null {
     const ai = store.config.ai
-    if (ai.provider === 'opencode') return null
+    if (ai.provider === 'none' || ai.provider === 'opencode') return null
 
+    // OpenAI-compatible endpoints only. 'anthropic' native API is NOT
+    // supported (different request/response shape) — users should point
+    // 'custom' at an OpenAI-compatible relay instead.
     const endpoints: Partial<Record<string, string>> = {
-      anthropic: 'https://api.anthropic.com/v1/chat/completions',
-      openai: 'https://api.openai.com/v1/chat/completions',
+      openai: ai.base_url
+        ? `${ai.base_url.replace(/\/$/, '')}/chat/completions`
+        : 'https://api.openai.com/v1/chat/completions',
       ollama: ai.base_url
         ? `${ai.base_url.replace(/\/$/, '')}/v1/chat/completions`
         : 'http://127.0.0.1:11434/v1/chat/completions',
-      custom: ai.base_url ?? '',
+      custom: ai.base_url ? `${ai.base_url.replace(/\/$/, '')}/chat/completions` : '',
     }
 
     const endpoint = endpoints[ai.provider]

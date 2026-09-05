@@ -9,7 +9,7 @@ import { ConfigError } from '../errors.js'
 // 允许的枚举值
 // ---------------------------------------------------------------------------
 
-const VALID_PROVIDERS = ['opencode', 'anthropic', 'openai', 'ollama', 'custom'] as const
+const VALID_PROVIDERS = ['none', 'opencode', 'openai', 'ollama', 'custom'] as const
 const VALID_RESOURCE_TYPES = ['movie', 'tv', 'software', 'music', 'anime', 'other'] as const
 const VALID_THEMES = ['dark', 'light', 'system'] as const
 const VALID_LANGS = ['en', 'zh', 'ja', 'ko', 'fr'] as const
@@ -386,7 +386,7 @@ export const configSchema = {
   ai: {
     provider: {
       type: 'enum' as const,
-      values: ['opencode', 'anthropic', 'openai', 'ollama', 'custom'] as const,
+      values: ['none', 'opencode', 'openai', 'ollama', 'custom'] as const,
       required: true,
     },
     model: { type: 'string' as const, required: true },
@@ -482,6 +482,20 @@ function validateNas(raw: unknown, defaults: AppConfig['nas']): AppConfig['nas']
   return result
 }
 
+export function validateNetwork(raw: unknown, defaults: AppConfig['network']): AppConfig['network'] {
+  const result = { ...defaults }
+  if (isObject(raw)) {
+    for (const field of ['http_proxy', 'https_proxy', 'ftp_proxy', 'no_proxy'] as const) {
+      const v = raw[field]
+      if (v !== undefined) {
+        assert(typeof v === 'string', `network.${field}`, 'must be a string')
+        result[field] = v
+      }
+    }
+  }
+  return result
+}
+
 export function validateConfig(raw: unknown): AppConfig {
   if (!isObject(raw)) {
     return { ...DEFAULT_CONFIG }
@@ -490,7 +504,7 @@ export function validateConfig(raw: unknown): AppConfig {
   return {
     ai: validateAi(raw.ai, DEFAULT_CONFIG.ai),
     aria2: validateAria2(raw.aria2, DEFAULT_CONFIG.aria2),
-    network: { http_proxy: '', https_proxy: '', ftp_proxy: '', no_proxy: '' },
+    network: validateNetwork(raw.network, DEFAULT_CONFIG.network),
     downloads: validateDownloads(raw.downloads, DEFAULT_CONFIG.downloads),
     schedule: validateSchedule(raw.schedule, DEFAULT_CONFIG.schedule),
     disk: validateDisk(raw.disk, DEFAULT_CONFIG.disk),

@@ -62,8 +62,8 @@ describe('config migrations', () => {
     })
 
     it('preserves existing values during migration', () => {
-      const result = migrateConfig({ ai: { provider: 'anthropic' } })
-      expect(result.ai).toEqual({ provider: 'anthropic' })
+      const result = migrateConfig({ schemaVersion: 3, ai: { provider: 'anthropic' } })
+      expect(result.ai).toEqual({ provider: 'custom' })
     })
 
     it('does not mutate beyond current version', () => {

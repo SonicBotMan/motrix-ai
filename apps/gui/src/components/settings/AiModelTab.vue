@@ -15,7 +15,7 @@ const needsBaseUrl = computed(() => aiProvider.needsBaseUrl.value)
 const modelError = computed(() => {
   const provider = aiProvider.config.value.provider
   const model = aiProvider.config.value.model?.trim()
-  if (provider !== 'opencode' && !model) {
+  if (provider !== 'opencode' && provider !== 'none' && !model) {
     return 'Model is required for this provider'
   }
   return ''
@@ -24,7 +24,7 @@ const modelError = computed(() => {
 const apiKeyError = computed(() => {
   const provider = aiProvider.config.value.provider
   const apiKey = aiProvider.config.value.api_key?.trim()
-  if ((provider === 'anthropic' || provider === 'openai') && !apiKey) {
+  if ((provider === 'openai' || provider === 'custom') && !apiKey) {
     return 'API key is required for this provider'
   }
   return ''

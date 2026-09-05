@@ -65,10 +65,7 @@ describe('useConfigStore', () => {
 
   it('init() falls back to localStorage migration when invoke rejects', async () => {
     // Legacy keys present in the browser/vite-dev environment.
-    localStorageMock.setItem(
-      'motrix-ai:ai-config',
-      JSON.stringify({ provider: 'anthropic', model: 'claude-3-5-sonnet' }),
-    )
+    localStorageMock.setItem('motrix-ai:ai-config', JSON.stringify({ provider: 'custom', model: 'claude-3-5-sonnet' }))
     localStorageMock.setItem('motrix-ai:download-dir', JSON.stringify('/custom/dir'))
     localStorageMock.setItem('motrix-ai:aria2-rpc-url', JSON.stringify('http://host:6800/jsonrpc'))
     localStorageMock.setItem('motrix-ai:log-level', JSON.stringify('warn'))
@@ -84,7 +81,7 @@ describe('useConfigStore', () => {
     await store.init()
 
     expect(store.loaded).toBe(true)
-    expect(store.config.ai.provider).toBe('anthropic')
+    expect(store.config.ai.provider).toBe('custom')
     expect(store.config.ai.model).toBe('claude-3-5-sonnet')
     expect(store.config.downloads.base_dir).toBe('/custom/dir')
     expect(store.config.aria2.rpc_url).toBe('http://host:6800/jsonrpc')

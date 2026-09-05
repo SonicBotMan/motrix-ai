@@ -6,19 +6,19 @@ import { useConfigStore, type AIProvider } from '@/stores/config'
  * available models, and whether an API key is required.
  */
 const PROVIDERS: Record<AIProvider, { name: string; models: string[]; requiresKey: boolean }> = {
+  none: {
+    name: 'None (heuristic only)',
+    models: [],
+    requiresKey: false,
+  },
   opencode: {
-    name: 'OpenCode (Free)',
+    name: 'OpenCode (local server)',
     models: ['opencode/deepseek-v4-flash-free'],
     requiresKey: false,
   },
-  anthropic: {
-    name: 'Anthropic Claude',
-    models: ['claude-sonnet-4', 'claude-haiku-4'],
-    requiresKey: true,
-  },
   openai: {
-    name: 'OpenAI GPT',
-    models: ['gpt-4o', 'gpt-4o-mini'],
+    name: 'OpenAI-compatible API',
+    models: ['gpt-4o-mini'],
     requiresKey: true,
   },
   ollama: {
@@ -64,8 +64,8 @@ export function useAIProvider() {
   /** Whether the current provider requires an API key. */
   const requiresApiKey = computed(() => currentProvider.value.requiresKey)
 
-  /** Whether the current provider needs a custom base URL (Ollama or custom OpenAI-compatible). */
-  const needsBaseUrl = computed(() => config.value.provider === 'ollama' || config.value.provider === 'custom')
+  /** Whether the current provider needs a custom base URL (Ollama, custom, or OpenAI-compatible relay). */
+  const needsBaseUrl = computed(() => ['ollama', 'custom', 'openai'].includes(config.value.provider))
 
   /** Switch the active provider and reset the model to that provider's default. */
   function setProvider(provider: AIProvider) {
