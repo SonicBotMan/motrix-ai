@@ -663,7 +663,13 @@ fn find_in_path(path_var: &str, name: &str) -> Option<std::path::PathBuf> {
 ///   1. Bundled binary (resources/bin/<platform-name>) — out-of-the-box.
 ///   2. System `aria2c` from PATH — e.g. Arch users with `pacman -S aria2`.
 ///   3. Otherwise a detailed error with per-distro install guidance.
-fn resolve_engine_binary(resource_dir: &std::path::Path) -> Result<std::path::PathBuf, String> {
+///
+/// `path_var` injects an explicit PATH string (unit tests) to avoid mutating
+/// process env — parallel tests would race on shared env state.
+fn resolve_engine_binary_in(
+    resource_dir: &std::path::Path,
+    path_var: Option<&str>,
+) -> Result<std::path::PathBuf, String> {
     let bundled = resource_dir
         .join("resources")
         .join("bin")
@@ -673,8 +679,12 @@ fn resolve_engine_binary(resource_dir: &std::path::Path) -> Result<std::path::Pa
     }
 
     let name = system_aria2c_name();
-    if let Ok(path_var) = std::env::var("PATH") {
-        if let Some(sys) = find_in_path(&path_var, name) {
+    let path_src = match path_var {
+        Some(pv) => Some(pv.to_string()),
+        None => std::env::var("PATH").ok(),
+    };
+    if let Some(pv) = path_src {
+        if let Some(sys) = find_in_path(&pv, name) {
             log::info!(
                 "Bundled engine not found ({}), using system {}",
                 bundled.display(),
@@ -691,6 +701,11 @@ fn resolve_engine_binary(resource_dir: &std::path::Path) -> Result<std::path::Pa
         bundled.display(),
         name
     ))
+}
+
+/// Production entry point: resolve using the process PATH.
+fn resolve_engine_binary(resource_dir: &std::path::Path) -> Result<std::path::PathBuf, String> {
+    resolve_engine_binary_in(resource_dir, None)
 }
 
 pub fn cleanup_port(port: u16) {
@@ -881,26 +896,15 @@ mod tests {
         let sys_dir = tempfile::tempdir().unwrap();
         let fake = sys_dir.path().join(system_aria2c_name());
         std::fs::write(&fake, b"#!/bin/sh\n").unwrap();
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            std::fs::set_permissions(&fake, std::fs::Permissions::from_mode(0o755)).unwrap();
-        }
-        // Point PATH at the fake dir only (restore afterwards).
-        let old = std::env::var("PATH").unwrap_or_default();
-        std::env::set_var("PATH", sys_dir.path());
-        let result = resolve_engine_binary(dir.path());
-        std::env::set_var("PATH", old);
+        // Inject PATH via the testable entry point — no env mutation, no races.
+        let result = resolve_engine_binary_in(dir.path(), Some(&sys_dir.path().to_string_lossy()));
         assert_eq!(result.unwrap(), fake);
     }
 
     #[test]
     fn resolve_engine_binary_errors_with_install_hint_when_missing() {
         let dir = tempfile::tempdir().unwrap();
-        let old = std::env::var("PATH").unwrap_or_default();
-        std::env::set_var("PATH", "/nonexistent-dir-xyz");
-        let err = resolve_engine_binary(dir.path()).unwrap_err();
-        std::env::set_var("PATH", old);
+        let err = resolve_engine_binary_in(dir.path(), Some("/nonexistent-dir-xyz")).unwrap_err();
         assert!(err.contains("aria2"), "error should mention aria2: {err}");
         assert!(
             err.contains("pacman") || err.contains("apt"),
