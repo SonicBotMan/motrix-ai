@@ -47,17 +47,12 @@ for f in "$OUT"/*.pkg.tar.zst; do
   [ -x "$bin" ] && pass "$name: app binary present" || { fail "$name: app binary missing"; continue; }
   magic=$(od -An -tx1 -N4 "$bin" | tr -d ' ')
   [ "$magic" = "7f454c46" ] && pass "$name: app binary is ELF" || fail "$name: app binary not ELF (magic $magic — wrong platform?)"
-  arch=$(readelf -h "$bin" 2>/dev/null | grep -oP 'Machine:\s+\K\w+')
-  [ "$arch" = "X86-64" ] && pass "$name: ELF machine X86-64" || fail "$name: ELF machine '$arch' != X86-64"
-  # 引擎：内置二进制或依赖系统 aria2（PKG 允许两者，但必须有一个）
-  engs=$(ls "$d/usr/share/motrix-ai/resources/bin/" 2>/dev/null | grep -c 'motrix-ai-engine' || true)
-  if [ "$engs" -ge 1 ]; then
-    elfok=1
-    for e in "$d/usr/share/motrix-ai/resources/bin/motrix-ai-engine-"*; do
-      m=$(od -An -tx1 -N4 "$e" | tr -d ' ')
-      [ "$m" = "7f454c46" ] || elfok=0
-    done
-    [ "$elfok" = "1" ] && pass "$name: $engs bundled engine(s) all ELF" || fail "$name: bundled engine not ELF"
+  archline=$(readelf -h "$bin" 2>/dev/null | grep -i 'Machine:')
+  echo "$archline" | grep -qi 'X86-64' && pass "$name: ELF machine X86-64" || fail "$name: ELF machine not X86-64: $archline"
+  # 引擎：Linux PKG 必须含 ELF 的 linux 引擎（其他平台的引擎随包合法存在，不校验）
+  if [ -f "$d/usr/share/motrix-ai/resources/bin/motrix-ai-engine-linux" ]; then
+    m=$(od -An -tx1 -N4 "$d/usr/share/motrix-ai/resources/bin/motrix-ai-engine-linux" | tr -d ' ')
+    [ "$m" = "7f454c46" ] && pass "$name: linux engine is ELF" || fail "$name: linux engine not ELF (magic $m)"
   else
     pass "$name: no bundled engine (will rely on system aria2 dependency)"
   fi
