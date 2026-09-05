@@ -88,6 +88,8 @@ jobs:
   build-arch-pkg:
     name: Build Arch PKG (x86_64)
     needs: create-release
+    permissions:
+      contents: write
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
