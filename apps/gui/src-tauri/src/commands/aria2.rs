@@ -639,9 +639,15 @@ fn system_aria2c_name() -> &'static str {
 
 /// Find the first executable named `name` inside the given PATH variable.
 /// Pure string scan (no env mutation) so it is unit-testable.
-/// Accepts both ':' (unix) and ';' (windows) separators.
+/// Separator is platform-aware: ';' on Windows (drive letters like
+/// C:\ must not be split on), ':' on unix.
 fn find_in_path(path_var: &str, name: &str) -> Option<std::path::PathBuf> {
-    for dir in path_var.split([':', ';']) {
+    let sep = if cfg!(target_os = "windows") {
+        ';'
+    } else {
+        ':'
+    };
+    for dir in path_var.split(sep) {
         if dir.is_empty() {
             continue;
         }
@@ -838,20 +844,21 @@ mod tests {
     #[test]
     fn find_in_path_locates_executable() {
         let dir = tempfile::tempdir().unwrap();
-        let fake = dir.path().join("aria2c");
+        let name = system_aria2c_name();
+        let fake = dir.path().join(name);
         std::fs::write(&fake, b"#!/bin/sh\n").unwrap();
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            std::fs::set_permissions(&fake, std::fs::Permissions::from_mode(0o755)).unwrap();
-        }
-        let found = find_in_path(&dir.path().to_string_lossy(), "aria2c").unwrap();
+        let found = find_in_path(&dir.path().to_string_lossy(), name).unwrap();
         assert_eq!(found, fake);
-        assert!(find_in_path("/nonexistent-dir-xyz", "aria2c").is_none());
-        // colon-separated list, second entry wins
+        assert!(find_in_path("/nonexistent-dir-xyz", name).is_none());
+        // separator list, second entry wins
+        let sep = if cfg!(target_os = "windows") {
+            ';'
+        } else {
+            ':'
+        };
         let found2 = find_in_path(
-            &format!("/nonexistent-dir-xyz:{}", dir.path().to_string_lossy()),
-            "aria2c",
+            &format!("/nonexistent-dir-xyz{sep}{}", dir.path().to_string_lossy()),
+            name,
         )
         .unwrap();
         assert_eq!(found2, fake);
@@ -872,7 +879,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         // no resources/bin inside -> bundled missing
         let sys_dir = tempfile::tempdir().unwrap();
-        let fake = sys_dir.path().join("aria2c");
+        let fake = sys_dir.path().join(system_aria2c_name());
         std::fs::write(&fake, b"#!/bin/sh\n").unwrap();
         #[cfg(unix)]
         {
