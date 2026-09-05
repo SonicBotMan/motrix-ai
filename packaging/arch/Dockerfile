@@ -9,7 +9,7 @@ RUN pacman -Sy --noconfirm \
         binutils \
         nodejs \
         npm \
-        webkit2gtk \
+        webkitgtk \
         gtk3 \
         libayatana-appindicator \
         zstd
