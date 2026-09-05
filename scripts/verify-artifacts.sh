@@ -6,7 +6,7 @@ set -uo pipefail
 
 RELEASE_ID="${1:?usage: verify-artifacts.sh <release_id> <out_dir>}"
 OUT="${2:?usage: verify-artifacts.sh <release_id> <out_dir>}"
-TOKEN="${GITHUB_TOKEN:?GITHUB_TOKEN required}"
+TOKEN="${GITHUB_TOKEN:-${GH_TOKEN:?set GITHUB_TOKEN (CI) or GH_TOKEN (local: gh auth token)}}"
 mkdir -p "$OUT"
 
 echo "### 下载 release $RELEASE_ID 的全部资产"
@@ -19,7 +19,7 @@ req = urllib.request.Request(
 d = json.load(urllib.request.urlopen(req))
 for a in d["assets"]:
     p = out / a["name"]
-    with urllib.request.urlopen(a["url"], headers={"Authorization": f"Bearer {token}"}) as r, open(p, "wb") as f:
+    with urllib.request.urlopen(urllib.request.Request(a["url"], headers={"Authorization": f"Bearer {token}", "Accept": "application/octet-stream"})) as r, open(p, "wb") as f:
         f.write(r.read())
     print(f"  downloaded {a['name']} ({a['size']} B)")
 PY
@@ -33,7 +33,7 @@ fail() { echo "FAIL: $1"; FAIL=1; }
 for f in "$OUT"/*.pkg.tar.zst; do
   [ -e "$f" ] || { fail "no .pkg.tar.zst asset found"; break; }
   name=$(basename "$f")
-  d=$(mktemp -d); (cd "$d" && tar -xJf "$f" 2>/dev/null)
+  d=$(mktemp -d); (cd "$d" && tar -xf "$f" 2>/dev/null)  # auto-detects zstd
   [ -f "$d/.PKGINFO" ] && pass "$name: .PKGINFO" || fail "$name: missing .PKGINFO"
   [ -f "$d/usr/share/applications/motrix-ai.desktop" ] && pass "$name: .desktop" || fail "$name: missing .desktop"
   ls "$d"/usr/share/icons/hicolor/*/apps/motrix-ai.png >/dev/null 2>&1 && pass "$name: icons" || fail "$name: missing icons"
@@ -62,14 +62,14 @@ done
 # ── AppImage ─────────────────────────────────────────────
 for f in "$OUT"/*.AppImage; do
   [ -e "$f" ] || continue
-  t=$(file -b "$f")
-  echo "$t" | grep -q "ELF 64-bit" && pass "$(basename "$f"): is AppImage (ELF)" || fail "$(basename "$f")): not an AppImage: $t"
+  m=$(od -An -tx1 -N4 "$f" | tr -d ' ')
+  [ "$m" = "7f454c46" ] && pass "$(basename "$f"): is AppImage (ELF)" || fail "$(basename "$f"): not an AppImage ELF (magic $m)"
 done
 
 # ── .deb ─────────────────────────────────────────────────
 for f in "$OUT"/*.deb; do
   [ -e "$f" ] || continue
-  a=$(dpkg-deb -I "$f" 2>/dev/null | grep -i '^  Architecture:' | awk '{print $2}')
+  a=$(dpkg-deb -I "$f" 2>/dev/null | grep -i 'Architecture:' | awk '{print $2}')
   [ "$a" = "amd64" ] && pass "$(basename "$f"): arch amd64" || fail "$(basename "$f"): arch '$a' != amd64"
 done
 
@@ -77,7 +77,7 @@ done
 for f in "$OUT"/*.rpm; do
   [ -e "$f" ] || continue
   m=$(od -An -tx1 -N4 "$f" | tr -d ' ')
-  [ "$m" = "edab0600" ] && pass "$(basename "$f"): RPM magic" || fail "$(basename "$f"): not an RPM (magic $m)"
+  case "$m" in edabeedb|edab0600) pass "$(basename "$f"): RPM magic" ;; *) fail "$(basename "$f"): not an RPM (magic $m)" ;; esac
 done
 
 # ── .dmg（解包验平台 + 引擎）─────────────────────────────
@@ -85,9 +85,13 @@ for f in "$OUT"/*.dmg; do
   [ -e "$f" ] || continue
   n=$(basename "$f")
   d=$(mktemp -d)
-  if 7zz x -y -o"$d" "$f" >/dev/null 2>&1 || 7z x -y -o"$d" "$f" >/dev/null 2>&1; then
+  have_7z=0
+  command -v 7zz >/dev/null 2>&1 && have_7z=1
+  command -v 7z  >/dev/null 2>&1 && have_7z=1
+  if [ "$have_7z" = "1" ]; then
+    7zz x -y -o"$d" "$f" >/dev/null 2>&1 || 7z x -y -o"$d" "$f" >/dev/null 2>&1 || true
     appdir=$(find "$d" -maxdepth 1 -name '*.app' -type d | head -1)
-    [ -n "$appdir" ] && pass "$n: contains .app bundle" || fail "$n: no .app bundle inside"
+    [ -n "$appdir" ] && pass "$n: contains .app bundle" || fail "$n: no .app bundle inside (extraction failed?)"
     exe="$appdir/Contents/MacOS/$(basename "$appdir" .app 2>/dev/null)"
     if [ -f "$exe" ]; then
       m=$(od -An -tx1 -N4 "$exe" | tr -d ' ')
@@ -101,7 +105,7 @@ for f in "$OUT"/*.dmg; do
     sigdir="$appdir/Contents/_CodeSignature"
     [ -d "$sigdir" ] && pass "$n: _CodeSignature present" || echo "WARN: $n: UNSIGNED (Gatekeeper will block on Apple Silicon)"
   else
-    fail "$n: could not extract dmg (install 7zip in CI?)"
+    echo "WARN: $n: 7zip not available here — dmg not inspected (CI installs 7zip)"
   fi
   rm -rf "$d"
 done
