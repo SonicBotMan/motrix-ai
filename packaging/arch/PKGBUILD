@@ -24,7 +24,7 @@ depends=(
     gtk3
     libayatana-appindicator
     libsoup3
-    webkitgtk
+    webkit2gtk-4.1
     aria2
     libzstd
     alsa-lib
