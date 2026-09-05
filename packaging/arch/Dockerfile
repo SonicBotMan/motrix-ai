@@ -24,6 +24,7 @@ COPY . /app
 RUN set -e; \
     pnpm install --frozen-lockfile; \
     pnpm rebuild; \
+    pnpm --filter @motrix-ai/core build; \
     cd apps/gui; \
     tauri build --no-bundle; \
     ls -la apps/gui/src-tauri/target/release/ | head -5

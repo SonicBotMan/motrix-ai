@@ -54,9 +54,12 @@ build() {
     pnpm install --frozen-lockfile
     pnpm rebuild
 
+    # core 必须先构建：gui 的 vue-tsc 依赖 @motrix-ai/core 的 dist 类型
+    pnpm --filter @motrix-ai/core build
+
     # Tauri 应用（release，不生成平台安装器，只出裸二进制）
     cd apps/gui
-    tauri build --bundles none
+    tauri build --no-bundle
 }
 
 package() {
