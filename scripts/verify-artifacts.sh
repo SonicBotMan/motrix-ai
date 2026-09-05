@@ -33,7 +33,13 @@ fail() { echo "FAIL: $1"; FAIL=1; }
 for f in "$OUT"/*.pkg.tar.zst; do
   [ -e "$f" ] || { fail "no .pkg.tar.zst asset found"; break; }
   name=$(basename "$f")
-  d=$(mktemp -d); (cd "$d" && tar -xf "$f" 2>/dev/null)  # auto-detects zstd
+  d=$(mktemp -d)
+  if command -v zstd >/dev/null 2>&1; then
+    zstd -dc -q "$f" 2>/dev/null | tar -x -C "$d" 2>/dev/null || tar -xf "$f" -C "$d" 2>/dev/null || true
+  else
+    tar -xf "$f" -C "$d" 2>/dev/null || true
+  fi
+  [ -f "$d/.PKGINFO" ] || [ -d "$d/usr" ] || { fail "$name: PKG extraction failed (zstd/tar?)"; rm -rf "$d"; continue; }
   [ -f "$d/.PKGINFO" ] && pass "$name: .PKGINFO" || fail "$name: missing .PKGINFO"
   [ -f "$d/usr/share/applications/motrix-ai.desktop" ] && pass "$name: .desktop" || fail "$name: missing .desktop"
   ls "$d"/usr/share/icons/hicolor/*/apps/motrix-ai.png >/dev/null 2>&1 && pass "$name: icons" || fail "$name: missing icons"
@@ -90,7 +96,7 @@ for f in "$OUT"/*.dmg; do
   command -v 7z  >/dev/null 2>&1 && have_7z=1
   if [ "$have_7z" = "1" ]; then
     7zz x -y -o"$d" "$f" >/dev/null 2>&1 || 7z x -y -o"$d" "$f" >/dev/null 2>&1 || true
-    appdir=$(find "$d" -maxdepth 1 -name '*.app' -type d | head -1)
+    appdir=$(find "$d" -name '*.app' -type d | head -1)
     [ -n "$appdir" ] && pass "$n: contains .app bundle" || fail "$n: no .app bundle inside (extraction failed?)"
     exe="$appdir/Contents/MacOS/$(basename "$appdir" .app 2>/dev/null)"
     if [ -f "$exe" ]; then
