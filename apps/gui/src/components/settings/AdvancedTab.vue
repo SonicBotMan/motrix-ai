@@ -97,6 +97,11 @@ const aria2RpcUrlError = computed(() => {
   return ''
 })
 
+const preventSleep = computed<boolean>({
+  get: () => store.config.ui.prevent_sleep_while_downloading ?? true,
+  set: (v: boolean) => store.updateSection('ui', { prevent_sleep_while_downloading: v }),
+})
+
 // ── Network proxy (app-level outbound: search / LLM / subtitles) ──
 const httpsProxy = computed<string>({
   get: () => store.config.network.https_proxy,
@@ -205,6 +210,11 @@ async function clearDownloadHistory() {
         :rows="3"
         placeholder="X-Custom-Header: value&#10;Another-Header: value"
       />
+    </div>
+
+    <div class="setting-group">
+      <label>{{ t('settings.preventSleep') }}</label>
+      <NSwitch v-model:value="preventSleep" />
     </div>
 
     <div class="setting-group">

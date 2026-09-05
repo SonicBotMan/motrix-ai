@@ -151,4 +151,6 @@ export interface UiConfig {
   language: 'en' | 'zh' | 'ja' | 'ko' | 'fr'
   log_level: 'debug' | 'info' | 'warn' | 'error'
   onboarded?: boolean
+  /** Prevent OS sleep while downloads are active (default true) */
+  prevent_sleep_while_downloading?: boolean
 }

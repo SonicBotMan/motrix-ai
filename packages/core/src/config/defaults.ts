@@ -95,5 +95,6 @@ export const DEFAULT_CONFIG: AppConfig = {
     theme: 'dark',
     language: 'en',
     log_level: 'info',
+    prevent_sleep_while_downloading: true,
   },
 }

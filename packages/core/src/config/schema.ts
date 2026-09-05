@@ -353,6 +353,14 @@ function validateUi(raw: unknown, defaults: AppConfig['ui']): AppConfig['ui'] {
     )
     result.theme = raw.theme as AppConfig['ui']['theme']
   }
+  if (raw.prevent_sleep_while_downloading !== undefined) {
+    assert(
+      typeof raw.prevent_sleep_while_downloading === 'boolean',
+      'ui.prevent_sleep_while_downloading',
+      'must be a boolean',
+    )
+    result.prevent_sleep_while_downloading = raw.prevent_sleep_while_downloading
+  }
 
   if (raw.language !== undefined) {
     assert(

@@ -4,6 +4,7 @@ import { NIcon } from 'naive-ui'
 import { CloseOutline } from '@vicons/ionicons5'
 import { useConfigStore } from '@/stores/config'
 import { useSchedule, type ScheduleRule } from '@/composables/useSchedule'
+import { useSleepGuard } from '@/composables/useSleepGuard'
 import { useTasksStore } from '@/stores/tasks'
 
 const configStore = useConfigStore()
@@ -12,6 +13,9 @@ const tasksStore = useTasksStore()
 const activeRules = (): ScheduleRule[] => (configStore.config.schedule.rules ?? []).filter((r) => r.enabled !== false)
 
 const sched = useSchedule(activeRules())
+
+// Previously-dead Rust commands (prevent_sleep/allow_sleep) wired to task activity.
+useSleepGuard()
 
 watch(
   () => configStore.config.schedule.rules,

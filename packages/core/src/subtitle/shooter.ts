@@ -23,34 +23,42 @@ async function rateLimitedFetch(url: string, init?: RequestInit): Promise<Respon
 }
 
 /**
- * Parse shooter.cn API JSON response
- * Response format: [{ Desc: "", Files: [{ f: "filename", d: ["delay", "base64content"] }] }]
+ * Parse shooter.cn API JSON response.
+ *
+ * Live API shape (verified 2026-09-05):
+ *   [{ Desc, Delay, Files: [{ Ext: "srt", Link: "https://...subapi.php?fetch=..." }] }]
+ * Legacy shape (kept for compatibility): Files: [{ f: name, d: [delay, base64content] }]
  */
 function parseShooterResponse(
-  data: Array<{
-    Desc?: string
-    Files?: Array<{ f: string; d: string[] }>
-  }>,
+  data: Array<{ Desc?: string; Files?: Array<{ f?: string; d?: string[]; Ext?: string; Link?: string }> }>,
   language: string,
+  title = 'subtitle',
 ): SubtitleResult[] {
   const results: SubtitleResult[] = []
 
   for (const item of data) {
-    if (!item.Files?.length) continue
-    for (const file of item.Files) {
-      if (!file.f) continue
-      // The download URL for shooter is reconstructed from the file data
-      // Since shooter returns base64-encoded subtitle content directly,
-      // we use a data: URL approach for the MVP
-      const content = file.d?.[1] // base64 content
-      if (!content) continue
-
-      results.push({
-        language,
-        filename: file.f,
-        downloadUrl: `data:application/octet-stream;base64,${content}`,
-        source: 'shooter',
-      })
+    const files = item.Files ?? []
+    for (const file of files) {
+      // Current API: fetchable Link + extension.
+      if (file.Link) {
+        const ext = file.Ext ? `.${file.Ext.toLowerCase()}` : '.srt'
+        results.push({
+          language,
+          filename: `${title}${ext}`,
+          downloadUrl: file.Link,
+          source: 'shooter',
+        })
+        continue
+      }
+      // Legacy API: inline base64 content.
+      if (file.f && file.d?.[1]) {
+        results.push({
+          language,
+          filename: file.f,
+          downloadUrl: `data:application/octet-stream;base64,${file.d[1]}`,
+          source: 'shooter',
+        })
+      }
     }
   }
 
@@ -103,7 +111,7 @@ export class ShooterSource implements SubtitleSource {
         return []
       }
 
-      return parseShooterResponse(data, lang)
+      return parseShooterResponse(data, lang, title)
     } catch (err) {
       // shooter.cn is known to be unreliable — fail silently
       logger.warn('request failed (expected):', err instanceof Error ? err.message : err)
