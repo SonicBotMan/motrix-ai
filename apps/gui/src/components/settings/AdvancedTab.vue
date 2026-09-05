@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { invoke } from '@tauri-apps/api/core'
 import { NButton, NInput, NSelect, NSwitch } from 'naive-ui'
 import { TrashOutline } from '@vicons/ionicons5'
 import { useAria2 } from '@/composables/useAria2'
@@ -96,6 +97,41 @@ const aria2RpcUrlError = computed(() => {
   return ''
 })
 
+const preventSleep = computed<boolean>({
+  get: () => store.config.ui.prevent_sleep_while_downloading ?? true,
+  set: (v: boolean) => store.updateSection('ui', { prevent_sleep_while_downloading: v }),
+})
+
+// ── Network proxy (app-level outbound: search / LLM / subtitles) ──
+const httpsProxy = computed<string>({
+  get: () => store.config.network.https_proxy,
+  set: (v: string) => store.updateSection('network', { https_proxy: v }),
+})
+const noProxy = computed<string>({
+  get: () => store.config.network.no_proxy,
+  set: (v: string) => store.updateSection('network', { no_proxy: v }),
+})
+const proxyTesting = ref(false)
+const proxyResult = ref<{
+  ok: boolean
+  status?: number
+  ms?: number
+  error?: string
+  proxy_configured: boolean
+} | null>(null)
+
+async function testProxy() {
+  proxyTesting.value = true
+  proxyResult.value = null
+  try {
+    proxyResult.value = await invoke('test_proxy')
+  } catch (e) {
+    proxyResult.value = { ok: false, proxy_configured: false, error: e instanceof Error ? e.message : String(e) }
+  } finally {
+    proxyTesting.value = false
+  }
+}
+
 const btTrackerWarning = computed(() => {
   const trackers = btTracker.value.trim()
   if (!trackers) return ''
@@ -176,6 +212,27 @@ async function clearDownloadHistory() {
       />
     </div>
 
+    <div class="setting-group">
+      <label>{{ t('settings.preventSleep') }}</label>
+      <NSwitch v-model:value="preventSleep" />
+    </div>
+
+    <div class="setting-group">
+      <label>{{ t('settings.proxy') }}</label>
+      <p class="form-hint">{{ t('settings.proxyHint') }}</p>
+      <NInput v-model:value="httpsProxy" :placeholder="t('settings.proxyPlaceholder')" />
+      <div class="proxy-row">
+        <NInput v-model:value="noProxy" :placeholder="t('settings.noProxyPlaceholder')" />
+        <NButton type="primary" :loading="proxyTesting" @click="testProxy">{{ t('settings.testProxy') }}</NButton>
+      </div>
+      <p v-if="proxyResult && proxyResult.ok" class="form-success">
+        {{ t('settings.proxyOk') }} — HTTP {{ proxyResult.status }} in {{ proxyResult.ms }}ms
+      </p>
+      <p v-else-if="proxyResult && !proxyResult.ok" class="form-error">
+        {{ t('settings.proxyFail') }}: {{ proxyResult.error }}
+      </p>
+    </div>
+
     <div class="danger-zone">
       <h4>{{ t('settings.dangerZone') }}</h4>
       <NButton type="error" tertiary @click="clearDownloadHistory">
@@ -191,6 +248,29 @@ async function clearDownloadHistory() {
   color: var(--error);
   font-size: 12px;
   margin-top: 4px;
+}
+
+.form-success {
+  color: var(--success, #18bc0c);
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.form-hint {
+  color: var(--text3, #999);
+  font-size: 12px;
+  margin: 4px 0;
+}
+
+.proxy-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  align-items: center;
+}
+
+.proxy-row .n-input {
+  flex: 1;
 }
 
 .form-warning {

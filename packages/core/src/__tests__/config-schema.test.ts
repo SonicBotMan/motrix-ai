@@ -10,7 +10,7 @@ import { DEFAULT_CONFIG } from '../config/loader.js'
 describe('validateConfig', () => {
   it('accepts a valid full config', () => {
     const result = validateConfig(DEFAULT_CONFIG)
-    expect(result.ai.provider).toBe('opencode')
+    expect(result.ai.provider).toBe('none')
     expect(result.aria2.rpc_url).toBeDefined()
   })
 
@@ -24,7 +24,7 @@ describe('validateConfig', () => {
   it('fills defaults for non-object input', () => {
     const result = validateConfig(null)
     expect(result.ai).toBeDefined()
-    expect(result.ai.provider).toBe('opencode')
+    expect(result.ai.provider).toBe('none')
   })
 
   it('rejects invalid disk thresholds where critical >= low', () => {

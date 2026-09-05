@@ -70,14 +70,14 @@ describe('config loader', () => {
       vi.mocked(readFileSync).mockReturnValue(
         JSON.stringify({
           schemaVersion: 1,
-          ai: { provider: 'anthropic', model: 'claude-sonnet-4' },
+          ai: { provider: 'custom', model: 'claude-sonnet-4' },
         }),
       )
 
       const { loadConfig } = await import('../config/loader.js')
       const config = loadConfig()
 
-      expect(config.ai.provider).toBe('anthropic')
+      expect(config.ai.provider).toBe('custom')
     })
 
     it('does not write file when config already exists', async () => {
@@ -261,10 +261,10 @@ describe('config loader', () => {
       }
     })
 
-    it('default AI provider is opencode', async () => {
+    it('default AI provider is none', async () => {
       const { DEFAULT_CONFIG } = await import('../config/loader.js')
 
-      expect(DEFAULT_CONFIG.ai.provider).toBe('opencode')
+      expect(DEFAULT_CONFIG.ai.provider).toBe('none')
     })
 
     it('default subtitles preferred languages include zh and en', async () => {

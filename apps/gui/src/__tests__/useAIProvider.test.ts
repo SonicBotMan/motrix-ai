@@ -50,12 +50,12 @@ describe('useAIProvider — BYOK provider switching', () => {
     mockInvoke.mockResolvedValue({})
   })
 
-  it('defaults to opencode provider when no saved config', async () => {
+  it('defaults to none provider when no saved config', async () => {
     await withStore(async () => {
       const { useAIProvider } = await import('../composables/useAIProvider')
       const { config } = useAIProvider()
 
-      expect(config.value.provider).toBe('opencode')
+      expect(config.value.provider).toBe('none')
       expect(config.value.model).toContain('opencode')
     })
   })
@@ -66,15 +66,15 @@ describe('useAIProvider — BYOK provider switching', () => {
       const { useAIProvider } = await import('../composables/useAIProvider')
       const { setProvider } = useAIProvider()
 
-      setProvider('anthropic')
+      setProvider('custom')
 
       expect(updateSpy).toHaveBeenCalledWith('ai', {
-        provider: 'anthropic',
-        model: 'claude-sonnet-4',
+        provider: 'custom',
+        model: '',
       })
       // Store reflects the change.
-      expect(store.config.ai.provider).toBe('anthropic')
-      expect(store.config.ai.model).toBe('claude-sonnet-4')
+      expect(store.config.ai.provider).toBe('custom')
+      expect(store.config.ai.model).toBe('')
     })
   })
 
@@ -129,14 +129,14 @@ describe('useAIProvider — BYOK provider switching', () => {
     })
   })
 
-  it('availableProviders returns all 5 providers', async () => {
+  it('availableProviders returns all 5 providers (none..custom)', async () => {
     await withStore(async () => {
       const { useAIProvider } = await import('../composables/useAIProvider')
       const { availableProviders } = useAIProvider()
 
       expect(availableProviders.value.length).toBe(5)
       const ids = availableProviders.value.map((p) => p.id)
-      expect(ids).toEqual(['opencode', 'anthropic', 'openai', 'ollama', 'custom'])
+      expect(ids).toEqual(['none', 'opencode', 'openai', 'ollama', 'custom'])
     })
   })
 
@@ -145,10 +145,10 @@ describe('useAIProvider — BYOK provider switching', () => {
       const { useAIProvider } = await import('../composables/useAIProvider')
       const { currentProvider } = useAIProvider()
 
-      expect(currentProvider.value.name).toBe('OpenCode (Free)')
+      expect(currentProvider.value.name).toBe('None (heuristic only)')
 
       store.updateSection('ai', { provider: 'openai', model: 'gpt-4o' })
-      expect(currentProvider.value.name).toBe('OpenAI GPT')
+      expect(currentProvider.value.name).toBe('OpenAI-compatible API')
     })
   })
 
@@ -157,11 +157,14 @@ describe('useAIProvider — BYOK provider switching', () => {
       const { useAIProvider } = await import('../composables/useAIProvider')
       const { modelOptions } = useAIProvider()
 
-      // opencode has at least 1 model.
+      // none (default) has no model presets.
+      expect(modelOptions.value.length).toBe(0)
+
+      store.updateSection('ai', { provider: 'opencode', model: 'opencode/deepseek-v4-flash-free' })
       expect(modelOptions.value.length).toBeGreaterThanOrEqual(1)
 
-      store.updateSection('ai', { provider: 'anthropic', model: 'claude-sonnet-4' })
-      expect(modelOptions.value.some((m) => m.value.includes('claude'))).toBe(true)
+      store.updateSection('ai', { provider: 'openai', model: 'gpt-4o-mini' })
+      expect(modelOptions.value.some((m) => m.value.startsWith('gpt'))).toBe(true)
 
       store.updateSection('ai', { provider: 'ollama', model: 'llama3' })
       expect(modelOptions.value.some((m) => m.value.includes('llama') || m.value.includes('mistral'))).toBe(true)
@@ -181,12 +184,12 @@ describe('useAIProvider — BYOK provider switching', () => {
     })
   })
 
-  it('anthropic, openai, and custom require API keys', async () => {
+  it('openai and custom require API keys (none/opencode/ollama do not)', async () => {
     await withStore(async () => {
       const { useAIProvider } = await import('../composables/useAIProvider')
       const { availableProviders } = useAIProvider()
 
-      expect(availableProviders.value.find((p) => p.id === 'anthropic')!.requiresKey).toBe(true)
+      expect(availableProviders.value.find((p) => p.id === 'openai')!.requiresKey).toBe(true)
       expect(availableProviders.value.find((p) => p.id === 'openai')!.requiresKey).toBe(true)
       expect(availableProviders.value.find((p) => p.id === 'custom')!.requiresKey).toBe(true)
     })
@@ -197,7 +200,7 @@ describe('useAIProvider — BYOK provider switching', () => {
       const { useAIProvider } = await import('../composables/useAIProvider')
       const { needsBaseUrl } = useAIProvider()
 
-      // default opencode
+      // default none
       expect(needsBaseUrl.value).toBe(false)
 
       store.updateSection('ai', { provider: 'ollama', model: 'llama3' })
@@ -206,7 +209,10 @@ describe('useAIProvider — BYOK provider switching', () => {
       store.updateSection('ai', { provider: 'custom', model: '' })
       expect(needsBaseUrl.value).toBe(true)
 
-      store.updateSection('ai', { provider: 'anthropic', model: 'claude-sonnet-4' })
+      store.updateSection('ai', { provider: 'openai', model: 'gpt-4o' })
+      expect(needsBaseUrl.value).toBe(true)
+
+      store.updateSection('ai', { provider: 'opencode', model: 'opencode/deepseek-v4-flash-free' })
       expect(needsBaseUrl.value).toBe(false)
     })
   })
@@ -216,7 +222,7 @@ describe('useAIProvider — BYOK provider switching', () => {
       const { useAIProvider } = await import('../composables/useAIProvider')
       const { config } = useAIProvider()
 
-      expect(config.value.provider).toBe('opencode')
+      expect(config.value.provider).toBe('none')
 
       store.updateSection('ai', { provider: 'openai', model: 'gpt-4o', api_key: 'sk-x' })
       expect(config.value.provider).toBe('openai')

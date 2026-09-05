@@ -4,7 +4,7 @@
  */
 
 /** Current schema version */
-export const SCHEMA_VERSION = 3
+export const SCHEMA_VERSION = 4
 
 /**
  * A single migration step that transforms config from one version to another.
@@ -66,6 +66,19 @@ export const migrations: Migration[] = [
         musicPath: '/volume1/Music',
       }
       config.schemaVersion = 3
+      return config
+    },
+  },
+  {
+    from: 3,
+    to: 4,
+    migrate: (config) => {
+      // v1.7: 'anthropic' provider removed (native API not supported by the
+      // OpenAI-compatible request path). Re-map to 'custom' so existing
+      // base_url/api_key keep working against any OpenAI-compatible relay.
+      const ai = config.ai as Record<string, unknown> | undefined
+      if (ai && ai.provider === 'anthropic') ai.provider = 'custom'
+      config.schemaVersion = 4
       return config
     },
   },

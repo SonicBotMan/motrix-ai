@@ -234,9 +234,8 @@ pub async fn search_proxy(
             urlencoding::encode(&query)
         ),
         "1337x" => format!(
-            "https://1337x.to/search/{}/{}/",
-            urlencoding::encode(&query),
-            page + 1
+            "https://1337x.to/search/{q}/all/last-seeders/",
+            q = urlencoding::encode(&query)
         ),
         "nyaa" => format!(
             "https://nyaa.si/?f=0&c=0_0&q={}&s=seeders&o=desc",

@@ -2,7 +2,7 @@
 // 对应 PRD §6.2 任务队列模型
 
 export type TaskStatus = 'pending' | 'downloading' | 'paused' | 'completed' | 'failed'
-export type AIProvider = 'opencode' | 'anthropic' | 'openai' | 'ollama' | 'custom'
+export type AIProvider = 'none' | 'opencode' | 'openai' | 'ollama' | 'custom'
 export type ResourceType = 'movie' | 'tv' | 'software' | 'music' | 'anime' | 'other'
 export type Quality = '4K' | '1080p' | '720p' | 'other'
 
@@ -151,4 +151,6 @@ export interface UiConfig {
   language: 'en' | 'zh' | 'ja' | 'ko' | 'fr'
   log_level: 'debug' | 'info' | 'warn' | 'error'
   onboarded?: boolean
+  /** Prevent OS sleep while downloads are active (default true) */
+  prevent_sleep_while_downloading?: boolean
 }

@@ -123,6 +123,7 @@ pub fn run() {
             commands::config::save_config,
             commands::config::update_config_section,
             commands::config::test_nas_connection,
+            commands::test_proxy,
             commands::search::search_proxy,
             commands::fs::save_file,
             commands::fs::download_subtitle,

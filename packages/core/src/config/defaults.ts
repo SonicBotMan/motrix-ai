@@ -13,7 +13,7 @@ import type { AppConfig } from '../types.js'
 
 export const DEFAULT_CONFIG: AppConfig = {
   ai: {
-    provider: 'opencode',
+    provider: 'none',
     model: 'opencode/deepseek-v4-flash-free',
   },
   aria2: {
@@ -95,5 +95,6 @@ export const DEFAULT_CONFIG: AppConfig = {
     theme: 'dark',
     language: 'en',
     log_level: 'info',
+    prevent_sleep_while_downloading: true,
   },
 }
