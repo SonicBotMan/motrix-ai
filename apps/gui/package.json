@@ -21,9 +21,9 @@
     "@tauri-apps/plugin-shell": "^2.3.5",
     "@vicons/ionicons5": "^0.13.0",
     "naive-ui": "^2.42.0",
-    "pinia": "^3.0.0",
-    "vue": "^3.5.39",
-    "vue-router": "^5.1.0"
+    "pinia": "^4.0.3",
+    "vue": "^3.5.42",
+    "vue-router": "^5.3.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
