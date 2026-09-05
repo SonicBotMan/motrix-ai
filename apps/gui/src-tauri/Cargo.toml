@@ -1,6 +1,6 @@
 [package]
 name = "app"
-version = "1.6.1"
+version = "1.6.2"
 description = "Motrix AI - AI-native download manager"
 authors = ["you"]
 license = "MIT"
