@@ -15,8 +15,13 @@ apps/gui/src-tauri/target/
 *.rpm
 *.AppImage
 
-# Bundled aria2c binaries (cross-platform, intentionally tracked)
+# Bundled engine binaries (cross-platform, intentionally tracked)
+# NOTE: *.exe above blocks the Windows engine — negate each new name
+# (old aria2c.exe name kept for history)
 !apps/gui/src-tauri/resources/bin/aria2c.exe
+!apps/gui/src-tauri/resources/bin/motrix-ai-engine.exe
+!apps/gui/src-tauri/resources/bin/motrix-ai-engine-macos
+!apps/gui/src-tauri/resources/bin/motrix-ai-engine-linux
 
 # Tauri generated schemas (auto-regenerated)
 apps/gui/src-tauri/gen/

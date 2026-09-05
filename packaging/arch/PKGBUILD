@@ -1,0 +1,101 @@
+# PKGBUILD for motrix-ai (Arch Linux)
+#
+# 安装: makepkg -si   （依赖系统 aria2，引擎回退逻辑会自动使用 /usr/bin/aria2c）
+# AUR: 本文件可直接作为 AUR 包的 PKGBUILD（pkgver 由 AUR 的 git hook/手动更新）
+#
+# 构建要求（由 makedepends 自动满足）:
+#   - rust + cargo（tauri 2 后端）
+#   - nodejs + pnpm（前端 workspace）
+#   - @tauri-apps/cli（npm 全局，构建 tauri 应用）
+#   - webkit2gtk 4.1 / gtk3 / libayatana-appindicator（Tauri 2 Linux 运行时依赖）
+
+pkgname=motrix-ai
+pkgver=1.6.1
+pkgrel=1
+pkgdesc="Motrix AI — AI-native download manager (Tauri 2 + Vue 3 + aria2, NL search/download pipeline)"
+arch=(x86_64)
+url="https://github.com/SonicBotMan/motrix-ai"
+license=(MIT)
+
+# 运行时依赖。aria2 是系统提供：引擎解析逻辑优先内置二进制，
+# 找不到时回退 PATH 中的 aria2c（本包保证存在）。
+depends=(
+    glib2
+    gtk3
+    libayatana-appindicator
+    libsoup3
+    webkit2gtk
+    aria2
+    libzstd
+    alsa-lib
+    xdg-utils
+)
+makedepends=(
+    rust
+    binutils
+    nodejs
+    npm
+)
+
+# GitHub 源码 tarball（tag 发布物，含内置引擎二进制与全部 workspace 包）
+source=("https://github.com/SonicBotMan/motrix-ai/archive/refs/tags/v${pkgver}.tar.gz")
+# AUR 用户首次构建时运行: sha256sum <tarball> 后填入
+sha256sums=(SKIP)
+
+prepare() {
+    cd "${srcdir}/motrix-ai-${pkgver}"
+}
+
+build() {
+    cd "${srcdir}/motrix-ai-${pkgver}"
+
+    # pnpm workspace（core/cli/mcp-server/gui）
+    npm install -g pnpm @tauri-apps/cli
+    pnpm install --frozen-lockfile
+    pnpm rebuild
+
+    # Tauri 应用（release，不生成平台安装器，只出裸二进制）
+    cd apps/gui
+    tauri build --bundles none
+}
+
+package() {
+    cd "${srcdir}/motrix-ai-${pkgver}/apps/gui/src-tauri"
+
+    local binname
+    binname=$(ls target/release/ | grep -v '\.' | grep -v 'build' | grep -v 'deps' | head -1)
+    [ -n "$binname" ] || { echo "ERROR: no tauri binary found in target/release"; exit 1; }
+
+    # 布局: /usr/share/motrix-ai/（二进制 + 资源，resource_dir 相对 exe 解析）
+    install -Dm755 "target/release/${binname}" "${pkgdir}/usr/share/${pkgname}/motrix-ai"
+    install -Dm644 "resources/bin/aria2.conf" "${pkgdir}/usr/share/${pkgname}/resources/bin/aria2.conf"
+    # 内置引擎（可选加速器；缺失时自动回退系统 aria2）
+    if [ -f "resources/bin/motrix-ai-engine-linux" ]; then
+        install -Dm755 "resources/bin/motrix-ai-engine-linux" "${pkgdir}/usr/share/${pkgname}/resources/bin/motrix-ai-engine-linux"
+    fi
+
+    # 命令行入口
+    install -Dm755 /dev/null "${pkgdir}/usr/bin/${pkgname}"
+    printf '#!/bin/sh\nexec /usr/share/%s/motrix-ai "$@"\n' "$pkgname" > "${pkgdir}/usr/bin/${pkgname}"
+
+    # 应用菜单
+    install -Dm644 /dev/null "${pkgdir}/usr/share/applications/${pkgname}.desktop"
+    cat > "${pkgdir}/usr/share/applications/${pkgname}.desktop" << 'DESKTOP'
+[Desktop Entry]
+Type=Application
+Name=Motrix AI
+Comment=AI-native download manager
+Exec=motrix-ai
+Icon=motrix-ai
+Terminal=false
+Categories=Network;FileTransfer;
+DESKTOP
+
+    # 图标（hicolor 256/128/64/32/16）
+    for size in 256 128 64 32 16; do
+        if [ -f "icons/${size}x${size}.png" ]; then
+            install -Dm644 "icons/${size}x${size}.png" \
+                "${pkgdir}/usr/share/icons/hicolor/${size}x${size}/apps/${pkgname}.png"
+        fi
+    done
+}
