@@ -7,6 +7,7 @@ RUN pacman -Sy --noconfirm \
         base-devel \
         rust \
         binutils \
+        git \
         nodejs \
         npm \
         webkit2gtk-4.1 \
@@ -24,5 +25,5 @@ RUN set -e; \
     pnpm install --frozen-lockfile; \
     pnpm rebuild; \
     cd apps/gui; \
-    tauri build --bundles none; \
+    tauri build --no-bundle; \
     ls -la apps/gui/src-tauri/target/release/ | head -5
