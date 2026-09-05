@@ -14,7 +14,7 @@ RUN pacman -Sy --noconfirm \
         libayatana-appindicator \
         zstd
 
-RUN npm install -g pnpm@9 @tauri-apps/cli@2
+RUN npm install -g pnpm@10 @tauri-apps/cli@2
 
 WORKDIR /app
 COPY . /app
