@@ -101,16 +101,23 @@
 - config 旁挂 `stats.json`：引擎启动成功率 / provider 成功率 / LLM 解析成功率；"关于"页可看可清
 - **DoD**：跑一周后用户能看到自己的功能成功率（为迭代提供数据）
 
-## Phase 4：发布与运营
+## Phase 4：发布与运营（前置条件：验收全部通过）
 
 | 版本   | 内容                                                                                                | 渠道                                                             |
 | ------ | --------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
 | v1.6.2 | Phase 0                                                                                             | GitHub Release（Arch PKG 首发）                                  |
-| v1.7.0 | Phase 1+2                                                                                           | Release（Arch PKG 主力）+ **AUR 首次提交** + README 宣称对齐现实 |
+| v1.7.0 | Phase 1+2                                                                                           | Release（Arch PKG 主力）；**AUR 提交不在本版本，验收全过才允许** |
 | v1.8   | Phase 3                                                                                             | 质量门槛固化进 CI                                                |
 | v2.0   | 视数据决定：BT 详情面板/Peers、任务搜索、多账号；**macOS/Windows 是否重新纳入主线由 v2.0 数据决定** |                                                                  |
 
-- AUR：用 `packaging/arch/PKGBUILD` 提交，维护者 48h 响应
+**验收定义（全部满足才算"可以发渠道"）**：
+
+1. CI `arch-smoke` job 绿（新 Arch 容器：pacman 安装 → GUI 启动 → 引擎 RPC → 真实下载落盘）
+2. artifact-verification 全资产结构校验绿
+3. 用户 Arch 实机端到端：安装 → onboarding → 配代理 → 搜索出结果 → 下载完成 → 字幕挂上
+4. probe-providers 在用户网络下可用源 ≥2
+
+- AUR：用 `packaging/arch/PKGBUILD` 提交，维护者 48h 响应（**验收 1-4 全部通过后才进行**）
 - Arch 滚动更新风险：PKGBUILD 依 Arch 惯例 depends 锁包名不锁版本；CI 每周跑一次 arch 构建 job 保持常绿（webkit2gtk 4.1 大版本变动时第一时间发现）
 - AUDIT-REPORT.md 状态列逐项 close
 

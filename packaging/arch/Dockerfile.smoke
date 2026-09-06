@@ -1,0 +1,24 @@
+# Arch 运行时冒烟测试镜像：装 PKG → 启动 GUI（Xvfb 虚拟显示）→ 引擎 → 真实下载
+FROM archlinux:latest
+
+# 运行时依赖（= PKGBUILD depends）+ 虚拟显示 + aria2（同时验证系统 aria2 回退路径存在）
+RUN pacman -Sy --noconfirm \
+        base \
+        webkit2gtk-4.1 \
+        gtk3 \
+        libayatana-appindicator \
+        alsa-lib \
+        xdg-utils \
+        zstd \
+        aria2 \
+        xvfb \
+        xorg-server \
+        curl \
+        python
+
+WORKDIR /smoke
+COPY scripts/arch-smoke.sh /smoke/arch-smoke.sh
+RUN chmod +x /smoke/arch-smoke.sh
+
+# /pkg 由 CI 挂载，内含待验证的 .pkg.tar.zst
+CMD ["/smoke/arch-smoke.sh"]

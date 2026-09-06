@@ -117,9 +117,27 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: bash scripts/verify-artifacts.sh "${{ needs.create-release.outputs.release_id }}" ./artifacts
 
+  arch-smoke:
+    name: Arch Smoke Test (install + launch + real download)
+    needs: [create-release, build-arch-pkg, verify-artifacts]
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Arch smoke runtime image
+        run: docker build -f packaging/arch/Dockerfile.smoke -t motrix-arch-smoke .
+      - name: Fetch PKG asset
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p /tmp/pkg
+          RID="${{ needs.create-release.outputs.release_id }}" GITHUB_TOKEN="${{ secrets.GITHUB_TOKEN }}" \
+            python3 scripts/fetch-release-pkg.py /tmp/pkg
+      - name: Run smoke test (fresh Arch, Xvfb, real download)
+        run: docker run --rm -v /tmp/pkg:/pkg motrix-arch-smoke
+
   publish-release:
     name: Publish Release
-    needs: [create-release, build-tauri, build-arch-pkg, verify-artifacts]
+    needs: [create-release, build-tauri, build-arch-pkg, verify-artifacts, arch-smoke]
     runs-on: ubuntu-latest
     permissions:
       contents: write
