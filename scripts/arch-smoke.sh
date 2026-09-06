@@ -13,7 +13,7 @@ OK()   { echo "SMOKE-OK: $1"; }
 shopt -s nullglob
 pkgs=("$PKG_DIR"/*.pkg.tar.zst)
 [ ${#pkgs[@]} -ge 1 ] || FAIL "no .pkg.tar.zst in $PKG_DIR"
-pacman -U --noconfirm --needed "${pkgs[0]}" >/dev/null 2>&1 || pacman -U --noconfirm "${pkgs[0]}" >/dev/null || FAIL "pacman -U failed"
+pacman -U --noconfirm --needed "${pkgs[0]}" > /tmp/pacman.log 2>&1 || { pacman -U --noconfirm "${pkgs[0]}" >> /tmp/pacman.log 2>&1 || { tail -25 /tmp/pacman.log; FAIL "pacman -U failed"; }; }
 OK "PKG 安装成功: ${pkgs[0]}"
 command -v motrix-ai >/dev/null || FAIL "CLI 入口 motrix-ai 不存在（.desktop/CLI 打包问题）"
 OK "CLI 入口 /usr/bin/motrix-ai 存在"

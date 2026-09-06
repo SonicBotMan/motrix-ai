@@ -56,13 +56,21 @@ for size in 256 128 64 32 16; do
     fi
 done
 
-# .PKGINFO（pacman 元数据）
+# .PKGINFO（pacman 元数据；depends 必须声明，否则 pacman -U 不做依赖解析）
 cat > "$PKG/.PKGINFO" << INFO
 pkgname = motrix-ai
 pkgver = ${PKGVER}-1
 pkgdesc = Motrix AI — AI-native download manager (Tauri 2 + Vue 3 + aria2)
 arch = x86_64
 url = https://github.com/SonicBotMan/motrix-ai
+depends = glib2
+depends = gtk3
+depends = libayatana-appindicator
+depends = libsoup3
+depends = webkit2gtk-4.1
+depends = alsa-lib
+depends = xdg-utils
+depends = zstd
 builddate = $(date +%s)
 pkgbase = motrix-ai
 packager = motrix-ai CI <ci@motrix-ai.app>
