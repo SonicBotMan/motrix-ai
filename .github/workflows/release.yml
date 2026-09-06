@@ -15,7 +15,7 @@ jobs:
     outputs:
       release_id: ${{ steps.create_release.outputs.id }}
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Create Release
         id: create_release
         uses: softprops/action-gh-release@c12583777ecdfd3be55c69cf75464299dc01057e
@@ -47,7 +47,7 @@ jobs:
             name: Linux-x64
     runs-on: ${{ matrix.platform }}
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
       - name: Install system dependencies (Linux)
         if: matrix.platform == 'ubuntu-22.04'
@@ -142,7 +142,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Publish Release
         uses: softprops/action-gh-release@c12583777ecdfd3be55c69cf75464299dc01057e
         with:
