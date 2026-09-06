@@ -43,7 +43,8 @@ for f in "$OUT"/*.pkg.tar.zst; do
   [ -f "$d/.PKGINFO" ] && pass "$name: .PKGINFO" || fail "$name: missing .PKGINFO"
   # pacman 按精确条目名查 .PKGINFO（./前缀会导致 missing package metadata）
   if command -v zstd >/dev/null 2>&1; then
-    zstd -dc -q "$f" 2>/dev/null | tar -t 2>/dev/null | grep -qx '.PKGINFO' \
+    zstd -dc -q "$f" -o "$d/__listing.tar" 2>/dev/null
+    tar -tf "$d/__listing.tar" 2>/dev/null | grep -qx '.PKGINFO' \
       && pass "$name: tar entry .PKGINFO exact (no ./ prefix)" \
       || fail "$name: .PKGINFO tar entry missing or ./-prefixed (pacman will reject)"
   fi
