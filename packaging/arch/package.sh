@@ -77,5 +77,6 @@ packager = motrix-ai CI <ci@motrix-ai.app>
 INFO
 
 mkdir -p "$OUT"
-( cd "$PKG" && tar -c . ) | zstd -q -19 > "$OUT/$TARBALL"
+# 条目不带 ./ 前缀（makepkg 规范：.PKGINFO 必须在根且精确命名，pacman 按精确名查找）
+( cd "$PKG" && tar -cf - .PKGINFO usr ) | zstd -q -19 > "$OUT/$TARBALL"
 ls -la "$OUT/$TARBALL"

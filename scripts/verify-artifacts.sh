@@ -41,6 +41,12 @@ for f in "$OUT"/*.pkg.tar.zst; do
   fi
   [ -f "$d/.PKGINFO" ] || [ -d "$d/usr" ] || { fail "$name: PKG extraction failed (zstd/tar?)"; rm -rf "$d"; continue; }
   [ -f "$d/.PKGINFO" ] && pass "$name: .PKGINFO" || fail "$name: missing .PKGINFO"
+  # pacman 按精确条目名查 .PKGINFO（./前缀会导致 missing package metadata）
+  if command -v zstd >/dev/null 2>&1; then
+    zstd -dc -q "$f" 2>/dev/null | tar -t 2>/dev/null | grep -qx '.PKGINFO' \
+      && pass "$name: tar entry .PKGINFO exact (no ./ prefix)" \
+      || fail "$name: .PKGINFO tar entry missing or ./-prefixed (pacman will reject)"
+  fi
   [ -f "$d/usr/share/applications/motrix-ai.desktop" ] && pass "$name: .desktop" || fail "$name: missing .desktop"
   ls "$d"/usr/share/icons/hicolor/*/apps/motrix-ai.png >/dev/null 2>&1 && pass "$name: icons" || fail "$name: missing icons"
   bin="$d/usr/share/motrix-ai/motrix-ai"
